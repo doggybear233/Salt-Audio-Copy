@@ -100,7 +100,7 @@ class PreferenceConfigTest {
             "secureMode", "maxRetries", "retryDelayMs", "fetchMetadata", "autoLookupOnInsert", "coverSize", "proxyUrl",
             "writeCue", "writeLog", "writeAlbumJson", "reuseAlbumJson", "format", "offsetSamples", "annotateCueCrc", "useC2", "defeatCache", "testAndCopy",
             "detectGaps", "resume", "errorRecovery", "gapMode", "gapMethod",
-            "flacExe", "encoderExe", "encoderArgs", "encoderExt", "flacLevel", "keepWav",
+            "flacLevel", "keepWav",
             "releaseIndex", "preferTrackCount", "overrideFile", "useCdText", "discNumberOverride", "totalDiscsOverride",
             "imageMode", "analyzeBeforeRip", "writeTags", "embedCover", "testMode", "writeWavTags"
         )

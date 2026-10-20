@@ -3,6 +3,23 @@
 Windows 上把 CD 精确抓成 WAV + CUE + 日志，并把专辑信息（MusicBrainz / gnudb / Cover Art Archive）一起落盘。
 算法与参数来自对 EAC 1.8 的逆向（见 `../architecture.md`、`../features.md`）。
 
+## 0.39.0（删掉「导入编码器」这套选项：FLAC 只用内置 1.4.3）
+
+0.38.0 起已经随包带 Xiph FLAC 1.4.3，但设置里还留着「选 flac.exe…」「外部编码器（自定义命令行）」
+这套给自带编码器的人用的选项 —— 既然内置就能编码，这些选项只会让用户以为自己必须准备一份。
+
+- **配置页 51 → 47 键、15 → 14 按钮**：删掉 `flacExe`、`encoderExe`、`encoderArgs`、`encoderExt`
+  与「选择 flac.exe…」按钮；`format` 只剩 `wav` / `flac`（选项文案改为「FLAC（内置编码器）」）。
+- **`FlacEncoder` 只认内置件**：`locate(exe)` / `locateExternal(...)` / PATH 与常见安装目录查找、
+  `ExternalEncoder` 整个类一起删除；`locate()` 直接解出包内的 `flac.exe`。
+  解包目录不可写时回落到 `java.io.tmpdir`，不再因为宿主数据目录读不到就整条 FLAC 路径失效。
+- 失败文案改为「内置 FLAC 编码器不可用（插件包可能损坏，重新安装一次）」——用户现在唯一能做的
+  就是重装，不应该再提示「去设置里填路径」。
+- 旧配置兼容：`SettingsStore.load` 不认这 4 个键就直接忽略（`PreferenceConfigTest` 的 known 集合同步收窄）。
+- 文档：`options-table.md` 重新生成（47 行 / 14 按钮 / 8 组）；`manual-test-checklist.md` D 区改成
+  「确认机器上没有 flac.exe 也能出 FLAC」，新增 N1–N3。
+- 408 项自动化测试全绿（11 项硬件门控跳过）。
+
 ## 0.38.1（全量中文化收尾、暂停也能抽盘、抓完可见状态、日志 BOM）
 
 对着 0.38.0 的真机复测（B7 / C2 / C3 / C4 / C5 / A3）逐条修。

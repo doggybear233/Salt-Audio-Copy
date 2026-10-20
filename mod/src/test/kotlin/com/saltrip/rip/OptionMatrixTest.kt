@@ -5,7 +5,6 @@ import com.saltrip.rip.album.AlbumRipper
 import com.saltrip.rip.album.DiscAnalysis
 import com.saltrip.rip.album.DiscCache
 import com.saltrip.rip.album.RipPlan
-import com.saltrip.rip.encode.ExternalEncoder
 import com.saltrip.rip.encode.FlacEncoder
 import com.saltrip.rip.encode.ProcessResult
 import com.saltrip.rip.encode.ProcessRunner
@@ -56,7 +55,7 @@ class OptionMatrixTest {
     @AfterTest
     fun tearDown() {
         FlacEncoder.runnerOverride = null
-        ExternalEncoder.runnerOverride = null
+        FlacEncoder.runnerOverride = null
         for (d in listOf(dir, fixtureDir)) {
             runCatching { Files.walk(d).sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) } }
         }
@@ -210,44 +209,24 @@ class OptionMatrixTest {
 
     @Test
     fun encoderFailureShowsUpInWarningsNotOnlyNotes() {
-        val s = settings().copy(format = "flac", flacExe = "definitely-not-a-real-encoder-xyz")
+        // 内置编码器解不出来（包损坏 / 无权限）时，失败要能被 UI 看到。
+        FlacEncoder.runnerOverride = ProcessRunner { _, _ -> throw java.io.IOException("cannot run") }
+        val s = settings().copy(format = "flac")
         val res = AlbumRipper.rip(scan(), s, { false }, {}, onlyTracks = setOf(1), source = fake())
-        assertTrue(res.warnings.any { it.contains("找不到 FLAC 编码器") }, "失败要能被 UI 看到：${res.warnings}")
+        assertTrue(res.warnings.any { it.contains("FLAC 编码失败（已保留 WAV）") }, "失败要能被 UI 看到：${res.warnings}")
     }
-
-    // ---------------- 编码器参数 ----------------
 
     @Test
     fun flacLevelReachesCommandLine() {
         val captured = mutableListOf<List<String>>()
         FlacEncoder.runnerOverride = copyRunner(captured)
-        val s = settings().copy(format = "flac", flacExe = fakeExe().toString(), flacLevel = 8)
+        val s = settings().copy(format = "flac", flacLevel = 8)
         AlbumRipper.rip(scan(), s, { false }, {}, onlyTracks = setOf(1), source = fake())
         val cmd = captured.single()
         assertTrue(cmd.contains("-8"), "压缩级别必须传给 flac.exe：$cmd")
         val out = Path.of(cmd[cmd.indexOf("-o") + 1])
         assertTrue(Files.isRegularFile(out), "假编码器应产出文件：$out")
         assertTrue(Files.size(out) > 0, "假编码器必须真的产出文件：${Files.size(out)}")
-    }
-
-    @Test
-    fun customEncoderArgsAreUsedVerbatim() {
-        val captured = mutableListOf<List<String>>()
-        ExternalEncoder.runnerOverride = copyRunner(captured)
-        val exe = fakeExe()
-        val s = settings().copy(
-            format = "external",
-            encoderExe = exe.toString(),
-            encoderExt = "ape",
-            encoderArgs = "-x \"%out%\" \"%in%\"",
-            keepWav = false
-        )
-        AlbumRipper.rip(scan(), s, { false }, {}, onlyTracks = setOf(1), source = fake())
-        val cmd = captured.single()
-        assertEquals(exe.toAbsolutePath().toString(), cmd.first())
-        assertEquals(listOf("-x"), cmd.drop(1).take(1), "自定义参数要原样使用：$cmd")
-        assertTrue(cmd.last().endsWith(".wav"), "占位符要替换成真实路径：$cmd")
-        assertTrue(cmd.any { it.endsWith(".ape") }, "输出路径应带自定义扩展名：$cmd")
     }
 
     // ---------------- 出错恢复档位 ----------------

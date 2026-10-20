@@ -96,14 +96,6 @@ data class RipSettings(
     /** 断点续抓：目标 WAV 已存在且大小合法时，从已有扇区之后继续。 */
     val resume: Boolean = true,
 
-    /** flac.exe 路径；"flac" 表示按 PATH 查找。 */
-    val flacExe: String = "flac",
-    /** 通用外部编码器（format = "external" 时用）。 */
-    val encoderExe: String = "flac",
-    /** 参数模板，支持 %in% %out% %tracknr2% %title% 等命名变量。 */
-    val encoderArgs: String = com.saltrip.rip.encode.ExternalEncoder.DEFAULT_ARGS,
-    /** 产物扩展名（不含点）。 */
-    val encoderExt: String = "flac",
     /** FLAC 压缩等级 0–8（越大越慢、文件越小）。 */
     val flacLevel: Int = 5,
     /** 编码成功后是否保留 WAV。 */
@@ -173,10 +165,6 @@ object SettingsStore {
     private const val KEY_GAP_METHOD = "gapMethod"
     private const val KEY_INCLUDE_GAPS = "includeGaps"
     private const val KEY_RESUME = "resume"
-    private const val KEY_FLAC_EXE = "flacExe"
-    private const val KEY_ENCODER_EXE = "encoderExe"
-    private const val KEY_ENCODER_ARGS = "encoderArgs"
-    private const val KEY_ENCODER_EXT = "encoderExt"
     private const val KEY_FLAC_LEVEL = "flacLevel"
     private const val KEY_KEEP_WAV = "keepWav"
     private const val KEY_RELEASE_INDEX = "releaseIndex"
@@ -257,10 +245,6 @@ object SettingsStore {
                 if (readBool(h, KEY_INCLUDE_GAPS, false)) "prepend" else d.gapMode
             },
             resume = readBool(h, KEY_RESUME, d.resume),
-            flacExe = read(h, KEY_FLAC_EXE, d.flacExe),
-            encoderExe = read(h, KEY_ENCODER_EXE, d.encoderExe),
-            encoderArgs = read(h, KEY_ENCODER_ARGS, d.encoderArgs),
-            encoderExt = read(h, KEY_ENCODER_EXT, d.encoderExt),
             flacLevel = readInt(h, KEY_FLAC_LEVEL, d.flacLevel),
             keepWav = readBool(h, KEY_KEEP_WAV, d.keepWav),
             releaseIndex = readInt(h, KEY_RELEASE_INDEX, d.releaseIndex),
@@ -313,10 +297,6 @@ object SettingsStore {
             h.set(KEY_GAP_MODE, s.gapMode)
             h.set(KEY_GAP_METHOD, s.gapMethod)
             h.set(KEY_RESUME, s.resume)
-            h.set(KEY_FLAC_EXE, s.flacExe)
-            h.set(KEY_ENCODER_EXE, s.encoderExe)
-            h.set(KEY_ENCODER_ARGS, s.encoderArgs)
-            h.set(KEY_ENCODER_EXT, s.encoderExt)
             h.set(KEY_FLAC_LEVEL, s.flacLevel.toString())
             h.set(KEY_KEEP_WAV, s.keepWav)
             h.set(KEY_RELEASE_INDEX, s.releaseIndex.toString())

@@ -28,10 +28,8 @@ class FlacMetaLiveTest {
     @BeforeTest
     fun setUp() {
         dir = Files.createTempDirectory("saltrip-flacmeta-live")
-        flac = FlacEncoder.locate("flac")
-            ?: listOf("D:/EAC/Exact Audio Copy/Flac/flac.exe", "C:/Program Files/flac/flac.exe")
-                .firstOrNull { Files.isRegularFile(Path.of(it)) }
-        assumeTrue(flac != null, "本机没有 flac.exe，跳过")
+        flac = FlacEncoder.locate()
+        assumeTrue(flac != null, "内置 flac.exe 解不出来，跳过真实编码")
     }
 
     @AfterTest
@@ -89,8 +87,7 @@ class FlacMetaLiveTest {
             fileTemplate = "%tracknr2% %title%",
             fetchMetadata = false,
             format = "flac",
-            flacExe = flac!!,
-            keepWav = false,
+                keepWav = false,
             writeTags = true,
             embedCover = false,
             secureMode = true,

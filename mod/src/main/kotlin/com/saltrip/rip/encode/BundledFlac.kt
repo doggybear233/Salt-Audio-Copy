@@ -11,7 +11,7 @@ import java.nio.file.StandardCopyOption
  * 为什么内置：用户机器上普遍没有 `flac.exe`，而「输出 FLAC」是最常用的功能之一；
  * 让用户自己去翻网页装编码器是最容易劝退的一步（用户反馈也是「能不能内置」）。
  * 放在 `native/win64` 资源里，第一次用时解压到插件数据目录的 `bin/`，
- * 之后直接复用；用户填了自己的 `flac.exe` 则优先用用户的。
+ * 之后直接复用。
  *
  * 许可：FLAC 是 Xiph 的 BSD 许可，允许再分发；`FLAC-COPYING.txt` 随资源一起带上。
  */
@@ -36,7 +36,9 @@ internal object BundledFlac {
      */
     fun ensure(): Path? {
         resolved?.let { if (Files.isRegularFile(it)) return it }
-        val dir = (dirOverride ?: Diag.dataDir()?.resolve("bin")?.resolve("flac-1.4.3")) ?: return null
+        val dir = dirOverride
+            ?: Diag.dataDir()?.resolve("bin")?.resolve("flac-1.4.3")
+            ?: Path.of(System.getProperty("java.io.tmpdir"), "saltrip-flac-1.4.3")
         runCatching {
             Files.createDirectories(dir)
             for (name in FILES) {

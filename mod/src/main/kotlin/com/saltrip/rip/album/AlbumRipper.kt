@@ -369,42 +369,12 @@ object AlbumRipper {
             var finalFile = outFile
             var finalRel = rel
             val encodeAllowed = !r.cancelled && !(settings.imageMode && settings.gapMode.lowercase() == "append")
-            if (encodeAllowed && settings.format.equals("external", true)) {
-                val ext = settings.encoderExt.ifBlank { "flac" }.removePrefix(".")
-                val targetRel = rel.removeSuffix(".wav") + "." + ext
-                val target = dir.resolve(targetRel)
-                try {
-                    val exe = com.saltrip.rip.encode.ExternalEncoder.locate(settings.encoderExe)
-                        ?: error("找不到外部编码器：${settings.encoderExe}（可在设置里填绝对路径）")
-                    val vars = mapOf(
-                        "in" to outFile.toString(),
-                        "out" to target.toString(),
-                        "tracknr" to entry.track.toString(),
-                        "tracknr2" to "%02d".format(entry.track),
-                        "title" to title,
-                        "artist" to (meta?.artist ?: ""),
-                        "albumtitle" to (album?.albumTitle ?: ""),
-                        "albumartist" to (album?.albumArtist ?: ""),
-                        "year" to (album?.year?.toString() ?: ""),
-                        "genre" to (album?.genre ?: "")
-                    )
-                    val argv = com.saltrip.rip.encode.ExternalEncoder.plan(settings.encoderArgs, vars)
-                    val size = com.saltrip.rip.encode.ExternalEncoder.encode(exe, argv, target)
-                    finalFile = target
-                    finalRel = targetRel
-                    Diag.log("external track=${entry.track} -> $target ($size B)")
-                    if (!settings.keepWav) runCatching { Files.deleteIfExists(outFile) }
-                } catch (e: Throwable) {
-                    Diag.log("external encode failed track=${entry.track}", e)
-                    warn(Strings.fmt("第 %s 轨外部编码失败（已保留 WAV）: %s", entry.track, e.message))
-                }
-            }
             if (encodeAllowed && settings.format.equals("flac", true)) {
                 val flacRel = rel.removeSuffix(".wav") + ".flac"
                 val flacFile = dir.resolve(flacRel)
                 try {
-                    val exe = FlacEncoder.locate(settings.flacExe)
-                        ?: error("找不到 FLAC 编码器：${settings.flacExe}（可在设置里填绝对路径）")
+                    val exe = FlacEncoder.locate()
+                        ?: error("内置 FLAC 编码器不可用（插件包可能损坏，重新安装一次）")
                     val size = FlacEncoder.encode(exe, outFile, flacFile, settings.flacLevel)
                     finalFile = flacFile
                     finalRel = flacRel
@@ -497,8 +467,8 @@ object AlbumRipper {
                     if (settings.format.equals("flac", true)) {
                         val flacTarget = imgTarget.resolveSibling(imgTarget.fileName.toString().removeSuffix(".wav") + ".flac")
                         runCatching {
-                            val exe = FlacEncoder.locate(settings.flacExe)
-                                ?: error("找不到 FLAC 编码器：${settings.flacExe}（可在设置里填绝对路径）")
+                            val exe = FlacEncoder.locate()
+                                ?: error("内置 FLAC 编码器不可用（插件包可能损坏，重新安装一次）")
                             val size = FlacEncoder.encode(exe, imgTarget, flacTarget, settings.flacLevel)
                             Diag.log("flac image -> $flacTarget ($size B)")
                             if (!settings.keepWav) runCatching { Files.deleteIfExists(imgTarget) }

@@ -349,7 +349,6 @@ private fun LabelColumn(label: String, hint: String, enabled: Boolean, modifier:
 private fun choosePath(key: String) {
     when (key) {
         "outputRoot" -> ConfigActions.chooseOutputRoot()
-        "flacExe" -> ConfigActions.chooseFlacExe()
         "overrideFile" -> ConfigActions.chooseOverrideFile()
         else -> Unit
     }
@@ -371,7 +370,6 @@ private fun runAction(name: String) {
         "openLogFolder" -> ConfigActions.openLogFolder()
         "testNetwork" -> ConfigActions.testNetwork()
         "chooseOutputRoot" -> ConfigActions.chooseOutputRoot()
-        "chooseFlacExe" -> ConfigActions.chooseFlacExe()
         else -> Unit
     }
 }

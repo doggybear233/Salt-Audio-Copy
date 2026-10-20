@@ -22,16 +22,16 @@ class FlacEncoderTest {
     }
 
     @Test
-    fun `locate returns null for nonsense and finds system tool`() {
-        assertNull(FlacEncoder.locate("definitely-not-a-real-encoder-xyz"))
-        // cmd.exe 一定在 PATH 里，用来验证 PATH 查找逻辑本身
-        assertTrue(FlacEncoder.locate("cmd") != null, "PATH 查找失效")
+    fun `locate returns the bundled encoder`() {
+        val exe = FlacEncoder.locate()
+        assertTrue(exe != null, "插件包里带 flac.exe，locate 不该为 null")
+        assertTrue(exe!!.endsWith("flac.exe"), exe)
     }
 
     @Test
     fun `encodes silence to flac and reports size`() {
-        val exe = FlacEncoder.locate("flac")
-        assumeTrue(exe != null, "本机没有 flac.exe，跳过真实编码")
+        val exe = FlacEncoder.locate()
+        assumeTrue(exe != null, "内置 flac.exe 解不出来，跳过真实编码")
 
         val dir = Files.createTempDirectory("saltrip-flac")
         val wav = dir.resolve("in.wav")

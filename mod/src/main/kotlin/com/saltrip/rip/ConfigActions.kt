@@ -1561,26 +1561,6 @@ object ConfigActions {
         return result
     }
 
-    /** 选 flac.exe 路径（用户不想填 PATH 时用）。 */
-    @JvmStatic
-    fun chooseFlacExe() {
-        pickerThread("saltrip-picker-flac") {
-            val current = runCatching { SettingsStore.load(true).flacExe }.getOrDefault("flac")
-            val picked = pickFile(current, "选择 flac.exe", "FLAC 编码器 (flac.exe)", "exe")
-            if (picked == null) {
-                toast(Strings.message("已取消选择"), ToastType.Warning)
-                return@pickerThread
-            }
-            if (PanelState.settingsOpen) {
-                PanelState.updateDraft { it.copy(flacExe = picked) }
-            } else {
-                val s = SettingsStore.load(true)
-                SettingsStore.save(s.copy(flacExe = picked))
-            }
-            toast(Strings.fmt("FLAC 编码器：%s", picked), ToastType.Success)
-        }
-    }
-
     /**
      * 打开系统文件选择框。
      *

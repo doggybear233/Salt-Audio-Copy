@@ -57,12 +57,13 @@ class BundledFlacTest {
     }
 
     @Test
-    fun locateFallsBackToBundledWhenNothingElseExists() {
+    fun locateReturnsTheBundledEncoder() {
         BundledFlac.dirOverride = dir
         BundledFlac.resetForTest()
-        val found = FlacEncoder.locate("definitely-not-a-real-encoder-xyz")
-        assertNotNull(found, "外部编码器不存在时应回落到内置件")
-        assertTrue(found.endsWith("flac.exe"), "回落结果应当是 flac.exe：$found")
+        val found = FlacEncoder.locate()
+        assertNotNull(found, "有内置件时 locate 必须给出路径")
+        assertTrue(found.endsWith("flac.exe"), "结果应当是 flac.exe：$found")
+        assertTrue(java.nio.file.Files.isRegularFile(java.nio.file.Path.of(found)), "路径必须真的存在：$found")
     }
 
     @Test

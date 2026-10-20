@@ -106,17 +106,15 @@
           "type": "list",
           "key": "format",
           "title": "输出格式",
-          "summary": "WAV 无损未压缩（兼容性最好）；FLAC 标签与封面由插件写入，编码器已内置（Xiph 1.4.3），也可指定自己的 flac.exe；外部编码器可自定义任意命令行",
+          "summary": "FLAC 用内置的 Xiph 1.4.3，不需要外部 flac.exe",
           "default_value": "wav",
           "entries": [
             "WAV（推荐）",
-            "FLAC",
-            "外部编码器（自定义命令行）"
+            "FLAC（内置编码器）"
           ],
           "entry_values": [
             "wav",
-            "flac",
-            "external"
+            "flac"
           ]
         },
         {
@@ -125,19 +123,6 @@
           "title": "整盘镜像（单文件 + CUE）",
           "summary": "先把每轨按安全模式抓好再拼接成一个 WAV，CUE 用绝对时间；更接近原盘备份，但占用两倍临时空间",
           "default_value": false
-        },
-        {
-          "type": "edittext",
-          "key": "flacExe",
-          "title": "flac.exe 路径",
-          "summary": "留空＝用随插件内置的 FLAC 1.4.3；也可填 PATH 里的名字或绝对路径（例如 D:\\Tools\\flac\\flac.exe）",
-          "default_value": "flac"
-        },
-        {
-          "type": "button",
-          "title": "选择 flac.exe…",
-          "summary": "从磁盘挑编码器；留空则用内置的，其次按 PATH 查找 flac",
-          "on_click": "com.saltrip.rip.ConfigActions.chooseFlacExe"
         },
         {
           "type": "list",
@@ -164,27 +149,6 @@
           "title": "FLAC 编码后保留 WAV",
           "summary": "关掉会在编码成功后删除中间 WAV，节省磁盘",
           "default_value": true
-        },
-        {
-          "type": "edittext",
-          "key": "encoderExe",
-          "title": "外部编码器路径",
-          "summary": "可执行文件，或只写名字走 PATH（如 flac / opusenc / ffmpeg）",
-          "default_value": "flac"
-        },
-        {
-          "type": "edittext",
-          "key": "encoderArgs",
-          "title": "编码器参数模板",
-          "summary": "用 %in% / %out% / %tracknr2% / %title% 等变量；含空格的路径请加引号",
-          "default_value": "-f -s -5 -o \"%out%\" \"%in%\""
-        },
-        {
-          "type": "edittext",
-          "key": "encoderExt",
-          "title": "产物扩展名",
-          "summary": "不含点，如 flac / opus / m4a",
-          "default_value": "flac"
         }
       ]
     },

@@ -119,9 +119,6 @@ object RipPlan {
         if (!settings.fileTemplate.contains("%tracknr") && !settings.fileTemplate.contains("%title")) {
             warnings += "文件名模板既没有轨号也没有标题，所有音轨会撞名"
         }
-        if (settings.format.equals("external", true) && settings.encoderArgs.isBlank()) {
-            warnings += "外部编码器参数模板是空的，编码大概率会失败"
-        }
 
         val tracks = ArrayList<TrackPlan>(selected.size)
         var total = 0L

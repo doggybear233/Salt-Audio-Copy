@@ -112,7 +112,7 @@ class SettingsSpecTest {
                 }
             }
         }
-        assertEquals(51, SettingsSpec.settingKeys.size, "51 个设置键（0.33.0 加 proxyUrl）")
+        assertEquals(47, SettingsSpec.settingKeys.size, "47 个设置键（0.39.0 移除自带编码器相关 4 项）")
         assertEquals(
             SettingsSpec.settingKeys.size,
             SettingsSpec.settingKeys.toSet().size,
@@ -124,18 +124,13 @@ class SettingsSpecTest {
     fun conditionalPagesHideWhatDoesNotApply() {
         val wav = RipSettings(format = "wav")
         val flac = RipSettings(format = "flac")
-        val external = RipSettings(format = "external")
 
         val p4 = SettingsSpec.page("p4")
         fun visible(key: String, s: RipSettings) =
             p4.items.first { it.key == key }.visibleWhen(s)
 
-        assertTrue(!visible("flacExe", wav), "WAV 输出不该出现 flac.exe")
-        assertTrue(visible("flacExe", flac), "FLAC 输出要能选 flac.exe")
         assertTrue(!visible("flacLevel", wav))
         assertTrue(visible("flacLevel", flac))
-        assertTrue(visible("encoderExe", external))
-        assertTrue(!visible("encoderExe", flac))
 
         val p5 = SettingsSpec.page("p5")
         fun p5Visible(key: String, s: RipSettings) =
@@ -162,6 +157,6 @@ class SettingsSpecTest {
                 "$name 必须是 static"
             )
         }
-        assertEquals(15, SettingsSpec.actionKeys.size, "全站 15 个按钮（2 个选择器 + 诊断页 13 个）")
+        assertEquals(14, SettingsSpec.actionKeys.size, "全站 14 个按钮（1 个目录选择器 + 诊断页 13 个）")
     }
 }

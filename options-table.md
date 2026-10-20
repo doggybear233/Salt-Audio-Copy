@@ -1,6 +1,6 @@
-# 盐专辑（Salt Audio Copy）配置界面选项统计表 v2（0.38.1）
+# 盐专辑（Salt Audio Copy）配置界面选项统计表 v2（0.39.0）
 
-> 0.38.1 起配置页为 **8 组 / 51 个设置键 / 15 个按钮**；面板内是同一份数据的 8 页二级导航。
+> 0.39.0 起配置页为 **8 组 / 47 个设置键 / 14 个按钮**（已移除「导入编码器」相关选项）；面板内是同一份数据的 8 页二级导航。
 > 本表由 `design/options_table.py` 从 `mod/src/main/resources/preference_config.json` 生成，与代码同步。
 > 末列「改法（你填）」留空；要改就在那格写（行首加 `#` 表示删掉这一项）。
 
@@ -25,90 +25,85 @@
 | 9 | 音轨文件名模板 | `fileTemplate` | 输入 | 如 `%tracknr2% %title%` | `%tracknr2% %title%` | 音轨文件名；点框再点变量插入光标处 |  |
 | 10 | 封面文件名 | `coverFileName` | 输入 | 不含扩展名 | `cover` | 封面文件名；点框再点变量插入光标处 |  |
 
-## 3 · 音频格式（8 设置 + 1 按钮）
+## 3 · 音频格式（4 设置 + 0 按钮）
 
 | 序号 | 选项名（界面原文） | key | 控件 | 取值 / 格式 | 默认 | 作用 | 改法（你填） |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 11 | 输出格式 | `format` | 单选 | WAV（推荐）（wav） / FLAC（flac） / 外部编码器（自定义命令行）（external） | wav | 决定走哪条写出链路 |  |
+| 11 | 输出格式 | `format` | 单选 | WAV（推荐）（wav） / FLAC（内置编码器）（flac） | wav | 决定走哪条写出链路 |  |
 | 12 | 整盘镜像（单文件 + CUE） | `imageMode` | 开关 | 开 / 关 | 关 | 每轨抓好后拼成单 WAV + 绝对时间 CUE（占两倍临时空间） |  |
-| 13 | flac.exe 路径 | `flacExe` | 输入 | 名字走 PATH 或绝对路径 | `flac` | FLAC 编码器位置 |  |
-| B2 | 选择 flac.exe… | — | 按钮 | `ConfigActions.chooseFlacExe` | — | 选 flac.exe（留空则走 PATH） |  |
-| 14 | FLAC 压缩等级 | `flacLevel` | 单选 | 0 最快（0） / 3（3） / 5 默认（5） / 8 最小（8） | 5 | 越高越慢、文件越小 |  |
-| 15 | FLAC 编码后保留 WAV | `keepWav` | 开关 | 开 / 关 | 开 | 关掉则编码成功后删中间 WAV |  |
-| 16 | 外部编码器路径 | `encoderExe` | 输入 | 可执行名或绝对路径 | `flac` | format=external 时用 |  |
-| 17 | 编码器参数模板 | `encoderArgs` | 输入 | `%in% %out% %tracknr2% %title%` 等 | `-f -s -5 -o "%out%" "%in%"` | 外部编码器命令行 |  |
-| 18 | 产物扩展名 | `encoderExt` | 输入 | 不含点 | `flac` | 外部编码器产物后缀 |  |
+| 13 | FLAC 压缩等级 | `flacLevel` | 单选 | 0 最快（0） / 3（3） / 5 默认（5） / 8 最小（8） | 5 | 越高越慢、文件越小 |  |
+| 14 | FLAC 编码后保留 WAV | `keepWav` | 开关 | 开 / 关 | 开 | 关掉则编码成功后删中间 WAV |  |
 
 ## 4 · 标签与附属文件（7 设置 + 0 按钮）
 
 | 序号 | 选项名（界面原文） | key | 控件 | 取值 / 格式 | 默认 | 作用 | 改法（你填） |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 19 | 写入 FLAC 标签 | `writeTags` | 开关 | 开 / 关 | 开 | 标题/艺术家/专辑/轨号/年份/流派/ISRC |  |
-| 20 | 把封面内嵌进 FLAC | `embedCover` | 开关 | 开 / 关 | 开 | 每个 FLAC 内嵌一张 front cover |  |
-| 21 | 封面尺寸 | `coverSize` | 单选 | 原图（推荐）（0） / 500 px（500） / 1200 px（1200） | 0 | Cover Art Archive 的 front-<size> |  |
-| 22 | 给 WAV 写标签 | `writeWavTags` | 开关 | 开 / 关 | 开 | 写 RIFF LIST/INFO |  |
-| 23 | 生成 CUE | `writeCue` | 开关 | 开 / 关 | 开 | UTF-8 BOM + CRLF，含 REM DISCID/CDDBID |  |
-| 24 | 在 CUE 里附上每轨 CRC | `annotateCueCrc` | 开关 | 开 / 关 | 开 | 把每轨 CRC 写进 CUE 的 REM，方便对账 |  |
-| 25 | 生成抓轨日志 | `writeLog` | 开关 | 开 / 关 | 开 | 每轨 CRC32 / 重试 / 用时 + 设置摘要 |  |
+| 15 | 写入 FLAC 标签 | `writeTags` | 开关 | 开 / 关 | 开 | 标题/艺术家/专辑/轨号/年份/流派/ISRC |  |
+| 16 | 把封面内嵌进 FLAC | `embedCover` | 开关 | 开 / 关 | 开 | 每个 FLAC 内嵌一张 front cover |  |
+| 17 | 封面尺寸 | `coverSize` | 单选 | 原图（推荐）（0） / 500 px（500） / 1200 px（1200） | 0 | Cover Art Archive 的 front-<size> |  |
+| 18 | 给 WAV 写标签 | `writeWavTags` | 开关 | 开 / 关 | 开 | 写 RIFF LIST/INFO |  |
+| 19 | 生成 CUE | `writeCue` | 开关 | 开 / 关 | 开 | UTF-8 BOM + CRLF，含 REM DISCID/CDDBID |  |
+| 20 | 在 CUE 里附上每轨 CRC | `annotateCueCrc` | 开关 | 开 / 关 | 开 | 把每轨 CRC 写进 CUE 的 REM，方便对账 |  |
+| 21 | 生成抓轨日志 | `writeLog` | 开关 | 开 / 关 | 开 | 每轨 CRC32 / 重试 / 用时 + 设置摘要 |  |
 
 ## 5 · 元数据（9 设置 + 0 按钮）
 
 | 序号 | 选项名（界面原文） | key | 控件 | 取值 / 格式 | 默认 | 作用 | 改法（你填） |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 26 | 联网获取元数据 | `fetchMetadata` | 开关 | 开 / 关 | 开 | 关闭则离线，用占位名 |  |
-| 27 | 插入或换盘时自动查元数据 | `autoLookupOnInsert` | 开关 | 开 / 关 | 开 |  |  |
-| 28 | HTTP 代理（可选） | `proxyUrl` | 输入 | 任意文本 | （空） |  |  |
-| 29 | 读取 CD-TEXT | `useCdText` | 开关 | 开 / 关 | 开 | 盘上曲名压过网络数据，读不到静默跳过 |  |
-| 30 | 优先选轨数一致的发行版 | `preferTrackCount` | 开关 | 开 / 关 | 开 | 同 DiscID 多发行版时先按轨数筛 |  |
-| 31 | 候选序号 | `releaseIndex` | 输入 | 0 起整数 | `0` | 手选第几个候选；日志会列全部 |  |
-| 32 | 手工元数据文件（可选） | `overrideFile` | 输入 | 路径；空 = 自动找 | （空） | 强制用指定 album.json |  |
-| 33 | 抓过的盘优先用上次的元数据 | `reuseAlbumJson` | 开关 | 开 / 关 | 开 | 同盘再抓跳过联网 |  |
-| 34 | 在专辑目录写入 album.json | `writeAlbumJson` | 开关 | 开 / 关 | 关 | 存元数据，供离线复用/手改 |  |
+| 22 | 联网获取元数据 | `fetchMetadata` | 开关 | 开 / 关 | 开 | 关闭则离线，用占位名 |  |
+| 23 | 插入或换盘时自动查元数据 | `autoLookupOnInsert` | 开关 | 开 / 关 | 开 |  |  |
+| 24 | HTTP 代理（可选） | `proxyUrl` | 输入 | 任意文本 | （空） |  |  |
+| 25 | 读取 CD-TEXT | `useCdText` | 开关 | 开 / 关 | 开 | 盘上曲名压过网络数据，读不到静默跳过 |  |
+| 26 | 优先选轨数一致的发行版 | `preferTrackCount` | 开关 | 开 / 关 | 开 | 同 DiscID 多发行版时先按轨数筛 |  |
+| 27 | 候选序号 | `releaseIndex` | 输入 | 0 起整数 | `0` | 手选第几个候选；日志会列全部 |  |
+| 28 | 手工元数据文件（可选） | `overrideFile` | 输入 | 路径；空 = 自动找 | （空） | 强制用指定 album.json |  |
+| 29 | 抓过的盘优先用上次的元数据 | `reuseAlbumJson` | 开关 | 开 / 关 | 开 | 同盘再抓跳过联网 |  |
+| 30 | 在专辑目录写入 album.json | `writeAlbumJson` | 开关 | 开 / 关 | 关 | 存元数据，供离线复用/手改 |  |
 
 ## 6 · 光驱与校验（12 设置 + 0 按钮）
 
 | 序号 | 选项名（界面原文） | key | 控件 | 取值 / 格式 | 默认 | 作用 | 改法（你填） |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 35 | 指定光驱 | `driveLetter` | 单选 | 自动（第一台）（） / D:（D） / E:（E） / F:（F） / G:（G） / H:（H） / I:（I） / J:（J） / K:（K） / L:（L） / M:（M） / N:（N） / O:（O） / P:（P） / Q:（Q） / R:（R） / S:（S） / T:（T） / U:（U） / V:（V） / W:（W） / X:（X） / Y:（Y） / Z:（Z） |  | 多光驱时指定用哪台，避免抓错盘 |  |
-| 36 | 读速上限 | `driveSpeed` | 单选 | 8x（约 1200 KB/s，推荐）（1200） / 16x（约 2400 KB/s）（2400） / 24x（约 3600 KB/s）（3600） / 4x（约 600 KB/s）（600） / 2x（约 300 KB/s）（300） / 不干预（全速，最快但抖）（0） | 1200 | 限速换稳定性；0 = 驱动器最高速 |  |
-| 37 | 音频读命令 | `readCommand` | 单选 | 自动（推荐）（auto） / 标准 MMC（0xBE）（mmc） / MMC + C2（mmc-c2） / READ(10)（read10） / 厂家 0xD8（实验性）（d8） | auto | 驱动不认标准 READ CD 时的退路，auto 自动降级 |  |
-| 38 | 双读校验（secure） | `secureMode` | 开关 | 开 / 关 | 开 | 面板内快速开关 |  |
-| 39 | Test & Copy | `testAndCopy` | 开关 | 开 / 关 | 关 | 先只读一遍拿 CRC，再正式抓并逐轨比对，耗时约翻倍 |  |
-| 40 | 出错恢复质量 | `errorRecovery` | 单选 | 低（快速）（low） / 中（推荐）（medium） / 高（苛刻）（high） | medium | 决定要求几次一致 |  |
-| 41 | 单块最大重读次数 | `maxRetries` | 输入 | 整数 | `8` | 单块重读上限 |  |
-| 42 | 重读间隔（毫秒） | `retryDelayMs` | 输入 | 整数 | `120` | 重读前等待，老驱动可加 |  |
-| 43 | 采样级 offset | `offsetSamples` | 输入 | 整数，正数=丢开头若干采样 | `0` | 与 EAC read offset 对应 |  |
-| 44 | C2 错误检查 | `useC2` | 开关 | 开 / 关 | 关 | 用 CDB 的 C2 位校验；不支持自动降级 |  |
-| 45 | 击破驱动器缓存 | `defeatCache` | 开关 | 开 / 关 | 关 | 重读前读远端，让双读真的在验盘 |  |
-| 46 | 防止中途换碟 | `guardDisc` | 开关 | 开 / 关 | 开 | 每轨前重读 TOC，盘变立即中止 |  |
+| 31 | 指定光驱 | `driveLetter` | 单选 | 自动（第一台）（） / D:（D） / E:（E） / F:（F） / G:（G） / H:（H） / I:（I） / J:（J） / K:（K） / L:（L） / M:（M） / N:（N） / O:（O） / P:（P） / Q:（Q） / R:（R） / S:（S） / T:（T） / U:（U） / V:（V） / W:（W） / X:（X） / Y:（Y） / Z:（Z） |  | 多光驱时指定用哪台，避免抓错盘 |  |
+| 32 | 读速上限 | `driveSpeed` | 单选 | 8x（约 1200 KB/s，推荐）（1200） / 16x（约 2400 KB/s）（2400） / 24x（约 3600 KB/s）（3600） / 4x（约 600 KB/s）（600） / 2x（约 300 KB/s）（300） / 不干预（全速，最快但抖）（0） | 1200 | 限速换稳定性；0 = 驱动器最高速 |  |
+| 33 | 音频读命令 | `readCommand` | 单选 | 自动（推荐）（auto） / 标准 MMC（0xBE）（mmc） / MMC + C2（mmc-c2） / READ(10)（read10） / 厂家 0xD8（实验性）（d8） | auto | 驱动不认标准 READ CD 时的退路，auto 自动降级 |  |
+| 34 | 双读校验（secure） | `secureMode` | 开关 | 开 / 关 | 开 | 面板内快速开关 |  |
+| 35 | Test & Copy | `testAndCopy` | 开关 | 开 / 关 | 关 | 先只读一遍拿 CRC，再正式抓并逐轨比对，耗时约翻倍 |  |
+| 36 | 出错恢复质量 | `errorRecovery` | 单选 | 低（快速）（low） / 中（推荐）（medium） / 高（苛刻）（high） | medium | 决定要求几次一致 |  |
+| 37 | 单块最大重读次数 | `maxRetries` | 输入 | 整数 | `8` | 单块重读上限 |  |
+| 38 | 重读间隔（毫秒） | `retryDelayMs` | 输入 | 整数 | `120` | 重读前等待，老驱动可加 |  |
+| 39 | 采样级 offset | `offsetSamples` | 输入 | 整数，正数=丢开头若干采样 | `0` | 与 EAC read offset 对应 |  |
+| 40 | C2 错误检查 | `useC2` | 开关 | 开 / 关 | 关 | 用 CDB 的 C2 位校验；不支持自动降级 |  |
+| 41 | 击破驱动器缓存 | `defeatCache` | 开关 | 开 / 关 | 关 | 重读前读远端，让双读真的在验盘 |  |
+| 42 | 防止中途换碟 | `guardDisc` | 开关 | 开 / 关 | 开 | 每轨前重读 TOC，盘变立即中止 |  |
 
 ## 7 · 间隙（4 设置 + 0 按钮）
 
 | 序号 | 选项名（界面原文） | key | 控件 | 取值 / 格式 | 默认 | 作用 | 改法（你填） |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 47 | 探测 INDEX 00 间隙 | `detectGaps` | 开关 | 开 / 关 | 开 | 子通道 Q 往前扫最多 1 秒，只报告 |  |
-| 48 | 间隙探测方法 | `gapMethod` | 单选 | 子通道 Q（EAC 默认）（q） / 波形静音（Test Gaps On Silence）（silence） | q | Q 法与波形静音法二选一（EAC 的 Test Gaps On Silence） |  |
-| 49 | 间隙处理方式 | `gapMode` | 单选 | 附加到上一轨（EAC 默认）（append） / 归入下一轨（非标准）（prepend） / 丢弃间隙（leaveout） | append | 决定 INDEX 00 归属哪个文件 |  |
-| 50 | 抓轨前预扫间隙 | `analyzeBeforeRip` | 开关 | 开 / 关 | 关 | 整盘先扫 INDEX 00，省逐轨重复读 Q |  |
+| 43 | 探测 INDEX 00 间隙 | `detectGaps` | 开关 | 开 / 关 | 开 | 子通道 Q 往前扫最多 1 秒，只报告 |  |
+| 44 | 间隙探测方法 | `gapMethod` | 单选 | 子通道 Q（EAC 默认）（q） / 波形静音（Test Gaps On Silence）（silence） | q | Q 法与波形静音法二选一（EAC 的 Test Gaps On Silence） |  |
+| 45 | 间隙处理方式 | `gapMode` | 单选 | 附加到上一轨（EAC 默认）（append） / 归入下一轨（非标准）（prepend） / 丢弃间隙（leaveout） | append | 决定 INDEX 00 归属哪个文件 |  |
+| 46 | 抓轨前预扫间隙 | `analyzeBeforeRip` | 开关 | 开 / 关 | 关 | 整盘先扫 INDEX 00，省逐轨重复读 Q |  |
 
 ## 8 · 诊断（1 设置 + 13 按钮）
 
 | 序号 | 选项名（界面原文） | key | 控件 | 取值 / 格式 | 默认 | 作用 | 改法（你填） |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 51 | 只抓这些音轨 | `trackSelection` | 输入 | 如 `1-5,8`；空 = 整盘 | （空） | 只抓部分轨 |  |
-| B3 | ① 扫描驱动器 | — | 按钮 | `ConfigActions.scanDrives` | — | 重新枚举光驱 |  |
-| B4 | ①.2 抓轨计划预览（不写盘） | — | 按钮 | `ConfigActions.previewPlan` | — | 算出目录/文件名/预计耗时，不写盘 |  |
-| B5 | ①.5 间隙预扫（只读） | — | 按钮 | `ConfigActions.analyzeDisc` | — | 整盘扫 INDEX 00（只读） |  |
-| B6 | ①.3 探测可用读命令（只读） | — | 按钮 | `ConfigActions.probeReadCommands` | — | 逐条试读命令，报告哪些可用 |  |
-| B7 | 只测不写（Test only） | — | 按钮 | `ConfigActions.testDisc` | — | 读完整张盘但不写文件 |  |
-| B8 | ③ 仅查询元数据 | — | 按钮 | `ConfigActions.lookupMetadata` | — | 只联网查元数据并列出候选 |  |
-| B9 | ③.5 导出元数据模板 | — | 按钮 | `ConfigActions.exportAlbumJson` | — | 导出可手改的元数据模板 |  |
-| B10 | ④ 试抓第 1 轨 | — | 按钮 | `ConfigActions.ripFirstTrack` | — | 只抓第 1 轨验证链路 |  |
-| B11 | 取消当前抓轨 | — | 按钮 | `ConfigActions.cancelRip` | — | 中止当前抓轨（已写文件保留） |  |
-| B12 | 试写测试（中文路径） | — | 按钮 | `ConfigActions.probePath` | — | 在含中文的路径下试写一小段 |  |
-| B13 | 恢复默认设置 | — | 按钮 | `ConfigActions.resetDefaults` | — | 把全部设置恢复默认 |  |
-| B14 | 打开日志文件夹 | — | 按钮 | `ConfigActions.openLogFolder` | — | 打开日志所在文件夹 |  |
-| B15 | 网络自检（音乐库 / CDDB） | — | 按钮 | `ConfigActions.testNetwork` | — | 并发探测 MusicBrainz / Cover Art / CDDB，判断是没记录还是网不通 |  |
+| 47 | 只抓这些音轨 | `trackSelection` | 输入 | 如 `1-5,8`；空 = 整盘 | （空） | 只抓部分轨 |  |
+| B2 | ① 扫描驱动器 | — | 按钮 | `ConfigActions.scanDrives` | — | 重新枚举光驱 |  |
+| B3 | ①.2 抓轨计划预览（不写盘） | — | 按钮 | `ConfigActions.previewPlan` | — | 算出目录/文件名/预计耗时，不写盘 |  |
+| B4 | ①.5 间隙预扫（只读） | — | 按钮 | `ConfigActions.analyzeDisc` | — | 整盘扫 INDEX 00（只读） |  |
+| B5 | ①.3 探测可用读命令（只读） | — | 按钮 | `ConfigActions.probeReadCommands` | — | 逐条试读命令，报告哪些可用 |  |
+| B6 | 只测不写（Test only） | — | 按钮 | `ConfigActions.testDisc` | — | 读完整张盘但不写文件 |  |
+| B7 | ③ 仅查询元数据 | — | 按钮 | `ConfigActions.lookupMetadata` | — | 只联网查元数据并列出候选 |  |
+| B8 | ③.5 导出元数据模板 | — | 按钮 | `ConfigActions.exportAlbumJson` | — | 导出可手改的元数据模板 |  |
+| B9 | ④ 试抓第 1 轨 | — | 按钮 | `ConfigActions.ripFirstTrack` | — | 只抓第 1 轨验证链路 |  |
+| B10 | 取消当前抓轨 | — | 按钮 | `ConfigActions.cancelRip` | — | 中止当前抓轨（已写文件保留） |  |
+| B11 | 试写测试（中文路径） | — | 按钮 | `ConfigActions.probePath` | — | 在含中文的路径下试写一小段 |  |
+| B12 | 恢复默认设置 | — | 按钮 | `ConfigActions.resetDefaults` | — | 把全部设置恢复默认 |  |
+| B13 | 打开日志文件夹 | — | 按钮 | `ConfigActions.openLogFolder` | — | 打开日志所在文件夹 |  |
+| B14 | 网络自检（音乐库 / CDDB） | — | 按钮 | `ConfigActions.testNetwork` | — | 并发探测 MusicBrainz / Cover Art / CDDB，判断是没记录还是网不通 |  |
 
 ## B 面板设置（8 页二级导航）
 

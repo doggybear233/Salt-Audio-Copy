@@ -3,7 +3,6 @@ package com.saltrip.rip
 import com.saltrip.rip.album.AlbumJsonWriter
 import com.saltrip.rip.album.AlbumRipper
 import com.saltrip.rip.album.DiscCache
-import com.saltrip.rip.encode.ExternalEncoder
 import com.saltrip.rip.encode.FlacEncoder
 import com.saltrip.rip.encode.FlacMeta
 import com.saltrip.rip.encode.ProcessResult
@@ -29,7 +28,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * FLAC 与外部编码器路径的端到端测试。
+ * FLAC 路径（内置编码器）的端到端测试。
  *
  * 这些用例以前只能靠「本机装了 flac.exe 才跑」的 `assumeTrue` 保底，CI 与干净机器上
  * 等于没测。现在编码器通过 [ProcessRunner] 注入假实现：命令行、产物、失败清理、
@@ -57,7 +56,7 @@ class FlacFormatTest {
     @AfterTest
     fun tearDown() {
         FlacEncoder.runnerOverride = null
-        ExternalEncoder.runnerOverride = null
+        FlacEncoder.runnerOverride = null
         for (d in listOf(dir, fixtureDir)) {
             runCatching { Files.walk(d).sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) } }
         }
@@ -148,62 +147,7 @@ class FlacFormatTest {
             FlacEncoder.encode(fakeExe.toString(), wavInput(), dir.resolve("x.flac"), 5)
         }
         assertTrue(e.message!!.contains("无法启动"), "启动失败要给可操作提示：${e.message}")
-        assertTrue(e.message!!.contains("内置编码器"), "提示里要给出内置兜底：${e.message}")
-    }
-
-    @Test
-    fun locateAcceptsExistingFileAndRejectsUnknownName() {
-        assertEquals(fakeExe.toAbsolutePath().toString(), FlacEncoder.locate(fakeExe.toString()))
-        // 外部找不到就不该硬编一个路径；内置兜底由 locate 单独负责（见 bundledEncoderIsTheFallback）
-        assertNull(FlacEncoder.locateExternal("definitely-not-a-real-encoder-xyz"))
-    }
-
-    // ---------------- ExternalEncoder ----------------
-
-    @Test
-    fun externalEncoderPlansTemplateAndReturnsSize() {
-        val captured = mutableListOf<List<String>>()
-        ExternalEncoder.runnerOverride = copyRunner(capture = captured)
-        val out = dir.resolve("with space.flac")
-        val vars = mapOf("in" to "C:\\music\\a b\\in.wav", "out" to out.toString())
-        val argv = ExternalEncoder.plan(ExternalEncoder.DEFAULT_ARGS, vars)
-        val size = ExternalEncoder.encode(fakeExe.toString(), argv, out)
-        assertEquals(Files.size(fixture), size)
-        val cmd = captured.single()
-        assertEquals(fakeExe.toAbsolutePath().toString(), cmd.first(), "第一个参数必须是可执行文件")
-        assertTrue(cmd.contains("C:\\music\\a b\\in.wav"), "带空格的输入路径不能被切开：$cmd")
-        assertEquals(out, outOf(cmd))
-    }
-
-    @Test
-    fun externalEncoderDeletesHalfProductAndReportsExitCode() {
-        ExternalEncoder.runnerOverride = copyRunner(exit = 2)
-        val out = dir.resolve("bad-ext.flac")
-        val e = assertFailsWith<IllegalStateException> {
-            ExternalEncoder.encode(fakeExe.toString(), listOf("-o", out.toString()), out)
-        }
-        assertTrue(e.message!!.contains("退出码 2"), "要带退出码：${e.message}")
-        assertFalse(Files.exists(out))
-    }
-
-    @Test
-    fun externalEncoderReportsTimeout() {
-        ExternalEncoder.runnerOverride = ProcessRunner { _, _ -> throw TimeoutException("stuck") }
-        val e = assertFailsWith<IllegalStateException> {
-            ExternalEncoder.encode(fakeExe.toString(), emptyList(), dir.resolve("x.flac"), timeoutSec = 11)
-        }
-        assertTrue(e.message!!.contains("超时"), e.message)
-        assertTrue(e.message!!.contains("11"), "超时文案应带时长：${e.message}")
-    }
-
-    @Test
-    fun externalEncoderReportsMissingOutput() {
-        ExternalEncoder.runnerOverride = copyRunner(produce = false)
-        val e = assertFailsWith<IllegalStateException> {
-            ExternalEncoder.encode(fakeExe.toString(), emptyList(), dir.resolve("y.flac"))
-        }
-        assertTrue(e.message!!.contains("没有产出文件"), e.message)
-        assertTrue(e.message!!.contains("%out%"), "要提示检查参数模板：${e.message}")
+        assertTrue(e.message!!.contains("内置"), "提示里要说明内置件：${e.message}")
     }
 
     // ---------------- 整盘管线 ----------------
@@ -237,7 +181,7 @@ class FlacFormatTest {
     @Test
     fun flacRipProducesTaggedFlacAndKeepsNoWav() {
         FlacEncoder.runnerOverride = copyRunner()
-        val s = settings().copy(format = "flac", flacExe = fakeExe.toString(), keepWav = false, writeTags = true)
+        val s = settings().copy(format = "flac", keepWav = false, writeTags = true)
         val res = AlbumRipper.rip(scan(), s, { false }, {}, onlyTracks = setOf(1), source = fake())
 
         val track = res.tracks.single()
@@ -274,7 +218,7 @@ class FlacFormatTest {
         )
         Files.writeString(cache, AlbumJsonWriter.build(meta, toc))
 
-        val s = settings().copy(format = "flac", flacExe = fakeExe.toString(), keepWav = false)
+        val s = settings().copy(format = "flac", keepWav = false)
         val res = AlbumRipper.rip(scan(), s, { false }, {}, onlyTracks = setOf(1), source = fake())
         val tags = FlacMeta.readTags(res.tracks.single().file)
         assertEquals("道", tags["TITLE"], tags.toString())
@@ -287,7 +231,7 @@ class FlacFormatTest {
     fun flacImageModeProducesOneFlacAndCuePointsAtIt() {
         FlacEncoder.runnerOverride = copyRunner()
         val s = settings().copy(
-            format = "flac", flacExe = fakeExe.toString(), keepWav = false,
+            format = "flac", keepWav = false,
             imageMode = true, writeTags = true
         )
         val res = AlbumRipper.rip(scan(), s, { false }, {}, source = fake())
@@ -301,32 +245,17 @@ class FlacFormatTest {
     }
 
     @Test
-    fun externalEncoderPipelineUsesConfiguredExtension() {
-        ExternalEncoder.runnerOverride = copyRunner()
-        val s = settings().copy(
-            format = "external",
-            encoderExe = fakeExe.toString(),
-            encoderExt = "flac",
-            keepWav = false
-        )
-        val res = AlbumRipper.rip(scan(), s, { false }, {}, onlyTracks = setOf(1), source = fake())
-        val track = res.tracks.single()
-        assertTrue(track.file.toString().endsWith(".flac"), "外部编码器产物扩展名按设置来：${track.file}")
-        assertTrue(Files.isRegularFile(track.file))
-        assertFalse(Files.exists(dir.resolve("未知艺术家/未知专辑/01 Track 01.wav")))
-    }
-
-    @Test
-    fun missingFlacEncoderKeepsWavAndExplainsWhy() {
-        // 不注入 runner：locate 会先失败，编码器根本不会被调用。
-        val s = settings().copy(format = "flac", flacExe = "definitely-not-a-real-encoder-xyz")
+    fun brokenBundledEncoderKeepsWavAndExplainsWhy() {
+        // 内置编码器解不出来（插件包损坏 / 无写权限）时，必须保住 WAV 并说明原因。
+        FlacEncoder.runnerOverride = ProcessRunner { _, _ -> throw java.io.IOException("cannot run") }
+        val s = settings().copy(format = "flac")
         val res = AlbumRipper.rip(scan(), s, { false }, {}, onlyTracks = setOf(1), source = fake())
 
         val track = res.tracks.single()
-        assertTrue(track.file.toString().endsWith(".wav"), "编码器缺失时必须保住 WAV：${track.file}")
+        assertTrue(track.file.toString().endsWith(".wav"), "编码器不可用时必须保住 WAV：${track.file}")
         assertTrue(Files.isRegularFile(track.file))
         assertTrue(
-            res.warnings.any { it.contains("找不到 FLAC 编码器") },
+            res.warnings.any { it.contains("FLAC 编码失败（已保留 WAV）") },
             "要给用户看得懂的原因，而不是静默降级：${res.warnings}"
         )
     }
@@ -334,7 +263,7 @@ class FlacFormatTest {
     @Test
     fun flacFailureFallsBackToWavWithNote() {
         FlacEncoder.runnerOverride = copyRunner(exit = 1)
-        val s = settings().copy(format = "flac", flacExe = fakeExe.toString(), keepWav = false)
+        val s = settings().copy(format = "flac", keepWav = false)
         val res = AlbumRipper.rip(scan(), s, { false }, {}, onlyTracks = setOf(1), source = fake())
 
         val track = res.tracks.single()

@@ -104,27 +104,17 @@ object SettingsSpec {
             "p4", "音频格式", listOf(
                 opt(
                     "format",
-                    "wav" to "WAV（推荐）", "flac" to "FLAC", "external" to "外部编码器（自定义命令行）"
+                    "wav" to "WAV（推荐）", "flac" to "FLAC（内置编码器）"
                 ),
                 sw("imageMode").copy(
                     hint = "整盘镜像时不能只抓部分音轨，也不能用 prepend/leaveout 间隙",
                     enabledWhen = { it.gapMode == "append" && it.trackSelection.isBlank() }
                 ),
-                path("flacExe").copy(
-                    visibleWhen = { it.format == "flac" },
-                    hint = "留 flac 走 PATH"
-                ),
-                act("chooseFlacExe", "选择 flac.exe…", "留空走 PATH").copy(
-                    visibleWhen = { it.format == "flac" }
-                ),
                 opt(
                     "flacLevel",
                     "0" to "0 最快", "3" to "3", "5" to "5 默认", "8" to "8 最小"
                 ).copy(visibleWhen = { it.format == "flac" }),
-                sw("keepWav").copy(visibleWhen = { it.format == "flac" || it.format == "external" }),
-                path("encoderExe").copy(visibleWhen = { it.format == "external" }),
-                txt("encoderArgs").copy(visibleWhen = { it.format == "external" }),
-                txt("encoderExt").copy(visibleWhen = { it.format == "external" })
+                sw("keepWav").copy(visibleWhen = { it.format == "flac" })
             )
         ),
         SettingPage(
@@ -307,10 +297,6 @@ object SettingsAccess {
         "multiDiscFolder" -> s.multiDiscFolder
         "overwritePolicy" -> s.overwritePolicy
         "format" -> s.format
-        "flacExe" -> s.flacExe
-        "encoderExe" -> s.encoderExe
-        "encoderArgs" -> s.encoderArgs
-        "encoderExt" -> s.encoderExt
         "overrideFile" -> s.overrideFile
         "readCommand" -> s.readCommand
         "errorRecovery" -> s.errorRecovery
@@ -339,10 +325,6 @@ object SettingsAccess {
         "multiDiscFolder" -> s.copy(multiDiscFolder = v)
         "overwritePolicy" -> s.copy(overwritePolicy = v)
         "format" -> s.copy(format = v)
-        "flacExe" -> s.copy(flacExe = v)
-        "encoderExe" -> s.copy(encoderExe = v)
-        "encoderArgs" -> s.copy(encoderArgs = v)
-        "encoderExt" -> s.copy(encoderExt = v)
         "overrideFile" -> s.copy(overrideFile = v)
         "readCommand" -> s.copy(readCommand = v)
         "errorRecovery" -> s.copy(errorRecovery = v)

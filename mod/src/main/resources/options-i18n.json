@@ -46,20 +46,12 @@
       "Without extension; .jpg / .png is added according to the image type."
     ],
     "format": [
-      "Output format",
-      "WAV = uncompressed lossless (best compatibility); FLAC = tags and cover written by the plugin, encoder bundled (Xiph 1.4.3); Custom encoder = any command line."
+      "Audio format",
+      "FLAC is encoded with the built-in Xiph 1.4.3 — no external flac.exe needed"
     ],
     "imageMode": [
       "Single-file image + CUE",
       "Rips every track in secure mode first, then joins them into one WAV with an absolute-time CUE. Closest to a disc backup, but needs twice the temp space."
-    ],
-    "flacExe": [
-      "flac.exe path",
-      "Empty = the bundled FLAC 1.4.3; otherwise a name on PATH or an absolute path (e.g. D:/Tools/flac/flac.exe)."
-    ],
-    "chooseFlacExe": [
-      "Choose flac.exe…",
-      "Pick the encoder from disk; empty uses the bundled one, then PATH."
     ],
     "flacLevel": [
       "FLAC compression level",
@@ -68,18 +60,6 @@
     "keepWav": [
       "Keep WAV after FLAC encoding",
       "Off deletes the intermediate WAV once encoding succeeded, saving disk space."
-    ],
-    "encoderExe": [
-      "Custom encoder path",
-      "An executable, or just a name resolved through PATH (flac / opusenc / ffmpeg)."
-    ],
-    "encoderArgs": [
-      "Encoder argument template",
-      "Variables %in% / %out% / %tracknr2% / %title% etc. Quote paths that contain spaces."
-    ],
-    "encoderExt": [
-      "Output extension",
-      "Without the dot, e.g. flac / opus / m4a."
     ],
     "writeTags": [
       "Write FLAC tags",
@@ -312,20 +292,12 @@
       "拡張子は不要。画像形式に応じて .jpg / .png を付けます。"
     ],
     "format": [
-      "出力形式",
-      "WAV は無圧縮ロスレス（互換性優先）；FLAC はタグとカバーをプラグインが書き込み、エンコーダは内蔵（Xiph 1.4.3）；外部エンコーダも可。"
+      "音声形式",
+      "FLAC は内蔵の Xiph 1.4.3 で圧縮します（外部の flac.exe は不要）"
     ],
     "imageMode": [
       "1 ファイルのイメージ + CUE",
       "各トラックをセキュアモードで読んでから 1 つの WAV に連結し、CUE は絶対時間で出力。原盤バックアップに近いが一時領域が 2 倍必要。"
-    ],
-    "flacExe": [
-      "flac.exe のパス",
-      "空欄＝内蔵の FLAC 1.4.3。PATH の名前か絶対パスも指定可（例 D:/Tools/flac/flac.exe）。"
-    ],
-    "chooseFlacExe": [
-      "flac.exe を選択…",
-      "ディスクからエンコーダを選びます。空欄なら内蔵、次に PATH から検索。"
     ],
     "flacLevel": [
       "FLAC 圧縮レベル",
@@ -334,18 +306,6 @@
     "keepWav": [
       "FLAC 変換後に WAV を残す",
       "オフにすると変換成功後に中間 WAV を削除し、ディスクを節約します。"
-    ],
-    "encoderExe": [
-      "外部エンコーダのパス",
-      "実行ファイル、または PATH で解決される名前（flac / opusenc / ffmpeg）。"
-    ],
-    "encoderArgs": [
-      "エンコーダ引数テンプレート",
-      "%in% / %out% / %tracknr2% / %title% などの変数。空白を含むパスは引用符で囲んでください。"
-    ],
-    "encoderExt": [
-      "出力の拡張子",
-      "ドット無しで flac / opus / m4a など。"
     ],
     "writeTags": [
       "FLAC タグを書き込む",
