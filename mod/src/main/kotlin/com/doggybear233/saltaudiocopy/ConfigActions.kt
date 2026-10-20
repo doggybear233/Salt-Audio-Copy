@@ -46,12 +46,25 @@ object ConfigActions {
     }
     private val cancelFlag = AtomicBoolean(false)
 
-    @Volatile
-    private var busy = false
+    /**
+     * 抓轨是否在进行。唯一存储是 [PanelState.busy]。
+     *
+     * 早先这里另有一个 `@Volatile var busy`，与面板各记一份：UI 用面板那份显隐按钮，
+     * 入口用这份判重入。两边一旦不同步，就会同时出现「抓轨中还能再点开始」和
+     * 「结束后按钮不回来」两种相反的现象——因为修一边的漏写就落到另一边的症状上。
+     */
+    private var busy: Boolean
+        get() = PanelState.busy
+        set(value) {
+            PanelState.busy = value
+        }
 
-    /** 暂停标志：抓轨主循环每块结束调用 [gate]，暂停时在此阻塞。 */
-    @Volatile
-    private var paused = false
+    /** 暂停标志：同样只留 [PanelState.paused] 一份，[gate] 与 UI 读同一处。 */
+    private var paused: Boolean
+        get() = PanelState.paused
+        set(value) {
+            PanelState.paused = value
+        }
 
     /** 用户确认取消（区别于「暂停」）：门返回 true 让烧录循环收尾。 */
     @Volatile
@@ -170,6 +183,7 @@ object ConfigActions {
                 }
                 val sb = StringBuilder()
                 val chips = ArrayList<PanelState.DriveChip>()
+                val found = ArrayList<Pair<String, com.doggybear233.saltaudiocopy.rip.ScanResult>>()
                 for ((path, inq) in drives) {
                     Diag.log("drive $path -> $inq")
                     sb.append("$path $inq")
@@ -180,8 +194,6 @@ object ConfigActions {
                             runCatching { "，" + DiscId.describe(r.toc) }.getOrDefault("")
                         } else ""
                         Diag.log("toc $path: ${r.toc.tracks.size} 轨, leadOut=${r.toc.leadOutLba}, audio=${r.toc.isAudioCd}$ids")
-                        // 让轮询以这张盘为基准，避免它立刻再判一次「换盘」。
-                        runCatching { DiscWatcher.seed(r.toc) }
                         sb.append("，${r.toc.tracks.size} 轨 / $kind$ids")
                         val letter = driveLetterOf(path)
                         chips += PanelState.DriveChip(
@@ -189,45 +201,20 @@ object ConfigActions {
                             label = "$letter: ${r.toc.tracks.size} 轨",
                             audio = r.toc.isAudioCd
                         )
-                        ScanResultHolder.put(r)
-                        val playable = (r.toc.leadOutLba - (r.toc.tracks.firstOrNull()?.lba ?: 0))
-                            .coerceAtLeast(0)
-                        val discId = if (r.toc.isAudioCd) {
-                            runCatching { DiscId.musicBrainz(r.toc) }.getOrDefault("")
-                        } else ""
-                        // 之前抓过这张盘就直接显示专辑信息，不必等联网查询。
-                        val cached = if (discId.isNotBlank()) {
-                            runCatching {
-                                com.doggybear233.saltaudiocopy.meta.MetaOverride.load(
-                                    com.doggybear233.saltaudiocopy.album.DiscCache.path(
-                                        SettingsStore.load().effectiveRoot, discId
-                                    )
-                                )
-                            }.getOrNull()
-                        } else null
-                        PanelState.clearRipped()
-                        PanelState.showDisc(
-                            PanelState.DiscInfo(
-                                tracks = r.toc.tracks.size,
-                                artist = cached?.albumArtist.orEmpty(),
-                                album = cached?.albumTitle.orEmpty(),
-                                lengthText = PanelFormat.duration(playable * 1000L / 75L),
-                                discId = discId,
-                                audio = r.toc.isAudioCd
-                            )
-                        )
+                        found += letter to r
                     }.onFailure { sb.append("，读取失败: ${it.message}") }
                     sb.append("\n")
                 }
                 PanelState.drives = chips
-                if (chips.size > 1) {
-                    // 多光驱：默认选设置里指定的那台，没指定就用第一台。
-                    val want = SettingsStore.load(true).driveLetter.uppercase()
-                    PanelState.selectedDrive =
-                        chips.firstOrNull { it.letter == want }?.letter ?: chips.first().letter
-                } else {
-                    PanelState.selectedDrive = chips.firstOrNull()?.letter ?: ""
-                }
+                // 多光驱：先选「要显示的那一台」，最后只发布一次。
+                // 原先每读到一张盘就 publish 一次，于是最后一台（常常是空盘或数据盘）
+                // 会把前面那台音乐 CD 的信息从面板上覆盖掉，用户以为扫错了盘。
+                val want = SettingsStore.load(true).driveLetter.uppercase()
+                val chosen = found.firstOrNull { it.first == want }
+                    ?: found.firstOrNull { it.second.toc.isAudioCd }
+                    ?: found.firstOrNull()
+                PanelState.selectedDrive = chosen?.first ?: chips.firstOrNull()?.letter ?: ""
+                chosen?.second?.let { publishScanned(it) }
                 val text = sb.toString().trim()
                 PanelState.set(
                     statusText = text.lineSequence().firstOrNull() ?: Strings.message("已扫描"),
@@ -250,6 +237,43 @@ object ConfigActions {
                 toast(Strings.fmt("扫描失败: %s", e.message), ToastType.Error)
             }
         }
+    }
+
+    /**
+     * 把「扫描到的那张盘」发布到面板。
+     *
+     * 单独提出来是因为多光驱扫描必须**只发布一台**：原先在循环里每读到一张就发布，
+     * 最后一台的盘信息会覆盖前面那台音乐 CD。
+     */
+    private fun publishScanned(r: com.doggybear233.saltaudiocopy.rip.ScanResult) {
+        // 让轮询以这张盘为基准，避免它立刻再判一次「换盘」。
+        runCatching { DiscWatcher.seed(r.toc) }
+        ScanResultHolder.put(r)
+        val playable = (r.toc.leadOutLba - (r.toc.tracks.firstOrNull()?.lba ?: 0)).coerceAtLeast(0)
+        val discId = if (r.toc.isAudioCd) {
+            runCatching { DiscId.musicBrainz(r.toc) }.getOrDefault("")
+        } else ""
+        // 之前抓过这张盘就直接显示专辑信息，不必等联网查询。
+        val cached = if (discId.isNotBlank()) {
+            runCatching {
+                com.doggybear233.saltaudiocopy.album.DiscCache.load(
+                    SettingsStore.load().effectiveRoot, discId
+                )
+            }.getOrNull()
+        } else null
+        PanelState.clearRipped()
+        PanelState.showDisc(
+            PanelState.DiscInfo(
+                tracks = r.toc.tracks.size,
+                artist = cached?.albumArtist.orEmpty(),
+                album = cached?.albumTitle.orEmpty(),
+                lengthText = PanelFormat.duration(playable * 1000L / 75L),
+                discId = discId,
+                audio = r.toc.isAudioCd
+            )
+        )
+        if (discId.isNotBlank()) cached?.let { PanelState.rememberMeta(discId, it) }
+        PanelState.discCover = cached?.cover
     }
 
     /**
