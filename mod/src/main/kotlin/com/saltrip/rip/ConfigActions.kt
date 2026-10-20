@@ -728,7 +728,7 @@ object ConfigActions {
                         if (draft.albumTitle.isBlank() && ctTitle.isNotBlank()) {
                             draft = draft.copy(albumTitle = ctTitle); prefilled = true
                         }
-                        if (ManualDraft.displayable(draft.albumArtist) == null && ctArtist.isNotBlank()) {
+                        if (ManualDraft.displayable(draft.albumArtist).isBlank() && ctArtist.isNotBlank()) {
                             draft = draft.copy(albumArtist = ctArtist); prefilled = true
                         }
                         for (i in draft.tracks.indices) {
@@ -817,10 +817,16 @@ object ConfigActions {
         // 2) 落盘（独立线程，不跟自动查询抢队）
         saveExec.execute {
             try {
+                // freshScan() 内部会 Discs.publish()：此刻 JSON 还没写，缓存是空的，
+                // 面板会被重新刷成「未知艺术家」。所以扫描后立刻把乐观值再盖回去，
+                // 等写完文件再用 publish 从缓存重建（那一次才是准的）。
                 val scan = freshScan() ?: run {
                     Notify.fail("保存失败：读不到光盘，文件没有写入")
                     return@execute
                 }
+                val keptCover = PanelState.discCover
+                PanelState.showDisc(optimisticDisc(draft, PanelState.disc))
+                PanelState.discCover = keptCover
                 val settings = SettingsStore.load()
                 val toc = scan.toc
                 val discId = runCatching { DiscId.musicBrainz(toc) }.getOrDefault("")
@@ -836,8 +842,10 @@ object ConfigActions {
                 Diag.log("manual album.json saved: $cachePath")
                 saveManualCover(cachePath, root, discId)
 
-                // 盘的 DiscID 之前没算出来时，用真实 TOC 补上（不影响用户看到的名字）
-                if (discId.isNotBlank() && before?.discId.isNullOrBlank()) {
+                // 文件已落盘：从缓存重建一次盘摘要（补上真实 DiscID 与封面）。
+                // 这一步是幂等的，也能修掉 freshScan 期间被清空的名字。
+                PanelState.showDisc(optimisticDisc(draft, PanelState.disc))
+                if (discId.isNotBlank()) {
                     PanelState.showDisc(
                         PanelState.DiscInfo(
                             tracks = finalAlbum.tracks.size,
@@ -849,6 +857,7 @@ object ConfigActions {
                         )
                     )
                 }
+                PanelState.discCover = readCachedAlbum(root, discId)?.cover ?: PanelState.discCover
                 Diag.log("manual meta persisted: ${finalAlbum.tracks.size} tracks")
             } catch (e: Throwable) {
                 Diag.log("saveManualMeta failed", e)

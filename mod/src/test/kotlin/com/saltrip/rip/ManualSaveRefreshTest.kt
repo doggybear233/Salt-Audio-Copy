@@ -78,6 +78,22 @@ class ManualSaveRefreshTest {
     }
 
     @Test
+    fun namesSurviveAnIntermediatePublishWithoutCache() {
+        // 复现用户报告：保存后 freshScan/publish 在 JSON 写好之前跑了一轮，
+        // 名字被刷空，之后必须能盖回（否则要「再开一次手动填写」才显示）。
+        val draft = draft()
+        PanelState.showDisc(
+            PanelState.DiscInfo(13, "", "", "1:18:54", "abc", true)
+        )
+        // 中间那一次：缓存还没有，publish 只能给出空名字
+        PanelState.showDisc(PanelState.DiscInfo(13, "", "", "1:18:54", "abc", true))
+        // 保存流程的补偿：再盖一次乐观值
+        PanelState.showDisc(ConfigActions.optimisticDisc(draft, PanelState.disc))
+        assertEquals("十明", PanelState.disc?.artist)
+        assertEquals("変身のレシピ", PanelState.disc?.album)
+    }
+
+    @Test
     fun savingUpdatesPanelStateRightAway() {
         // 只验证第 1 步（界面刷新）；落盘依赖光驱，硬件用例在 SALTRIP_HW=1 下另跑
         val draft = draft()
