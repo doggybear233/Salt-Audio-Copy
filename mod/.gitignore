@@ -1,0 +1,12 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# 本地构建日志与临时输出
+build-log.txt
+*.spmod
+
+# IDE
+.idea/
+*.iml

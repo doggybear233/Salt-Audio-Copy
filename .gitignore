@@ -1,0 +1,14 @@
+﻿# Build / toolchain
+build/
+.gradle/
+out/
+__pycache__/
+*.pyc
+*.log
+
+# OS / editors
+Thumbs.db
+.DS_Store
+.idea/
+.vscode/
+*.swp

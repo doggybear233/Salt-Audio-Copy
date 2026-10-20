@@ -1,0 +1,555 @@
+package com.saltrip.rip.ui
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.saltrip.rip.ConfigActions
+
+/**
+ * 宿主「CD 工具箱」页底部的抓轨坞。
+ *
+ * 形态：**整宽横向条**，贴页面底部、上移 96dp 避开宿主播放条；
+ * 玻璃面板（宿主 `surfaceContainerHigh` + 92% 不透明 + 1px 描边 + 20dp 圆角），
+ * 深浅主题都直接取宿主 scheme，不自己调色。
+ *
+ * 单行四段：封面 / 碟与专辑 / 进度与速度 / 动作按钮；设置在原位向下展开。
+ */
+@Composable
+fun RipPanel() = SaltRipTheme { DockPanelBody() }
+
+/** 底部坞本体；[PanelMount] 的 hook 直接调用它。 */
+@Composable
+internal fun DockPanelBody() {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        // 宿主给的高度可能无界（放进可滚动列时），fillMaxHeight 会抛异常。
+        val bounded = constraints.hasBoundedHeight
+        val boxModifier = if (bounded) {
+            Modifier.fillMaxWidth()
+                .height(maxHeight)
+                .padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 96.dp)
+        } else {
+            Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp)
+        }
+        Box(modifier = boxModifier, contentAlignment = Alignment.BottomCenter) {
+            PanelSurface()
+        }
+    }
+}
+
+@Composable
+private fun PanelSurface() {
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = cs.surface,
+        contentColor = cs.onSurface,
+        border = BorderStroke(1.dp, cs.outlineVariant),
+        tonalElevation = 0.dp,
+        shadowElevation = 4.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            when {
+                PanelState.settingsOpen -> SettingsBlock()
+                PanelState.busy || PanelState.progress != null -> RunningBlock()
+                PanelState.disc == null -> IdleBlock()
+                else -> ReadyBlock()
+            }
+        }
+    }
+}
+
+/* ---------------------------------------------------------------- 空闲 */
+
+@Composable
+private fun IdleBlock() {
+    val cs = MaterialTheme.colorScheme
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = Strings.key("title"),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = PanelState.detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Button(onClick = { ConfigActions.scanDrives() }, colors = monoPrimary()) {
+            Text(Strings.key("scan"), style = MaterialTheme.typography.labelLarge)
+        }
+        Spacer(Modifier.width(8.dp))
+        TextButton(onClick = { ConfigActions.openSettings() }) {
+            Text(Strings.key("settings"), style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
+
+/* ---------------------------------------------------------------- 就绪 */
+
+@Composable
+private fun ReadyBlock() {
+    val cs = MaterialTheme.colorScheme
+    val gate = PanelState.actionGate()
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        CoverThumb(56.dp)
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = albumLine(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = PanelFormat.discLine(PanelState.disc) ?: Strings.key("subtitle"),
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = outputPreview(),
+                style = MaterialTheme.typography.labelSmall,
+                color = cs.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Button(onClick = { ConfigActions.ripAlbum() }, enabled = gate == null, colors = monoPrimary()) {
+            Text(Strings.key("rip_album"), style = MaterialTheme.typography.labelLarge)
+        }
+        Spacer(Modifier.width(6.dp))
+        OutlinedButton(
+            onClick = { ConfigActions.lookupMetadata() },
+            enabled = gate == null,
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = cs.onSurface),
+            border = BorderStroke(1.dp, cs.outlineVariant)
+        ) {
+            Text(Strings.key("refresh_meta"), style = MaterialTheme.typography.labelLarge)
+        }
+        Spacer(Modifier.width(2.dp))
+        TextButton(onClick = { ConfigActions.openOutputFolder() }) {
+            Text(
+                Strings.key("open_folder"),
+                style = MaterialTheme.typography.labelMedium,
+                color = cs.onSurfaceVariant
+            )
+        }
+        TextButton(onClick = { ConfigActions.openSettings() }) {
+            Text(Strings.key("settings"), style = MaterialTheme.typography.labelMedium)
+        }
+    }
+
+    if (PanelState.drives.size > 1) DriveRow()
+    if (PanelState.candidates.size > 1) CandidateRow()
+
+    gate?.let {
+        Text(
+            text = it,
+            style = MaterialTheme.typography.labelSmall,
+            color = cs.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/* ---------------------------------------------------------------- 运行中 */
+
+@Composable
+private fun RunningBlock() {
+    val cs = MaterialTheme.colorScheme
+    val p = PanelState.progress
+    val paused = PanelState.paused
+    val armed = PanelState.cancelArmed
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        CoverThumb(48.dp)
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = albumLine(),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (p != null && !paused) {
+                LinearProgressIndicator(
+                    progress = { p.fraction.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = cs.onSurface,
+                    trackColor = cs.onSurface.copy(alpha = 0.14f)
+                )
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    text = buildString {
+                        append(PanelState.status)
+                        if (p != null) {
+                            append(" · ")
+                            append(PanelFormat.trackLine(p.trackNo, p.trackTotal, p.fraction))
+                        }
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = cs.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = when {
+                        paused -> Strings.key("pause") + "…"
+                        p != null -> PanelFormat.speed(p.speedX) + " · " + PanelFormat.eta(p.etaSec)
+                        else -> ""
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = cs.onSurfaceVariant
+                )
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        OutlinedButton(
+            onClick = { ConfigActions.pauseRip() },
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
+            Text(
+                text = Strings.key(if (paused) "resume" else "pause"),
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
+        Spacer(Modifier.width(6.dp))
+        TextButton(onClick = { ConfigActions.cancelRip() }) {
+            Text(
+                text = Strings.key(if (armed) "cancel_confirm" else "cancel"),
+                style = MaterialTheme.typography.labelLarge,
+                color = if (armed) cs.error else cs.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/* ---------------------------------------------------------------- 片段 */
+
+@Composable
+private fun CoverThumb(sizeDp: Dp) {
+    val cs = MaterialTheme.colorScheme
+    val img = PanelState.candidates.getOrNull(PanelState.selectedCandidate)?.cover
+    val bmp = CoverImages.decode(img)
+    if (bmp != null) {
+        Image(
+            bitmap = bmp,
+            contentDescription = null,
+            modifier = Modifier.size(sizeDp).clip(RoundedCornerShape(10.dp))
+        )
+    } else {
+        Surface(
+            color = cs.surfaceVariant,
+            modifier = Modifier.size(sizeDp).clip(RoundedCornerShape(10.dp))
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text("CD", style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+private fun albumLine(): String {
+    val d = PanelState.disc
+    val artist = d?.artist?.takeIf { it.isNotBlank() && it != "未知艺术家" }
+    val album = d?.album?.takeIf { it.isNotBlank() && it != "未知专辑" }
+    if (artist != null && album != null) return "$artist — $album"
+    if (album != null) return album
+    // 盘信息里还没有元数据时，退到当前选中的候选版本
+    PanelState.candidates.getOrNull(PanelState.selectedCandidate)?.let { return it.label }
+    return Strings.key("title")
+}
+
+private fun outputPreview(): String {
+    PanelState.lastOutDir?.let { return it.toString() }
+    val root = PanelState.outputRootText
+    if (root.isBlank()) return Strings.key("default_root")
+    val album = PanelState.disc?.album?.takeIf { it.isNotBlank() && it != "未知专辑" }
+    return if (album != null) root.trimEnd('\\') + "\\" + album else root
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DriveRow() {
+    val cs = MaterialTheme.colorScheme
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        for (d in PanelState.drives) {
+            val selected = PanelState.selectedDrive == d.letter
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = if (selected) cs.onSurface.copy(alpha = 0.10f) else Color.Transparent,
+                border = BorderStroke(1.dp, if (selected) cs.onSurface.copy(alpha = 0.45f) else cs.outlineVariant.copy(alpha = 0.6f)),
+                modifier = Modifier.clickable { ConfigActions.selectDrive(d.letter) }
+            ) {
+                Text(
+                    text = d.label,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (selected) cs.onSurface else cs.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CandidateRow() {
+    val cs = MaterialTheme.colorScheme
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            text = Strings.key("versions"),
+            style = MaterialTheme.typography.labelSmall,
+            color = cs.onSurfaceVariant
+        )
+        PanelState.candidates.take(6).forEachIndexed { i, c ->
+            val selected = PanelState.selectedCandidate == i
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = if (selected) cs.onSurface.copy(alpha = 0.10f) else Color.Transparent,
+                border = BorderStroke(1.dp, if (selected) cs.onSurface.copy(alpha = 0.45f) else cs.outlineVariant.copy(alpha = 0.5f)),
+                modifier = Modifier.clickable { ConfigActions.selectCandidate(i) }
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    val thumb = CoverImages.decode(c.cover)
+                    if (thumb != null) {
+                        Image(
+                            bitmap = thumb,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp).clip(RoundedCornerShape(4.dp))
+                        )
+                    }
+                    Text(
+                        text = c.label.take(16),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (selected) cs.onSurface else cs.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+/* ---------------------------------------------------------------- 设置（原位展开） */
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SettingsBlock() {
+    val cs = MaterialTheme.colorScheme
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = Strings.key("settings"),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f)
+        )
+        TextButton(onClick = { ConfigActions.closeSettings() }) {
+            Text(Strings.key("settings_close"), style = MaterialTheme.typography.labelMedium)
+        }
+    }
+    HorizontalDivider(color = cs.outlineVariant)
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = Strings.key("output_root"),
+            style = MaterialTheme.typography.labelMedium,
+            color = cs.onSurfaceVariant,
+            modifier = Modifier.width(80.dp)
+        )
+        Text(
+            text = PanelState.outputRootText.ifBlank { Strings.key("default_root") },
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        TextButton(onClick = { ConfigActions.chooseOutputRoot() }) {
+            Text(Strings.key("choose"), style = MaterialTheme.typography.labelMedium)
+        }
+    }
+
+    TemplateField(Strings.key("tpl_folder"), PanelState.editFolder, 0) { PanelState.editFolder = it }
+    TemplateField(Strings.key("tpl_file"), PanelState.editFile, 1) { PanelState.editFile = it }
+    TemplateField(Strings.key("tpl_cover"), PanelState.editCover, 2) { PanelState.editCover = it }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = if (PanelState.editTarget < 0) Strings.key("pick_target_hint") else Strings.key("add_token_hint"),
+            style = MaterialTheme.typography.labelSmall,
+            color = if (PanelState.editTarget < 0) cs.error else cs.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        if (PanelState.editTarget >= 0) {
+            TextButton(onClick = { PanelState.clearTarget() }) {
+                Text(Strings.key("clear"), style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        for ((token, label) in TemplateChips) {
+            val enabled = PanelState.editTarget >= 0
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = cs.surfaceVariant.copy(alpha = if (enabled) 0.9f else 0.4f),
+                modifier = Modifier.clickable(enabled = enabled) { PanelState.appendToken(token) }
+            ) {
+                Text(
+                    text = label,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (enabled) cs.onSurfaceVariant else cs.onSurfaceVariant.copy(alpha = 0.4f)
+                )
+            }
+        }
+    }
+
+    SwitchRow(Strings.key("secure"), PanelState.secureMode) { PanelState.secureMode = it }
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = { ConfigActions.savePanelSettings() }, colors = monoPrimary()) {
+            Text(Strings.key("save"), style = MaterialTheme.typography.labelLarge)
+        }
+        TextButton(onClick = { ConfigActions.closeSettings() }) {
+            Text(Strings.key("cancel"), style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
+        }
+    }
+}
+
+/**
+ * 黑白按钮：浅色主题用黑底白字，深色主题用白底黑字——不引入宿主的紫色 primary。
+ */
+@Composable
+private fun monoPrimary() = ButtonDefaults.buttonColors(
+    containerColor = MaterialTheme.colorScheme.onSurface,
+    contentColor = MaterialTheme.colorScheme.surface,
+    disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+    disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+)
+
+@Composable
+private fun TemplateField(label: String, value: String, target: Int, onChange: (String) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val active = PanelState.editTarget == target
+    val interaction = remember { MutableInteractionSource() }
+    // 鼠标点进输入框就选中该模板，不要求先敲字。
+    LaunchedEffect(interaction) {
+        interaction.interactions.collect {
+            if (it is PressInteraction.Release) PanelState.editTarget = target
+        }
+    }
+    OutlinedTextField(
+        value = value,
+        onValueChange = { onChange(it); PanelState.editTarget = target },
+        singleLine = true,
+        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+        textStyle = MaterialTheme.typography.bodySmall,
+        interactionSource = interaction,
+        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = cs.onSurface,
+            unfocusedBorderColor = if (active) cs.onSurface else cs.outlineVariant,
+            focusedLabelColor = cs.onSurface,
+            unfocusedLabelColor = if (active) cs.onSurface else cs.onSurfaceVariant,
+            cursorColor = cs.onSurface
+        ),
+        modifier = Modifier.fillMaxWidth().onFocusChanged {
+            if (it.isFocused) PanelState.editTarget = target
+        }
+    )
+}
+
+@Composable
+private fun SwitchRow(label: String, checked: Boolean, onToggle: (Boolean) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(text = label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onToggle)
+    }
+}
+
+/**
+ * 变量块：只保留用户自己敲不出来的变量；斜杠、空格、连字符、下划线、括号
+ * 用户可以直接键入，不再用块代劳。
+ */
+private val TemplateChips = listOf(
+    "%albumartist%" to "专辑艺术家",
+    "%albumtitle%" to "专辑名",
+    "%year%" to "年份",
+    "%genre%" to "流派",
+    "%tracknr2%" to "轨号 01",
+    "%title%" to "曲名",
+    "%artist%" to "曲目艺术家",
+    "%discnumber%" to "碟号",
+    "%totalcds%" to "总碟数",
+    "%cddbid%" to "CDDB",
+    "%discid%" to "DiscID"
+)

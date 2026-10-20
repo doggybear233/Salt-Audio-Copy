@@ -1,0 +1,174 @@
+package com.saltrip.rip.ui
+
+import com.saltrip.rip.Diag
+
+/**
+ * 面板文案的多语言表（中文 / English / 日本語）。
+ *
+ * 为什么自己做：宿主把语言存在 `com.xuncorp.voxzen.util.AppConfig.getLanguageTag()`
+ * （形如 `zh-CN` / `en-US` / `ja-JP`），但插件 API 没有暴露「宿主当前语言」，
+ * 也没有给插件提供资源覆盖机制。所以这里反射读一次、缓存，再按前缀选表；
+ * 读不到就按 JVM 默认 Locale 猜，最坏退回中文。
+ *
+ * 只覆盖**面板**文案：设置页（宿主渲染的 preference_config.json）与日志保持中文，
+ * 因为设置页的标题/摘要由宿主按我们给的 JSON 原样显示，做多语言需要多份 JSON，
+ * 而宿主的插件配置不支持按语言切换文件。
+ */
+object Strings {
+
+    enum class Lang { ZH, EN, JA }
+
+    /** 解析一次后缓存；面板每次重组都会调用，不能每次都反射。 */
+    @Volatile
+    private var cached: Lang? = null
+
+    fun lang(): Lang = cached ?: resolve().also { cached = it }
+
+    fun key(key: String): String = table(lang())[key] ?: table(Lang.ZH)[key] ?: key
+
+    /** 测试用：强制语言 / 复位。 */
+    fun override(lang: Lang?) {
+        cached = lang
+    }
+
+    private fun resolve(): Lang {
+        val tag = hostLanguageTag() ?: java.util.Locale.getDefault().toLanguageTag()
+        val lower = tag.lowercase()
+        return when {
+            lower.startsWith("zh") -> Lang.ZH
+            lower.startsWith("ja") -> Lang.JA
+            lower.startsWith("en") -> Lang.EN
+            else -> Lang.ZH
+        }
+    }
+
+    /** 反射读宿主语言标签；读不到返回 null。 */
+    internal fun hostLanguageTag(): String? = runCatching {
+        val cls = Class.forName("com.xuncorp.voxzen.util.AppConfig")
+        val inst = cls.getField("INSTANCE").get(null)
+        (cls.getMethod("getLanguageTag").invoke(inst) as? String)?.takeIf { it.isNotBlank() }
+    }.onFailure { Diag.log("read host language failed", it) }.getOrNull()
+
+    private fun table(lang: Lang): Map<String, String> = when (lang) {
+        Lang.ZH -> ZH
+        Lang.EN -> EN
+        Lang.JA -> JA
+    }
+
+    private val ZH = mapOf(
+        "appearance" to "外观",
+        "appearance_auto" to "跟随系统",
+        "appearance_light" to "浅色",
+        "appearance_dark" to "深色",
+        "title" to "盐专辑",
+        "subtitle" to "SPTI 直连 · 安全双读 · CUE 与日志",
+        "settings" to "设置",
+        "settings_close" to "收起设置",
+        "scan" to "扫描",
+        "rip_album" to "抓整盘",
+        "pause" to "暂停",
+        "resume" to "继续",
+        "cancel" to "取消",
+        "cancel_confirm" to "确认取消",
+        "refresh_meta" to "刷新元数据",
+        "versions" to "版本",
+        "pick_target_hint" to "点上面的输入框选中要编辑的模板，再点下面的变量",
+        "add_token_hint" to "把变量加到选中的模板：",
+        "editing_this" to "正在编辑这个模板",
+        "test_only" to "只测不写",
+        "open_folder" to "打开目录",
+        "output_root" to "输出目录",
+        "choose" to "选择",
+        "default_root" to "（默认：音乐目录 / Salt Audio Copy）",
+        "tpl_folder" to "专辑目录模板",
+        "tpl_file" to "文件名模板",
+        "tpl_cover" to "封面文件名",
+        "target_folder" to "目录",
+        "target_file" to "文件名",
+        "target_cover" to "封面",
+        "clear" to "清空",
+        "secure" to "安全双读校验",
+        "test_mode" to "测试模式（显示只测不写等测试动作）",
+        "save" to "保存",
+        "badge_audio" to "CD-DA",
+        "badge_data" to "数据盘"
+    )
+
+    private val EN = mapOf(
+        "appearance" to "Appearance",
+        "appearance_auto" to "System",
+        "appearance_light" to "Light",
+        "appearance_dark" to "Dark",
+        "title" to "Salt Audio Copy",
+        "subtitle" to "SPTI direct · secure re-read · CUE & log",
+        "settings" to "Settings",
+        "settings_close" to "Hide",
+        "scan" to "Scan",
+        "rip_album" to "Rip disc",
+        "pause" to "Pause",
+        "resume" to "Resume",
+        "cancel" to "Cancel",
+        "cancel_confirm" to "Confirm cancel",
+        "refresh_meta" to "Refresh metadata",
+        "versions" to "Version",
+        "pick_target_hint" to "Tap a field above to pick the template, then tap a variable below",
+        "add_token_hint" to "Append to the selected template:",
+        "editing_this" to "Editing this template",
+        "test_only" to "Test only",
+        "open_folder" to "Open folder",
+        "output_root" to "Output folder",
+        "choose" to "Choose",
+        "default_root" to "(default: Music / Salt Audio Copy)",
+        "tpl_folder" to "Album folder template",
+        "tpl_file" to "Track file template",
+        "tpl_cover" to "Cover file name",
+        "target_folder" to "Folder",
+        "target_file" to "File",
+        "target_cover" to "Cover",
+        "clear" to "Clear",
+        "secure" to "Secure double read",
+        "test_mode" to "Test mode (show test-only actions)",
+        "save" to "Save",
+        "badge_audio" to "CD-DA",
+        "badge_data" to "Data disc"
+    )
+
+    private val JA = mapOf(
+        "appearance" to "外観",
+        "appearance_auto" to "システム",
+        "appearance_light" to "ライト",
+        "appearance_dark" to "ダーク",
+        "title" to "ソルト・オーディオコピー",
+        "subtitle" to "SPTI 直結 · セキュア再読み · CUE とログ",
+        "settings" to "設定",
+        "settings_close" to "閉じる",
+        "scan" to "スキャン",
+        "rip_album" to "全曲取り込み",
+        "pause" to "一時停止",
+        "resume" to "再開",
+        "cancel" to "中止",
+        "cancel_confirm" to "中止を確定",
+        "refresh_meta" to "メタデータ更新",
+        "versions" to "バージョン",
+        "pick_target_hint" to "上の入力欄を選んでから、下の変数を押してください",
+        "add_token_hint" to "選択中のテンプレートに追加：",
+        "editing_this" to "このテンプレートを編集中",
+        "test_only" to "テストのみ",
+        "open_folder" to "フォルダーを開く",
+        "output_root" to "出力先",
+        "choose" to "選択",
+        "default_root" to "（既定：ミュージック / Salt Audio Copy）",
+        "tpl_folder" to "アルバムフォルダーのテンプレート",
+        "tpl_file" to "ファイル名テンプレート",
+        "tpl_cover" to "カバー画像のファイル名",
+        "target_folder" to "フォルダー",
+        "target_file" to "ファイル名",
+        "target_cover" to "カバー",
+        "clear" to "クリア",
+        "secure" to "セキュア二重読み",
+        "test_mode" to "テストモード（テスト用の操作を表示）",
+        "save" to "保存",
+        "badge_audio" to "CD-DA",
+        "badge_data" to "データディスク"
+    )
+}

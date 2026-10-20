@@ -1,0 +1,13 @@
+﻿REM GENRE Album/Soundtrack
+REM DATE 2021
+REM DISCID hZlwxqA4_l5dnDUKH1drpWEXCRM-
+REM CDDBID ca150015
+REM COMMENT "SaltRip"
+PERFORMER "Various Artists"
+TITLE "TV ANIMATION Sonny Boy soundtrack"
+
+FILE "01 少年少女 TV ver.wav" WAVE
+  TRACK 01 AUDIO
+    TITLE "少年少女 TV ver."
+    PERFORMER "銀杏BOYZ"
+    INDEX 01 00:00:00
