@@ -3,12 +3,13 @@
 Windows 上把 CD 精确抓成 WAV + CUE + 日志，并把专辑信息（MusicBrainz / gnudb / Cover Art Archive）一起落盘。
 算法与参数来自对 EAC 1.8 的逆向（见 `../architecture.md`、`../features.md`）。
 
-## 0.43.0
+## 0.43.1
 
 - **插件名统一为 ASCII**：`spmod { PluginName = "Salt Audio Copy" }`。宿主清单（manifest）不能按语言切换显示名，而 `Manifest` 写盘时按字节折行会切坏 UTF-8 中文，所以清单名固定用英文。
 - **面板标题**：中文仍是「盐专辑」，英文 / 日文都是「Salt Audio Copy」（不再用片假名硬当日文名）。
 - **三语文案复查**：45 个设置键 + 14 个按钮的中 / 英 / 日逐条对照，改掉术语不一致、按钮名与面板实际标签不符（`Rip disc` / `全曲取り込み`、`Enter metadata manually…`）、`errorRecovery` 说明仍写「3 次一致」（0.41.1 起 medium 是两次逐字节比对）、`0` 档写成「不干预」（其实会请求 7056 KB/s，现为「不限速」）等；删除 17 条已无引用的死键，`messages-i18n.json` 314 条。
 - 占位符（`%s`）在三种语言里数量一致；英文无 CJK 残留；日文无简体字串。
+- 清单里的开源地址改为 `https://github.com/doggybear233/Salt-Audio-Copy`（0.43.1）。
 - 438 tests / 0 failed。
 
 ## 0.42.0
