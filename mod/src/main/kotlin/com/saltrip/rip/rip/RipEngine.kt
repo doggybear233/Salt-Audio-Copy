@@ -21,7 +21,12 @@ data class RipProgress(
     val sectorsTotal: Int,
     val bytes: Long,
     val elapsedMs: Long,
-    val errors: Int
+    val errors: Int,
+    /**
+     * 由 [EtaEstimator] 用「最近窗口速度」算好的剩余毫秒。
+     * 整盘流程会填；单轨流程留空则退回累计平均（单轨场景两者等价）。
+     */
+    val etaOverrideMs: Long? = null
 ) {
     val fraction: Float get() = if (sectorsTotal <= 0) 0f else sectorsDone.toFloat() / sectorsTotal
     val speedX: Double
@@ -30,9 +35,12 @@ data class RipProgress(
             val bps = bytes * 1000.0 / elapsedMs
             return bps / (44100.0 * 2 * 2)
         }
+
+    /** 剩余毫秒；`-1` 表示「还算不出来」（样本不足），界面显示「正在估算…」。 */
     val etaMs: Long
         get() {
-            if (sectorsDone <= 0 || elapsedMs <= 0) return 0
+            etaOverrideMs?.let { return it }
+            if (sectorsDone <= 0 || elapsedMs <= 0) return -1
             val perSector = elapsedMs.toDouble() / sectorsDone
             return ((sectorsTotal - sectorsDone) * perSector).toLong()
         }
@@ -447,18 +455,28 @@ object RipEngine {
         val totalAll = toc.tracks.indices.sumOf { toc.sectorsOf(it).second }
         val results = ArrayList<RipResult>(toc.tracks.size)
         var doneBase = 0
+        var bytesBase = 0L
         var cancelled = false
+        val eta = EtaEstimator()
 
         for (i in toc.tracks.indices) {
             if (cancel()) { cancelled = true; break }
             val trackNo = toc.tracks[i].track
             val out = outDir.resolve(String.format("%02d.wav", trackNo))
             val r = ripTrack(scan, i, out, cancel, { p ->
-                onProgress(RipProgress(doneBase + p.sectorsDone, totalAll, p.bytes, p.elapsedMs, p.errors))
+                val nowMs = (System.nanoTime() - t0) / 1_000_000
+                val done = doneBase + p.sectorsDone
+                onProgress(
+                    RipProgress(
+                        done, totalAll, bytesBase + p.bytes, nowMs, p.errors,
+                        eta.sample(done, totalAll, nowMs)
+                    )
+                )
             }, verify, maxRetries, retryDelayMs)
             results += r
             if (r.cancelled) { cancelled = true; break }
             doneBase += toc.sectorsOf(i).second
+            bytesBase += r.bytes
         }
 
         val elapsed = (System.nanoTime() - t0) / 1_000_000

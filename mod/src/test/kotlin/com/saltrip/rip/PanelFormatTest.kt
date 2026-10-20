@@ -37,13 +37,15 @@ class PanelFormatTest {
 
     @Test
     fun etaFormatting() {
-        assertEquals("剩余时间未知", PanelFormat.eta(0))
-        assertEquals("剩余时间未知", PanelFormat.eta(-5))
+        // 0.35.0 起：剩余时间为 0 表示「即将完成」，-1 表示样本不足
+        assertEquals("即将完成", PanelFormat.eta(0))
+        assertEquals("正在估算…", PanelFormat.eta(-5))
         assertEquals("剩余约 45 秒", PanelFormat.eta(45))
         assertEquals("剩余约 1 分", PanelFormat.eta(60))
-        assertEquals("剩余约 1 分 20 秒", PanelFormat.eta(80))
-        assertEquals("剩余约 59 分 59 秒", PanelFormat.eta(3599))
-        assertEquals("剩余约 1 小时 0 分", PanelFormat.eta(3600))
+        // 80 秒按 15 秒档位向上取整 → 1 分 30 秒
+        assertEquals("剩余约 1 分 30 秒", PanelFormat.eta(80))
+        assertEquals("剩余约 1 小时", PanelFormat.eta(3599))
+        assertEquals("剩余约 1 小时", PanelFormat.eta(3600))
         assertEquals("剩余约 2 小时 5 分", PanelFormat.eta(7500))
     }
 

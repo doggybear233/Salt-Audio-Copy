@@ -882,7 +882,7 @@ object ConfigActions {
                             PanelState.Progress(
                                 fraction = p.fraction,
                                 speedX = p.speedX,
-                                etaSec = (p.etaMs / 1000).toInt(),
+                                etaSec = if (p.etaMs < 0) -1 else (p.etaMs / 1000).toInt(),
                                 trackNo = trackNoFrom(p.sectorsDone, scan.toc),
                                 trackTotal = count
                             )

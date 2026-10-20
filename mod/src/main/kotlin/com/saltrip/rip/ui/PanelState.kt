@@ -252,19 +252,38 @@ object PanelFormat {
     fun speed(x: Double): String =
         if (x <= 0.0 || x.isNaN() || x.isInfinite()) "-" else String.format(java.util.Locale.ROOT, "%.1fx", x)
 
-    /** `剩余约 1 分 20 秒` / `剩余约 45 秒`；未知给 `剩余时间未知`。 */
-    fun eta(sec: Int): String = when {
-        sec <= 0 -> "剩余时间未知"
-        sec < 60 -> "剩余约 $sec 秒"
-        sec < 3600 -> {
-            val m = sec / 60
-            val s = sec % 60
-            if (s == 0) "剩余约 $m 分" else "剩余约 $m 分 $s 秒"
+    /**
+     * 剩余时间文案。
+     *
+     * 为什么约整：抓轨速度本身会抖（缓存、重读、轨道长度差异），
+     * 把 1:12 显示成 1:07→1:09→1:05 只会让人觉得「数字在乱跳」。
+     * 粗档位（<1 分按 5 秒、<10 分按 15 秒、更久按 1 分）配合
+     * [com.saltrip.rip.rip.EtaEstimator] 的窗口估算，数字基本只会稳步下降。
+     *
+     * @param sec `-1` = 还在估算（样本不足）；`0` = 收尾阶段
+     */
+    fun eta(sec: Int): String {
+        if (sec < 0) return "正在估算…"
+        if (sec == 0) return "即将完成"
+        val step = when {
+            sec < 60 -> 5
+            sec < 600 -> 15
+            sec < 3600 -> 60
+            else -> 300
         }
-        else -> {
-            val h = sec / 3600
-            val m = (sec % 3600) / 60
-            "剩余约 $h 小时 $m 分"
+        val rounded = ((sec + step - 1) / step) * step
+        return when {
+            rounded < 60 -> "剩余约 $rounded 秒"
+            rounded < 3600 -> {
+                val m = rounded / 60
+                val s = rounded % 60
+                if (s == 0) "剩余约 $m 分" else "剩余约 $m 分 $s 秒"
+            }
+            else -> {
+                val h = rounded / 3600
+                val m = (rounded % 3600) / 60
+                if (m == 0) "剩余约 $h 小时" else "剩余约 $h 小时 $m 分"
+            }
         }
     }
 

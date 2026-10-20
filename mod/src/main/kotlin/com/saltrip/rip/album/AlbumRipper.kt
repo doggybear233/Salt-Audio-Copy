@@ -176,7 +176,9 @@ object AlbumRipper {
             error(it)
         }
         var doneBase = 0
+        var bytesBase = 0L
         var cancelled = false
+        val eta = com.saltrip.rip.rip.EtaEstimator()
 
         // Test & Copy：先用「只读不写」的测试通道跑一遍，拿到每轨 CRC 作为对照
         val testCrc = HashMap<Int, Long>()
@@ -255,6 +257,8 @@ object AlbumRipper {
             if (target == null) {
                 notes += "第 ${entry.track} 轨目标文件已存在，按设置跳过"
                 Diag.log("skip existing track=${entry.track} base=$baseName")
+                // 跳过的轨也计入「已完成」，否则进度条永远到不了 100%、剩余时间越算越离谱
+                doneBase += sectors
                 continue
             }
             val rel = target.fileName.toString()
@@ -263,7 +267,16 @@ object AlbumRipper {
             onStage("抓取第 ${entry.track} 轨：$title")
             val r = RipEngine.ripTrack(
                 scan, i, outFile, cancel, { p ->
-                    onProgress(RipProgress(doneBase + p.sectorsDone, totalAll, p.bytes, p.elapsedMs, p.errors))
+                    // 关键：elapsed 必须是**整盘累计**时间、done 是**整盘累计**扇区，
+                    // 否则「本轨已用 / 全盘已完成」两个量纲混用，剩余时间会乱跳甚至变大
+                    val nowMs = (System.nanoTime() - startedAt) / 1_000_000
+                    val done = doneBase + p.sectorsDone
+                    onProgress(
+                        RipProgress(
+                            done, totalAll, bytesBase + p.bytes, nowMs, p.errors,
+                            eta.sample(done, totalAll, nowMs)
+                        )
+                    )
                 },
                 verify = settings.secureMode,
                 maxRetries = settings.maxRetries,
@@ -426,6 +439,7 @@ object AlbumRipper {
             )
             if (r.cancelled) { cancelled = true; break }
             doneBase += sectors
+            bytesBase += r.bytes
         }
 
         // 整盘镜像：把逐轨 WAV 拼成一个文件。
