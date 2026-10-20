@@ -266,6 +266,13 @@
         },
         {
           "type": "switch",
+          "key": "autoLookupOnInsert",
+          "title": "插入或换盘时自动查元数据",
+          "summary": "放盘后自动读 CD-TEXT 并联网查 MusicBrainz / gnudb，面板直接列出候选；关掉则要手动点「查元数据」。",
+          "default_value": true
+        },
+        {
+          "type": "switch",
           "key": "useCdText",
           "title": "读取 CD-TEXT",
           "summary": "优先用盘片自带的曲名/艺术家（压过网络数据）。绝大多数压制 CD 没有 CD-TEXT，读不到会静默跳过。",

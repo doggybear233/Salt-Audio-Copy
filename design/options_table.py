@@ -53,12 +53,6 @@ BUTTON_EFFECT = {
 }
 
 out = []
-out.append("# 盐专辑（Salt Audio Copy）配置界面选项统计表 v2（0.30.0）")
-out.append("")
-out.append("> 0.30.1 起配置页为 **8 组 / 49 个设置键 / 14 个按钮**；面板内是同一份数据的 8 页二级导航。")
-out.append("> 本表由 `design/options_table.py` 从 `mod/src/main/resources/preference_config.json` 生成，与代码同步。")
-out.append("> 末列「改法（你填）」留空；要改就在那格写（行首加 `#` 表示删掉这一项）。")
-out.append("")
 
 n = 0
 btn = 0
@@ -132,5 +126,15 @@ out.append("- 新增两个原本隐藏的键：`multiDiscFolder`（多碟子目�
 out.append("- 新增按钮「打开日志文件夹」；`chooseOutputRoot`/`chooseFlacExe` 并入各自的行。")
 out.append("- 50 键 = 原 48 + 新增 2；14 按钮 = 原 15 - 移到面板的 2（ripAlbum/pauseRip）+ 新增 1（openLogFolder）。")
 out.append("")
+# 头部放最后补：键数要等统计完才知道（0.31.0 加了 autoLookupOnInsert）。
+out[0:0] = [
+    "# 盐专辑（Salt Audio Copy）配置界面选项统计表 v2（0.31.0）",
+    "",
+    "> 0.31.0 起配置页为 **%d 组 / %d 个设置键 / %d 个按钮**；面板内是同一份数据的 8 页二级导航。"
+    % (len(cfg["configs"]), n, btn),
+    "> 本表由 `design/options_table.py` 从 `mod/src/main/resources/preference_config.json` 生成，与代码同步。",
+    "> 末列「改法（你填）」留空；要改就在那格写（行首加 `#` 表示删掉这一项）。",
+    "",
+]
 io.open(out_path, "w", encoding="utf-8", newline="\n").write("\n".join(out) + "\n")
 print("rows=%d buttons=%d groups=%d" % (n, btn, len(cfg["configs"])))

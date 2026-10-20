@@ -97,7 +97,7 @@ class PreferenceConfigTest {
     fun settingsKeysAreKnown() {
         val known = setOf(
             "trackSelection", "overwritePolicy", "guardDisc", "driveLetter", "driveSpeed", "readCommand", "ejectAfterRip", "outputRoot", "folderTemplate", "fileTemplate", "coverFileName", "multiDiscFolder",
-            "secureMode", "maxRetries", "retryDelayMs", "fetchMetadata", "coverSize",
+            "secureMode", "maxRetries", "retryDelayMs", "fetchMetadata", "autoLookupOnInsert", "coverSize",
             "writeCue", "writeLog", "writeAlbumJson", "reuseAlbumJson", "format", "offsetSamples", "annotateCueCrc", "useC2", "defeatCache", "testAndCopy",
             "detectGaps", "resume", "errorRecovery", "gapMode", "gapMethod",
             "flacExe", "encoderExe", "encoderArgs", "encoderExt", "flacLevel", "keepWav",

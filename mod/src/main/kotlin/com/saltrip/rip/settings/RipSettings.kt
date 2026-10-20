@@ -31,6 +31,13 @@ data class RipSettings(
     val retryDelayMs: Int = 120,
     /** 是否抓轨后联网获取元数据。 */
     val fetchMetadata: Boolean = true,
+    /**
+     * 插入新盘 / 换盘时自动查元数据。
+     *
+     * 默认开：换盘后用户不该再点一次「查元数据」。关掉的话插入盘只读 TOC，
+     * 面板上的专辑名要自己点按钮才出现。
+     */
+    val autoLookupOnInsert: Boolean = true,
     /** 封面长边像素（Cover Art Archive 的 front-<size>）。 */
     /** 0 = 原图（用户默认要求）；>0 = Cover Art Archive 的 front-<size> 缩略图。 */
     val coverSize: Int = 0,
@@ -140,6 +147,7 @@ object SettingsStore {
     private const val KEY_MAX_RETRIES = "maxRetries"
     private const val KEY_RETRY_DELAY = "retryDelayMs"
     private const val KEY_FETCH_META = "fetchMetadata"
+    private const val KEY_AUTO_LOOKUP = "autoLookupOnInsert"
     private const val KEY_COVER_SIZE = "coverSize"
     private const val KEY_WRITE_CUE = "writeCue"
     private const val KEY_WRITE_LOG = "writeLog"
@@ -218,6 +226,7 @@ object SettingsStore {
             maxRetries = readInt(h, KEY_MAX_RETRIES, d.maxRetries),
             retryDelayMs = readInt(h, KEY_RETRY_DELAY, d.retryDelayMs),
             fetchMetadata = readBool(h, KEY_FETCH_META, d.fetchMetadata),
+            autoLookupOnInsert = readBool(h, KEY_AUTO_LOOKUP, d.autoLookupOnInsert),
             coverSize = readInt(h, KEY_COVER_SIZE, d.coverSize),
             writeCue = readBool(h, KEY_WRITE_CUE, d.writeCue),
             writeLog = readBool(h, KEY_WRITE_LOG, d.writeLog),
@@ -274,6 +283,7 @@ object SettingsStore {
             h.set(KEY_MAX_RETRIES, s.maxRetries.toString())
             h.set(KEY_RETRY_DELAY, s.retryDelayMs.toString())
             h.set(KEY_FETCH_META, s.fetchMetadata)
+            h.set(KEY_AUTO_LOOKUP, s.autoLookupOnInsert)
             h.set(KEY_COVER_SIZE, s.coverSize.toString())
             h.set(KEY_WRITE_CUE, s.writeCue)
             h.set(KEY_WRITE_LOG, s.writeLog)

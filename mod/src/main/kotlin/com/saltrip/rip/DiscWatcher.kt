@@ -95,7 +95,8 @@ object DiscWatcher {
                     lastHadDisc = true
                     Diag.log("DiscWatcher: disc $fp")
                     // 换盘后自动查元数据：用户不该再点一次按钮。
-                    runCatching { ConfigActions.refreshMetadataAuto() }
+                    // 传入这张盘的指纹，查询回来时若已换盘就丢弃（见 autoResultIsFresh）。
+                    runCatching { ConfigActions.refreshMetadataAuto(fp) }
                 }
                 true
             },

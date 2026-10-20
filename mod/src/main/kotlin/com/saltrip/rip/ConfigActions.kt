@@ -186,7 +186,12 @@ object ConfigActions {
                 // 扫描到音频 CD 就顺手查元数据：用户不必再点一次（反馈 3）。
                 val disc = ScanResultHolder.get()
                 if (disc != null && disc.toc.isAudioCd) {
-                    runCatching { refreshMetadataAuto() }
+                    runCatching {
+                        refreshMetadataAuto(
+                            com.saltrip.rip.scsi.DiscFingerprint.of(disc.toc),
+                            manual = true
+                        )
+                    }
                 }
             } catch (e: Throwable) {
                 Diag.log("scanDrives failed", e)
@@ -492,17 +497,57 @@ object ConfigActions {
         lookupCandidates(interactive = true)
     }
 
-    /** 换盘后自动查询：候选列表照常更新，但不再弹大段 toast（否则每次换盘都刷屏）。 */
-    fun refreshMetadataAuto() = lookupCandidates(interactive = false)
+    /**
+     * 换盘后自动查询：候选列表照常更新，但不再弹大段 toast（否则每次换盘都刷屏）。
+     *
+     * [manual] = true 表示这是用户主动点「扫描」触发的，不算「自动」，
+     * 所以不受「插入或换盘时自动查元数据」开关限制。
+     */
+    fun refreshMetadataAuto(expectedFingerprint: String? = null, manual: Boolean = false) =
+        lookupCandidates(interactive = false, expectedFingerprint = expectedFingerprint, manual = manual)
 
-    private fun lookupCandidates(interactive: Boolean) {
-        val scan = freshScan() ?: return
-        if (interactive) toast("正在查询 MusicBrainz / gnudb…", ToastType.Success)
+    /**
+     * 自动查询拿到的结果是否还配得上当前这张盘。
+     *
+     * 查询要走网络，慢的时候用户已经换盘了；这时候把 A 盘的专辑名写到 B 盘的面板上，
+     * 比不显示更糟。`requested == null` 表示调用方没给基准（手动点按钮），一律接受。
+     */
+    internal fun autoResultIsFresh(requested: String?, actual: String?): Boolean =
+        requested == null || requested == actual
+
+    /** 同一时刻只允许一个查询在跑，避免连换两张盘时两次结果互相覆盖。 */
+    private val lookupBusy = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    private fun lookupCandidates(
+        interactive: Boolean,
+        expectedFingerprint: String? = null,
+        manual: Boolean = false
+    ) {
+        val settings = SettingsStore.load()
+        if (!settings.fetchMetadata) {
+            if (interactive) toast("「查询元数据」已在设置里关闭", ToastType.Warning)
+            return
+        }
+        if (!interactive && !manual && !settings.autoLookupOnInsert) {
+            Diag.log("auto lookup skipped: 设置里关掉了「插入或换盘时自动查元数据」")
+            return
+        }
+        if (!lookupBusy.compareAndSet(false, true)) {
+            Diag.log("lookup skipped: 上一次查询还没结束")
+            return
+        }
+        if (!interactive) {
+            PanelState.set(
+                "正在查询元数据…",
+                "读 CD-TEXT，再连 MusicBrainz / gnudb；换盘会自动重来"
+            )
+        }
         exec.execute {
             try {
-                val settings = SettingsStore.load()
-                if (!settings.fetchMetadata) {
-                    if (interactive) toast("「查询元数据」已在设置里关闭", ToastType.Warning)
+                val scan = freshScan() ?: return@execute
+                val fp = com.saltrip.rip.scsi.DiscFingerprint.of(scan.toc)
+                if (!autoResultIsFresh(expectedFingerprint, fp)) {
+                    Diag.log("stale lookup dropped: 想要 $expectedFingerprint，现在是 $fp")
                     return@execute
                 }
                 val cdtext = runCatching {
@@ -551,6 +596,8 @@ object ConfigActions {
             } catch (e: Throwable) {
                 Diag.log("lookupMetadata failed", e)
                 if (interactive) toast("查询失败：" + com.saltrip.rip.scsi.ScsiMessages.human(e), ToastType.Error)
+            } finally {
+                lookupBusy.set(false)
             }
         }
     }

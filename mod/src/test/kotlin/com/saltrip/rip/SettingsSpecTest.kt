@@ -112,7 +112,7 @@ class SettingsSpecTest {
                 }
             }
         }
-        assertEquals(49, SettingsSpec.settingKeys.size, "49 个设置键：50 减去被删掉的「显示诊断工具」")
+        assertEquals(50, SettingsSpec.settingKeys.size, "50 个设置键：51 减去被删掉的「显示诊断工具」")
         assertEquals(
             SettingsSpec.settingKeys.size,
             SettingsSpec.settingKeys.toSet().size,

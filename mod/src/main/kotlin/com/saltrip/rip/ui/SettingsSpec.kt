@@ -144,6 +144,7 @@ object SettingsSpec {
         SettingPage(
             "p6", "元数据", listOf(
                 sw("fetchMetadata"),
+                sw("autoLookupOnInsert").copy(visibleWhen = { it.fetchMetadata }),
                 sw("useCdText"),
                 sw("preferTrackCount").copy(visibleWhen = { it.fetchMetadata }),
                 txt("releaseIndex", "0＝第一个候选").copy(visibleWhen = { it.fetchMetadata }),
@@ -246,6 +247,7 @@ object SettingsAccess {
         "defeatCache" -> s.defeatCache
         "guardDisc" -> s.guardDisc
         "fetchMetadata" -> s.fetchMetadata
+        "autoLookupOnInsert" -> s.autoLookupOnInsert
         "useCdText" -> s.useCdText
         "preferTrackCount" -> s.preferTrackCount
         "reuseAlbumJson" -> s.reuseAlbumJson
@@ -273,6 +275,7 @@ object SettingsAccess {
         "defeatCache" -> s.copy(defeatCache = v)
         "guardDisc" -> s.copy(guardDisc = v)
         "fetchMetadata" -> s.copy(fetchMetadata = v)
+        "autoLookupOnInsert" -> s.copy(autoLookupOnInsert = v)
         "useCdText" -> s.copy(useCdText = v)
         "preferTrackCount" -> s.copy(preferTrackCount = v)
         "reuseAlbumJson" -> s.copy(reuseAlbumJson = v)
