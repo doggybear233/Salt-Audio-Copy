@@ -137,6 +137,6 @@ class OutputCheckTest {
     fun emptyDirectorySaysSo() {
         val r = OutputCheck.check(dir)
         assertTrue(r.ok)
-        assertTrue(r.summary().contains("没有 WAV/CUE"))
+        assertTrue(r.summary().contains("没有音频"))
     }
 }

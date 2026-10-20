@@ -58,6 +58,28 @@ object Overwrite {
     }
 
     /**
+     * 给「一组必须同名的附属文件」选一个统一后缀。
+     *
+     * 以前只有音频走 [resolve]，CUE/日志/封面/album.json 全是原地覆盖：
+     * 用户选了「加 (2) 另存」却拿到 `01 x (2).wav` + 被覆盖的 `Album.cue`，两组文件对不上。
+     *
+     * @return `""`（原名可用）或 `" (2)"` 这类后缀；`null` = 按 skip 策略一个都不该写。
+     */
+    fun pickSuffix(dir: Path, base: String, exts: List<String>, policy: String): String? {
+        when (policy.lowercase()) {
+            OVERWRITE -> return ""
+            SKIP -> return if (exts.any { Files.exists(dir.resolve(base + it)) }) null else ""
+        }
+        var n = 1
+        while (n < 1000) {
+            val suffix = if (n == 1) "" else " ($n)"
+            if (exts.none { Files.exists(dir.resolve(base + suffix + it)) }) return suffix
+            n++
+        }
+        return null
+    }
+
+    /**
      * 一组同名文件（WAV/FLAC + CUE + 日志 + 封面）一起找位置：
      * 任何一个已存在就整组顺延，避免 CUE 里 FILE 指到的文件其实是上一张盘的残留。
      */

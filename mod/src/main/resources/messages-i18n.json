@@ -1444,6 +1444,18 @@
     "草稿还在：把原来那张盘放回来，再点一次保存": [
       "Your draft is kept: put the original disc back and save again.",
       "下書きは残っています。元のディスクを戻してもう一度保存してください。"
+    ],
+    "目录里没有音频/CUE：%s": [
+      "No audio or CUE in this folder: %s",
+      "このフォルダに音声もCUEもありません：%s"
+    ],
+    "检查通过：%s 个音频，%s 个 CUE": [
+      "Check passed: %s audio file(s), %s CUE file(s)",
+      "チェック合格：音声 %s 件、CUE %s 件"
+    ],
+    "发现 %s 个问题（共 %s 个音频，%s 个 CUE）": [
+      "Found %s problem(s) (%s audio file(s), %s CUE file(s))",
+      "%s 件の問題（音声 %s 件、CUE %s 件）"
     ]
   }
 }

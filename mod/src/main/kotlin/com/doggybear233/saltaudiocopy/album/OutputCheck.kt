@@ -20,27 +20,33 @@ object OutputCheck {
         val dir: Path,
         val wavCount: Int,
         val cueCount: Int,
+        val flacCount: Int = 0,
         val problems: List<Problem>
     ) {
         val ok: Boolean get() = problems.isEmpty()
+        private val audioCount: Int get() = wavCount + flacCount
+
         fun summary(): String = when {
-            wavCount == 0 && cueCount == 0 -> Strings.fmt("目录里没有 WAV/CUE：%s", dir)
-            ok -> Strings.fmt("检查通过：%s 个 WAV，%s 个 CUE", wavCount, cueCount)
+            audioCount == 0 && cueCount == 0 -> Strings.fmt("目录里没有音频/CUE：%s", dir)
+            ok -> Strings.fmt("检查通过：%s 个音频，%s 个 CUE", audioCount, cueCount)
             else -> Strings.fmt(
-                "发现 %s 个问题（共 %s 个 WAV，%s 个 CUE）",
-                problems.size, wavCount, cueCount
+                "发现 %s 个问题（共 %s 个音频，%s 个 CUE）",
+                problems.size, audioCount, cueCount
             )
         }
     }
 
     fun check(dir: Path): Report {
-        if (!Files.isDirectory(dir)) return Report(dir, 0, 0, listOf(Problem("", Strings.fmt("目录不存在：%s", dir))))
+        if (!Files.isDirectory(dir)) {
+            return Report(dir, 0, 0, 0, listOf(Problem("", Strings.fmt("目录不存在：%s", dir))))
+        }
         val files = runCatching {
             Files.list(dir).use { s -> s.filter { Files.isRegularFile(it) }.toList() }
         }.getOrDefault(emptyList())
 
         val problems = ArrayList<Problem>()
         var wavCount = 0
+        var flacCount = 0
         var cueCount = 0
 
         for (f in files) {
@@ -70,21 +76,32 @@ object OutputCheck {
                     }
                 }
 
+                name.endsWith(".flac", true) -> {
+                    // FLAC 模式没有 WAV：只统计体积，音频完整性由编码器退出码与 CRC 保证
+                    flacCount++
+                    if (Files.size(f) < 1024) problems += Problem(name, "文件太小，像是编码中断")
+                }
+
                 name.endsWith(".cue", true) -> {
                     cueCount++
                     problems += checkCue(f, dir)
                 }
             }
         }
-        return Report(dir, wavCount, cueCount, problems)
+        return Report(dir, wavCount, cueCount, flacCount, problems)
     }
 
-    /** CUE 里每个 `FILE "x.wav" WAVE` 都要能落到磁盘上。 */
+    /**
+     * CUE 里每个 `FILE "x.wav" WAVE` / `FILE "x.flac" FLAC` 都要能落到磁盘上。
+     *
+     * 只认 `WAVE` 会把 FLAC 模式的 CUE 判成「没有任何 FILE 行」——用户于是看到
+     * 一个假的「检查失败」，而文件其实完全正常。
+     */
     private fun checkCue(cue: Path, dir: Path): List<Problem> {
         val text = runCatching { Files.readString(cue, StandardCharsets.UTF_8) }.getOrNull()
             ?: return listOf(Problem(cue.fileName.toString(), "无法读取（不是 UTF-8？）"))
         val out = ArrayList<Problem>()
-        val re = Regex("""^\s*FILE\s+"(.+?)"\s+WAVE""", RegexOption.IGNORE_CASE)
+        val re = Regex("""^\s*FILE\s+"(.+?)"\s+(WAVE|FLAC|MP3|BINARY)""", RegexOption.IGNORE_CASE)
         var fileLines = 0
         for (line in text.lineSequence()) {
             val m = re.find(line) ?: continue

@@ -529,6 +529,13 @@ object AlbumRipper {
             bytesBase += r.bytes
         }
 
+        // CUE / 日志 / 镜像都与音频同名：共用同一个后缀，不要让 CUE 去指上一张盘的文件。
+        // null = 覆盖策略为 skip 且同名产物已存在 → 这一组附属文件一个都不写。
+        val baseName = TemplateEngine.sanitizeSegment("$albumArtist - $albumTitle", 120)
+        val artifactSuffix: String? = Overwrite.pickSuffix(
+            dir, baseName, listOf(".cue", ".log", ".wav", ".flac"), settings.overwritePolicy
+        )
+
         // 整盘镜像：把逐轨 WAV 拼成一个文件。
         // 逐轨抓取（secure 双读 / C2 / gap / 续抓）的能力全部保留，拼接只做字节搬运。
         var imageRel: String? = null
@@ -543,8 +550,8 @@ object AlbumRipper {
         if (imageAllowed && !cancelled && results.isNotEmpty() && results.size == selected.size) {
             onStage(Strings.message("生成整盘镜像…"))
             val imgBase = TemplateEngine.sanitizeSegment("$albumArtist - $albumTitle", 120)
-            val imgTarget = Overwrite.resolve(dir, imgBase, ".wav", settings.overwritePolicy)
-            if (imgTarget == null) {
+            val imgTarget = dir.resolve("$imgBase${artifactSuffix.orEmpty()}.wav")
+            if (artifactSuffix == null) {
                 notes += Strings.message("整盘镜像目标已存在，按设置跳过拼接（逐轨文件保留）")
             } else {
                 runCatching {
@@ -591,7 +598,10 @@ object AlbumRipper {
                 mime.contains("gif") -> ".gif"
                 else -> ".jpg"
             }
-            val p = dir.resolve(TemplateEngine.sanitizeSegment(settings.coverFileName) + ext)
+            // 封面也遵守覆盖策略：以前同名就原地覆盖，用户选「另存」却丢了上一张封面。
+            val coverBase = TemplateEngine.sanitizeSegment(settings.coverFileName)
+            val coverSuffix = Overwrite.pickSuffix(dir, coverBase, listOf(ext), settings.overwritePolicy) ?: ""
+            val p = dir.resolve(coverBase + coverSuffix + ext)
             runCatching { Files.write(p, cover) }
                 .onSuccess { coverFile = p; Diag.log("cover written: $p (${cover.size} B)") }
                 .onFailure { Diag.log("cover write failed", it); warn(Strings.fmt("封面写入失败: %s", it.message)) }
@@ -614,10 +624,9 @@ object AlbumRipper {
             }
         }
 
-        val baseName = TemplateEngine.sanitizeSegment("$albumArtist - $albumTitle", 120)
         var cueFile: Path? = null
-        if (settings.writeCue && results.isNotEmpty() && !cancelled) {
-            val p = dir.resolve("$baseName.cue")
+        if (settings.writeCue && results.isNotEmpty() && !cancelled && artifactSuffix != null) {
+            val p = dir.resolve("$baseName$artifactSuffix.cue")
             runCatching {
                 val text = if (imageRel != null) {
                     // 起点必须取「实际拼进去的第一轨」：只抓部分音轨时 track 1 可能不在里面，
@@ -641,8 +650,8 @@ object AlbumRipper {
 
         var logFile: Path? = null
         val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
-        if (settings.writeLog && results.isNotEmpty()) {
-            val p = dir.resolve("$baseName.log")
+        if (settings.writeLog && results.isNotEmpty() && artifactSuffix != null) {
+            val p = dir.resolve("$baseName$artifactSuffix.log")
             runCatching {
                 val text = LogWriter.build(
                     APP_VERSION, "${scan.inquiry.vendor} ${scan.inquiry.product} ${scan.inquiry.revision}".trim(),
@@ -668,6 +677,8 @@ object AlbumRipper {
         }
 
         if (settings.writeAlbumJson && results.isNotEmpty()) {
+            // album.json 是「这个目录这张盘」的固定副本名（MetaOverride 按此名查找），
+            // 不能加后缀，否则下次读不到刚存的手填信息。
             val p = dir.resolve("album.json")
             runCatching {
                 // 写盘用的元数据要跟目录/文件名一致：抓不到元数据时落占位名，
