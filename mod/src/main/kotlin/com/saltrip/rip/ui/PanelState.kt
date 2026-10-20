@@ -47,6 +47,30 @@ object PanelState {
     /** 面板内嵌设置区是否展开。 */
     var settingsOpen: Boolean by mutableStateOf(false)
 
+    /** 手动填写元数据的面板是否展开。 */
+    var manualOpen: Boolean by mutableStateOf(false)
+
+    /** 手动元数据草稿（点「手动填写」时建，保存前只活在这里）。 */
+    var manual: ManualDraft by mutableStateOf(ManualDraft())
+
+    /**
+     * 这一张盘是否已经查过一轮元数据。
+     *
+     * 「刷新元数据」按钮据此决定要不要变成「手动填写元数据…」：没查过就变，
+     * 用户会以为网络已经失败（见 [ManualEntry.buttonIsManual]）。
+     */
+    var lookupTried: Boolean by mutableStateOf(false)
+
+    fun openManual(d: ManualDraft) {
+        manual = d
+        settingsOpen = false
+        manualOpen = true
+    }
+
+    fun closeManual() {
+        manualOpen = false
+    }
+
     /** 坞当前是否在屏幕上（由 [DockPanelBody] 用 DisposableEffect 维护）。 */
     var visible: Boolean by mutableStateOf(false)
 

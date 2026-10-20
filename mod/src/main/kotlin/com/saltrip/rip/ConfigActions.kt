@@ -11,9 +11,12 @@ import com.saltrip.rip.scsi.CdDevice
 import com.saltrip.rip.scsi.Win32
 import com.saltrip.rip.settings.RipSettings
 import com.saltrip.rip.settings.SettingsStore
+import com.saltrip.rip.ui.ManualDraft
+import com.saltrip.rip.ui.Notify
 import com.saltrip.rip.ui.PanelFormat
 import com.saltrip.rip.ui.PanelState
 import com.saltrip.rip.ui.SettingsSpec
+import com.saltrip.rip.ui.Strings
 import com.xuncorp.spw.workshop.api.WorkshopApi
 import com.xuncorp.spw.workshop.api.WorkshopApi.Ui.ToastType
 import java.nio.file.Path
@@ -573,10 +576,12 @@ object ConfigActions {
                     }
                 )
 
+                // 查过一轮了：没有候选时面板按钮改成「手动填写元数据…」。
+                PanelState.lookupTried = true
                 if (result.candidates.isEmpty()) {
                     PanelState.set(
                         "没查到专辑信息",
-                        "可以用「导出元数据模板」手工填，或换一张盘再查"
+                        "点「手动填写元数据…」自己写歌手/专辑名/歌名，或换一张盘再查"
                     )
                     if (interactive) toast("未找到元数据\n" + result.notes.takeLast(2).joinToString("\n"), ToastType.Warning)
                 } else {
@@ -658,6 +663,151 @@ object ConfigActions {
                 toast("获取失败：" + com.saltrip.rip.scsi.ScsiMessages.human(e), ToastType.Error)
             }
         }
+    }
+
+    /* ------------------------------------------------------------------ 手动元数据 */
+
+    /**
+     * 打开「手动填写元数据」：网络查不到时的兜底。
+     *
+     * 预填顺序：已缓存的 `album.json` → 面板上已知的艺术家/专辑 → `Track NN` 占位。
+     * 读盘在后台线程做（`CreateFileW` 可能阻塞十几秒）。
+     */
+    @JvmStatic
+    fun openManualMeta() {
+        PanelState.manualOpen = true
+        PanelState.settingsOpen = false
+        PanelState.set("正在准备手动填写…", "读取曲目数与本机缓存")
+        exec.execute {
+            try {
+                val scan = freshScan() ?: return@execute
+                if (!scan.toc.isAudioCd) {
+                    PanelState.manualOpen = false
+                    toast("当前盘不是音频 CD（数据盘不能抓轨）", ToastType.Warning)
+                    return@execute
+                }
+                val settings = SettingsStore.load()
+                val discId = runCatching { DiscId.musicBrainz(scan.toc) }.getOrDefault("")
+                val cached = readCachedAlbum(settings.effectiveRoot, discId)
+                PanelState.openManual(
+                    ManualDraft.forDisc(
+                        trackCount = scan.toc.tracks.size,
+                        artist = PanelState.disc?.artist,
+                        album = PanelState.disc?.album,
+                        cached = cached
+                    )
+                )
+                PanelState.set("手动填写元数据", "写歌手/专辑名/歌名，保存后抓轨按这些名字命名并写标签")
+            } catch (e: Throwable) {
+                Diag.log("openManualMeta failed", e)
+                PanelState.manualOpen = false
+                toast("打开手动填写失败：" + com.saltrip.rip.scsi.ScsiMessages.human(e), ToastType.Error)
+            }
+        }
+    }
+
+    /**
+     * 保存手填的元数据。
+     *
+     * 写两份同样的 JSON：
+     * - `<输出根>/.saltaudiocopy/album-<DiscID>.json`：抓轨时 `AlbumRipper` 直接沿用；
+     * - `<输出根>/<DiscID>.album.json`：`MetaOverride` 认的位置，「刷新元数据」/离线查询也能读到。
+     */
+    @JvmStatic
+    fun saveManualMeta() {
+        val draft = PanelState.manual
+        if (!draft.hasAnything) {
+            Notify.warn("至少写一个专辑名或歌名再保存")
+            return
+        }
+        exec.execute {
+            try {
+                val scan = freshScan() ?: return@execute
+                val settings = SettingsStore.load()
+                val toc = scan.toc
+                val discId = runCatching { DiscId.musicBrainz(toc) }.getOrDefault("")
+                val album = draft.toAlbumMeta(discId)
+                val json = AlbumJsonWriter.build(album, toc)
+                val root = settings.effectiveRoot
+                val cachePath = manualCachePath(root, discId, toc.leadOutLba)
+                java.nio.file.Files.createDirectories(cachePath.parent)
+                java.nio.file.Files.writeString(cachePath, json, Charsets.UTF_8)
+                if (discId.isNotBlank()) {
+                    java.nio.file.Files.writeString(root.resolve("$discId.album.json"), json, Charsets.UTF_8)
+                }
+                Diag.log("manual album.json saved: $cachePath")
+
+                PanelState.showDisc(
+                    PanelState.DiscInfo(
+                        tracks = album.tracks.size,
+                        artist = album.albumArtist,
+                        album = album.albumTitle,
+                        lengthText = PanelFormat.duration(
+                            (toc.leadOutLba - (toc.tracks.firstOrNull()?.lba ?: 0)).coerceAtLeast(0) * 1000L / 75L
+                        ),
+                        discId = discId,
+                        audio = toc.isAudioCd
+                    )
+                )
+                PanelState.showCandidates(emptyList())
+                PanelState.lookupTried = true
+                PanelState.closeManual()
+                PanelState.set("已保存手动元数据", "${album.albumArtist} — ${album.albumTitle}（${album.tracks.size} 轨）")
+                Notify.info("已保存手动元数据，抓轨会用这些名字")
+            } catch (e: Throwable) {
+                Diag.log("saveManualMeta failed", e)
+                toast("保存失败：" + com.saltrip.rip.scsi.ScsiMessages.human(e), ToastType.Error)
+            }
+        }
+    }
+
+    /** 把盘上的 CD-TEXT 抄进手填草稿（有的盘只有 CD-TEXT，网络没收录）。 */
+    @JvmStatic
+    fun fillManualFromCdText() {
+        exec.execute {
+            try {
+                val scan = freshScan() ?: return@execute
+                val info = runCatching {
+                    com.saltrip.rip.scsi.CdDevice(scan.path).use { it.readCdText() }
+                }.getOrNull()
+                if (info == null || !info.hasText) {
+                    Notify.warn(Strings.key("manual_no_cdtext"))
+                    return@execute
+                }
+                var d = PanelState.manual
+                val albumArtist = ManualDraft.displayable(info.albumPerformer)
+                val albumTitle = ManualDraft.displayable(info.albumTitle)
+                d = d.copy(
+                    albumArtist = albumArtist.ifBlank { d.albumArtist },
+                    albumTitle = albumTitle.ifBlank { d.albumTitle }
+                )
+                for (t in d.tracks) {
+                    d = d.withTrack(
+                        t.number,
+                        title = ManualDraft.displayable(info.titles[t.number]).ifBlank { null },
+                        artist = ManualDraft.displayable(info.performers[t.number]).ifBlank { null }
+                    )
+                }
+                PanelState.manual = d
+                Notify.info("已用 CD-TEXT 填入可用的字段")
+            } catch (e: Throwable) {
+                Diag.log("fillManualFromCdText failed", e)
+                toast("读 CD-TEXT 失败：" + com.saltrip.rip.scsi.ScsiMessages.human(e), ToastType.Error)
+            }
+        }
+    }
+
+    /** 抓轨实际读取的缓存路径；DiscID 缺失时按 lead-out 兜底，避免各写各的。 */
+    internal fun manualCachePath(root: java.nio.file.Path, discId: String, leadOutLba: Int): java.nio.file.Path =
+        com.saltrip.rip.album.DiscCache.path(root, discId.ifBlank { "disc-$leadOutLba" })
+
+    /** 读已有的 album.json 缓存（读不到就当没有，不报错）。 */
+    internal fun readCachedAlbum(root: java.nio.file.Path, discId: String): com.saltrip.rip.meta.AlbumMeta? {
+        if (discId.isBlank()) return null
+        val p = com.saltrip.rip.album.DiscCache.path(root, discId)
+        if (!java.nio.file.Files.isRegularFile(p)) return null
+        return com.saltrip.rip.meta.MetaOverride.load(p)
+            .also { if (it == null) Diag.log("readCachedAlbum: 解析失败或为空 $p") }
     }
 
     /** 抓取整张专辑：元数据 → 模板命名 → 逐轨双读校验 → 封面/CUE/日志。 */

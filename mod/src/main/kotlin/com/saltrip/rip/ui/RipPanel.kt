@@ -102,6 +102,7 @@ private fun PanelSurface() {
         ) {
             NoticeBar()
             when {
+                PanelState.manualOpen -> ManualMetaPanel()
                 PanelState.settingsOpen -> SettingsPanel()
                 PanelState.busy || PanelState.progress != null -> RunningBlock()
                 PanelState.disc == null -> IdleBlock()
@@ -229,13 +230,38 @@ private fun ReadyBlock() {
             Text(Strings.key("rip_album"), style = MaterialTheme.typography.labelLarge)
         }
         Spacer(Modifier.width(6.dp))
-        OutlinedButton(
-            onClick = { ConfigActions.lookupMetadata() },
-            enabled = gate == null,
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = cs.onSurface),
-            border = BorderStroke(1.dp, cs.outlineVariant)
-        ) {
-            Text(Strings.key("refresh_meta"), style = MaterialTheme.typography.labelLarge)
+        if (showManualButton()) {
+            // 查过一轮但一个候选都没有：这时「刷新」再点也是空，改成让用户自己写。
+            OutlinedButton(
+                onClick = { ConfigActions.openManualMeta() },
+                enabled = gate == null,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = cs.onSurface),
+                border = BorderStroke(1.dp, cs.outlineVariant)
+            ) {
+                Text(manualButtonLabel(), style = MaterialTheme.typography.labelLarge)
+            }
+        } else {
+            OutlinedButton(
+                onClick = { ConfigActions.lookupMetadata() },
+                enabled = gate == null,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = cs.onSurface),
+                border = BorderStroke(1.dp, cs.outlineVariant)
+            ) {
+                Text(Strings.key("refresh_meta"), style = MaterialTheme.typography.labelLarge)
+            }
+            // 有候选时按钮仍是「刷新」，但手填入口不能消失：候选不全时用户还是想自己改。
+            if (PanelState.candidates.isNotEmpty()) {
+                TextButton(
+                    onClick = { ConfigActions.openManualMeta() },
+                    enabled = gate == null
+                ) {
+                    Text(
+                        Strings.key("manual_meta"),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = cs.onSurfaceVariant
+                    )
+                }
+            }
         }
         Spacer(Modifier.width(2.dp))
         TextButton(onClick = { ConfigActions.openOutputFolder() }) {

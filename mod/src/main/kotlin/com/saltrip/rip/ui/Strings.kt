@@ -100,7 +100,21 @@ object Strings {
         "test_mode" to "测试模式（显示只测不写等测试动作）",
         "save" to "保存",
         "badge_audio" to "CD-DA",
-        "badge_data" to "数据盘"
+        "badge_data" to "数据盘",
+        "manual_meta" to "手动填写元数据…",
+        "manual_title" to "手动填写元数据",
+        "manual_hint" to "查不到时自己写：歌手、专辑名、每轨歌名都行。保存后抓轨按这些名字建目录、写标签。",
+        "manual_artist" to "专辑艺术家",
+        "manual_album" to "专辑名",
+        "manual_year" to "年份",
+        "manual_disc" to "碟号",
+        "manual_discs" to "总碟数",
+        "manual_tracks" to "曲目",
+        "manual_track_title" to "歌名",
+        "manual_track_artist" to "该轨艺术家（可空）",
+        "manual_fill_cdtext" to "用 CD-TEXT 填",
+        "manual_save" to "保存元数据",
+        "manual_no_cdtext" to "这张盘没有 CD-TEXT"
     )
 
     private val EN = mapOf(
@@ -139,7 +153,21 @@ object Strings {
         "test_mode" to "Test mode (show test-only actions)",
         "save" to "Save",
         "badge_audio" to "CD-DA",
-        "badge_data" to "Data disc"
+        "badge_data" to "Data disc",
+        "manual_meta" to "Enter metadata manually…",
+        "manual_title" to "Enter metadata manually",
+        "manual_hint" to "Nothing found online: type the artist, album and track titles yourself. Rip names folders and tags from these.",
+        "manual_artist" to "Album artist",
+        "manual_album" to "Album title",
+        "manual_year" to "Year",
+        "manual_disc" to "Disc",
+        "manual_discs" to "Total discs",
+        "manual_tracks" to "Tracks",
+        "manual_track_title" to "Title",
+        "manual_track_artist" to "Track artist (optional)",
+        "manual_fill_cdtext" to "Fill from CD-TEXT",
+        "manual_save" to "Save metadata",
+        "manual_no_cdtext" to "This disc has no CD-TEXT"
     )
 
     private val JA = mapOf(
@@ -178,6 +206,20 @@ object Strings {
         "test_mode" to "テストモード（テスト用の操作を表示）",
         "save" to "保存",
         "badge_audio" to "CD-DA",
-        "badge_data" to "データディスク"
+        "badge_data" to "データディスク",
+        "manual_meta" to "メタデータを手入力…",
+        "manual_title" to "メタデータを手入力",
+        "manual_hint" to "ネットで見つからない場合に、アーティスト・アルバム名・曲名を自分で入力します。保存するとこの名前でフォルダーとタグを作ります。",
+        "manual_artist" to "アルバムアーティスト",
+        "manual_album" to "アルバム名",
+        "manual_year" to "年",
+        "manual_disc" to "ディスク番号",
+        "manual_discs" to "総ディスク数",
+        "manual_tracks" to "曲",
+        "manual_track_title" to "曲名",
+        "manual_track_artist" to "この曲のアーティスト（任意）",
+        "manual_fill_cdtext" to "CD-TEXT から入力",
+        "manual_save" to "メタデータを保存",
+        "manual_no_cdtext" to "このディスクに CD-TEXT はありません"
     )
 }
