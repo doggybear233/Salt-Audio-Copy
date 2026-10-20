@@ -246,6 +246,14 @@ object PanelState {
         lastOutDir = s.outDir ?: lastOutDir
     }
 
+    /**
+     * 正在查询/读取元数据。
+     *
+     * 联网查元数据可能卡十几秒（镜像连不上），这段时间里如果没有可见状态，用户会以为点没反应；
+     * 所以面板要显示「元数据正在加载」并禁用会改盘/写盘的按钮，避免一边查一边抓。
+     */
+    var metaBusy: Boolean by mutableStateOf(false)
+
     /** 当前盘是否可以抓（必须是音频 CD）。 */
     val hasAudioDisc: Boolean get() = disc?.audio == true
 
@@ -279,6 +287,7 @@ object PanelState {
      * 也让「点了才报错」变成「点不了且说明原因」。
      */
     fun actionGate(): String? = when {
+        metaBusy -> Strings.message("元数据正在加载，等它读完（或换一张盘）")
         busy -> Strings.message("正在执行，等当前操作结束")
         disc == null -> Strings.message("先点「扫描」识别光盘")
         disc?.audio != true -> Strings.message("当前盘不是音频 CD（数据盘不可抓轨）")

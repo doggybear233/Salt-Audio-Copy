@@ -552,12 +552,12 @@ object ConfigActions {
             Diag.log("lookup skipped: 上一次查询还没结束")
             return
         }
-        if (!interactive) {
-            PanelState.set(
-                Strings.message("正在查询元数据…"),
-                Strings.message("读 CD-TEXT，再连 MusicBrainz / gnudb；换盘会自动重来")
-            )
-        }
+        // 不管是自动还是用户点的「刷新」，都要有可见状态：慢的时候用户得知道在等什么。
+        PanelState.metaBusy = true
+        PanelState.set(
+            Strings.message("元数据正在加载…"),
+            Strings.message("读 CD-TEXT，再连 MusicBrainz / gnudb；这期间抓轨按钮会先锁住")
+        )
         exec.execute {
             try {
                 val scan = freshScan() ?: return@execute
@@ -624,6 +624,7 @@ object ConfigActions {
                 if (interactive) toast(Strings.message("查询失败：") + com.saltrip.rip.scsi.ScsiMessages.human(e), ToastType.Error)
             } finally {
                 lookupBusy.set(false)
+                PanelState.metaBusy = false
             }
         }
     }

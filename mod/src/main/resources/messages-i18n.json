@@ -1268,6 +1268,18 @@
     "输出目录已改为：%s": [
       "Output folder is now: %s",
       "出力フォルダを変更しました：%s"
+    ],
+    "元数据正在加载…": [
+      "Loading metadata…",
+      "メタデータを読み込み中…"
+    ],
+    "元数据正在加载，等它读完（或换一张盘）": [
+      "Metadata is loading — wait for it to finish (or swap the disc)",
+      "メタデータを読み込み中です。終わるまで待つか、ディスクを入れ替えてください"
+    ],
+    "读 CD-TEXT，再连 MusicBrainz / gnudb；这期间抓轨按钮会先锁住": [
+      "Reading CD-TEXT, then MusicBrainz / gnudb. Rip buttons stay locked meanwhile.",
+      "CD-TEXT を読み、MusicBrainz / gnudb に問い合わせます。その間リッピングはロックされます。"
     ]
   }
 }

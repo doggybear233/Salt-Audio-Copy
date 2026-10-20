@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.HorizontalDivider
@@ -185,7 +186,11 @@ private fun IdleBlock() {
                 overflow = TextOverflow.Ellipsis
             )
         }
-        Button(onClick = { ConfigActions.scanDrives() }, colors = monoPrimary()) {
+        Button(
+            onClick = { ConfigActions.scanDrives() },
+            enabled = !PanelState.busy && !PanelState.metaBusy,
+            colors = monoPrimary()
+        ) {
             Text(Strings.key("scan"), style = MaterialTheme.typography.labelLarge)
         }
         Spacer(Modifier.width(8.dp))
@@ -220,6 +225,24 @@ private fun ReadyBlock() {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            // 查元数据可能卡十几秒（镜像连不上）：必须看得见在等什么，否则像点了没反应。
+            if (PanelState.metaBusy) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(12.dp),
+                        strokeWidth = 1.5.dp,
+                        color = cs.primary
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = Strings.message("元数据正在加载…"),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = cs.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
             // 抓完之后必须有一行明确的完成标记：以前这条状态只在 Running 区块里显示，
             // 一回到 Ready 状态就整行消失，用户看不到「已抓完」（真机反馈 C3）。
             if (PanelState.ripDone) {
