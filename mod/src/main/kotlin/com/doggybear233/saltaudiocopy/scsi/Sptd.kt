@@ -98,7 +98,10 @@ object Sptd {
             // DeviceIoControl 的 lpBytesReturned 对 SPTD 返回结构体大小（56），不是数据长度；
             // 真正的传输字节数由驱动回写到 DataTransferLength 字段。
             val transferred = pkt.get(JAVA_INT, OFF_TRANSFER)
-            return transferred.coerceIn(0, bufLen)
+            // 不静默截断：驱动说传了 3000 字节而缓冲只有 2000，说明 CDB 要的东西和我们
+            // 分配的不一致（典型是 CDB[9] 多要了 C2/子通道）。截短后照样解析只会得到垃圾 PCM。
+            checkTransfer(transferred, bufLen, cdb)
+            return transferred
         }
     }
 
@@ -106,9 +109,14 @@ object Sptd {
     private fun senseToException(cdb: ByteArray, status: Int, sense: ByteArray): ScsiException {
         val code = cdb[0].toInt() and 0xFF
         val response = (sense[0].toInt() and 0xFF) and 0x7F
-        val key = sense[2].toInt() and 0x0F
-        val asc = sense[12].toInt() and 0xFF
-        val ascq = sense[13].toInt() and 0xFF
+        // 两种 sense 格式都要认：0x70/0x71 是 fixed（key 在 [2]，ASC/ASCQ 在 [12]/[13]），
+        // 0x72/0x73 是 descriptor（key 在 [1]，ASC/ASCQ 在 [2]/[3]）。
+        // 只按 fixed 解会把 descriptor 的 ASC 当成 key 的高半字节，日志里冒出
+        // 「HARDWARE ERROR」这类假故障，调用方还会误判成「不可重试」。
+        val parsed = senseTriple(sense)
+        val key = parsed[0]
+        val asc = parsed[1]
+        val ascq = parsed[2]
         val keyName = SENSE_KEYS[key] ?: "UNKNOWN(0x${key.toString(16)})"
         val detail = SENSE_DETAILS[asc to ascq] ?: SENSE_DETAILS_ASC[asc] ?: ""
         val msg = "SCSI 错误: ${keyName}${if (detail.isNotEmpty()) " - $detail" else ""} " +
@@ -160,4 +168,47 @@ object Sptd {
     private val SENSE_DETAILS_ASC = mapOf(
         0x30 to "Incompatible / unreadable medium format"
     )
+}
+
+/**
+ * 从 sense 数据解出 `[senseKey, ASC, ASCQ]`。
+ *
+ * fixed（0x70/0x71）与 descriptor（0x72/0x73）两种排布差别很大：
+ * 只按 fixed 解，descriptor 的 senseKey 会被读成 0、ASC 读成 key 的那个字节，
+ * 于是「介质不兼容」在日志里变成「HARDWARE ERROR」，上层也会据此重试或放弃。
+ * 短包（驱动只回几字节）不抛异常，缺的字段按 0 处理。
+ */
+internal fun senseTriple(sense: ByteArray): IntArray {
+    if (sense.isEmpty()) return intArrayOf(0, 0, 0)
+    val response = (sense[0].toInt() and 0xFF) and 0x7F
+    return if (response == 0x72 || response == 0x73) {
+        intArrayOf(
+            if (sense.size > 1) sense[1].toInt() and 0x0F else 0,
+            if (sense.size > 2) sense[2].toInt() and 0xFF else 0,
+            if (sense.size > 3) sense[3].toInt() and 0xFF else 0
+        )
+    } else {
+        intArrayOf(
+            if (sense.size > 2) sense[2].toInt() and 0x0F else 0,
+            if (sense.size > 12) sense[12].toInt() and 0xFF else 0,
+            if (sense.size > 13) sense[13].toInt() and 0xFF else 0
+        )
+    }
+}
+
+/**
+ * 校验驱动回报的传输长度没有超过我们给的缓冲。
+ *
+ * 超出即抛错而不是截断：这通常意味着 CDB 要多收 C2/子通道（方向位与分配长度不匹配），
+ * 硬截断后照旧解析会把垃圾字节当 PCM 写进专辑。
+ */
+internal fun checkTransfer(transferred: Int, capacity: Int, cdb: ByteArray) {
+    if (transferred < 0 || transferred > capacity) {
+        val op = if (cdb.isNotEmpty()) cdb[0].toInt() and 0xFF else 0
+        val flags = if (cdb.size > 9) cdb[9].toInt() and 0xFF else 0
+        throw ScsiException(
+            "SCSI 传输长度异常: 驱动回报 $transferred 字节，缓冲只有 $capacity 字节" +
+                "（命令 0x%02X，CDB[9]=0x%02X）".format(op, flags)
+        )
+    }
 }

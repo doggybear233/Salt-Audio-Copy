@@ -20,20 +20,27 @@ internal object Win32 {
     private val linker: Linker = Linker.nativeLinker()
     private val lookup: SymbolLookup = SymbolLookup.libraryLookup("kernel32", Arena.global())
 
-    private fun handle(name: String, desc: FunctionDescriptor): MethodHandle =
-        linker.downcallHandle(
-            lookup.find(name).orElseThrow { UnsatisfiedLinkError("kernel32!$name") },
-            desc
-        )
+    private val CAPTURE_LAST_ERROR: Linker.Option = Linker.Option.captureCallState("GetLastError")
+
+    private fun handle(name: String, desc: FunctionDescriptor, capture: Boolean = false): MethodHandle {
+        val sym = lookup.find(name).orElseThrow { UnsatisfiedLinkError("kernel32!$name") }
+        // captureCallState 让 FFM 在调用返回的瞬间把 GetLastError 写进我们给的段。
+        // 以前是「先调 CreateFileW，再单独 downcall GetLastError」——中间任何一次
+        // downcall（含 FFM 内部的分配/查表）都可能覆盖线程 last-error，
+        // 于是错误码时常变成 0，日志里的 GetLastError 就成了假信息。
+        return if (capture) linker.downcallHandle(sym, desc, CAPTURE_LAST_ERROR) else linker.downcallHandle(sym, desc)
+    }
 
     val createFileW: MethodHandle = handle(
         "CreateFileW",
-        FunctionDescriptor.of(ADDRESS, ADDRESS, JAVA_INT, JAVA_INT, ADDRESS, JAVA_INT, JAVA_INT, ADDRESS)
+        FunctionDescriptor.of(ADDRESS, ADDRESS, JAVA_INT, JAVA_INT, ADDRESS, JAVA_INT, JAVA_INT, ADDRESS),
+        capture = true
     )
 
     val deviceIoControl: MethodHandle = handle(
         "DeviceIoControl",
-        FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_INT, ADDRESS, JAVA_INT, ADDRESS, JAVA_INT, ADDRESS, ADDRESS)
+        FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_INT, ADDRESS, JAVA_INT, ADDRESS, JAVA_INT, ADDRESS, ADDRESS),
+        capture = true
     )
 
     val closeHandle: MethodHandle = handle("CloseHandle", FunctionDescriptor.of(JAVA_INT, ADDRESS))
@@ -58,20 +65,25 @@ internal object Win32 {
         return seg
     }
 
+    /** 仅用于诊断打印；错误路径请用 capture 段里的值（见 [createFileW]/[deviceIoControl]）。 */
     fun lastError(): Int = getLastError.invokeWithArguments() as Int
 
     fun openDevice(path: String, writable: Boolean): MemorySegment {
         // 名字缓冲用全局 arena：句柄需要在多次 IOCTL 之间长期存活。
         val name = wideString(Arena.global(), path)
         val access = if (writable) GENERIC_READ or GENERIC_WRITE else GENERIC_READ
-        val h = createFileW.invokeWithArguments(
-            name, access, FILE_SHARE_READ or FILE_SHARE_WRITE,
-            MemorySegment.NULL, OPEN_EXISTING, 0, MemorySegment.NULL
-        ) as MemorySegment
-        if (h.address() == INVALID_HANDLE_VALUE) {
-            throw ScsiException("CreateFileW($path) 失败, GetLastError=${lastError()}", lastError())
+        Arena.ofConfined().use { state ->
+            val captured = state.allocate(JAVA_INT, 4)
+            val h = createFileW.invokeWithArguments(
+                captured, name, access, FILE_SHARE_READ or FILE_SHARE_WRITE,
+                MemorySegment.NULL, OPEN_EXISTING, 0, MemorySegment.NULL
+            ) as MemorySegment
+            if (h.address() == INVALID_HANDLE_VALUE) {
+                val err = captured.get(JAVA_INT, 0)
+                throw ScsiException("CreateFileW($path) 失败, GetLastError=$err", err)
+            }
+            return h
         }
-        return h
     }
 
     fun close(handle: MemorySegment) {
@@ -86,11 +98,12 @@ internal object Win32 {
         handle: MemorySegment, code: Int, buf: MemorySegment, size: Int, arena: Arena
     ): Int {
         val returned = arena.allocate(JAVA_INT, 4)
+        val captured = arena.allocate(JAVA_INT, 4)
         val ok = deviceIoControl.invokeWithArguments(
-            handle, code, buf, size, buf, size, returned, MemorySegment.NULL
+            captured, handle, code, buf, size, buf, size, returned, MemorySegment.NULL
         ) as Int
         if (ok == 0) {
-            val err = lastError()
+            val err = captured.get(JAVA_INT, 0)
             throw ScsiException("DeviceIoControl(0x${code.toString(16)}) 失败, GetLastError=$err", err)
         }
         return returned.get(JAVA_INT, 0)

@@ -54,7 +54,17 @@ class CdDevice(
             cdb(0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x24, 0x00),
             804
         )
-        return DiscToc.parse(data)
+        val toc = DiscToc.parse(data)
+        // 没有 lead-out 时 leadOutLba 只能是 0，末轨扇区会变成负数（拷出 0 字节）。
+        // 与其让用户拿到一张空专辑，不如在这里明确报错。
+        if (!toc.hasLeadOut) {
+            throw ScsiException(
+                "光盘 TOC 不完整：驱动器没有报告 lead-out 地址（音轨 ${toc.tracks.size} 条，末轨 LBA ${toc.tracks.lastOrNull()?.lba}）",
+                senseKey = 0x05,
+                asc = 0x57
+            )
+        }
+        return toc
     }
 
     /**
@@ -91,14 +101,22 @@ class CdDevice(
     val readCommand: ReadCommand get() = plan.current
 
     /**
-     * 读取 count 个音频扇区（≤16），返回 count*2352 字节的 PCM。
+     * 读取 count 个音频扇区，返回 count*2352 字节的 PCM。
      * 命令级错误（驱动不认识这条 CDB）会依次退到备用命令；真正的读错误直接抛。
+     *
+     * 若当前命令是 [ReadCommand.MMC_C2]，驱动会每扇区多回 294 字节 C2 信息；
+     * 这里换成带 C2 的读法再剥出 PCM——按 2352 直接收会把 C2 字节当成下一扇区的音频。
      */
     override fun readAudioSectors(lba: Int, count: Int): ByteArray {
         require(count in 1..maxSectorsPerRequest) { "count=$count 超出单次上限 $maxSectorsPerRequest" }
         while (true) {
+            val cmd = plan.current
             try {
-                return Sptd.execute(handle, plan.current.cdb(lba, count), count * sectorSize)
+                if (cmd == ReadCommand.MMC_C2) {
+                    return C2.extractPcm(readAudioSectorsC2(lba, count), count)
+                }
+                val expected = count * sectorSize
+                return exact(cmd, expected, Sptd.execute(handle, cmd.cdb(lba, count), expected))
             } catch (e: ScsiException) {
                 if (!plan.advanceAfter(e)) throw e
             }
@@ -108,8 +126,23 @@ class CdDevice(
     /** 复用缓冲区读取，避免每块分配。返回实际字节数。 */
     override fun readAudioSectorsInto(lba: Int, count: Int, buf: MemorySegment): Int {
         while (true) {
+            val cmd = plan.current
             try {
-                return Sptd.executeInto(handle, plan.current.cdb(lba, count), buf, count * sectorSize)
+                if (cmd == ReadCommand.MMC_C2) {
+                    val pcm = C2.extractPcm(readAudioSectorsC2(lba, count), count)
+                    MemorySegment.copy(pcm, 0, buf, java.lang.foreign.ValueLayout.JAVA_BYTE, 0L, pcm.size)
+                    return pcm.size
+                }
+                val expected = count * sectorSize
+                val got = Sptd.executeInto(handle, cmd.cdb(lba, count), buf, expected)
+                if (got != expected) {
+                    throw ScsiException(
+                        "短读：命令 ${cmd.id} 期望 $expected 字节，驱动只回了 $got 字节（盘面或线缆问题）",
+                        senseKey = 0x03,
+                        asc = 0x11
+                    )
+                }
+                return got
             } catch (e: ScsiException) {
                 if (!plan.advanceAfter(e)) throw e
             }
@@ -117,8 +150,28 @@ class CdDevice(
     }
 
     /**
-     * 带 C2 读取：返回 `count × 2610` 字节（每扇区 2352 数据 + 294 C2）。
-     * C2 位要求 CDB[9] bit1，本机实测 `0xFA` 可用（`0xF8` 不带 C2）。
+     * 校验驱动实际传输的字节数。
+     *
+     * SPTI 允许「请求 N 字节、只传 M < N 字节」而不报错（短读）。以前把返回值截断后照旧解析，
+     * 短读的块会被当成正常 PCM 写进 WAV——CRC 会变、听感是爆音，而且完全不报错。
+     */
+    private fun exact(cmd: ReadCommand, expected: Int, data: ByteArray): ByteArray {
+        if (data.size != expected) {
+            throw ScsiException(
+                "短读：命令 ${cmd.id} 期望 $expected 字节，驱动只回了 ${data.size} 字节（盘面或线缆问题）",
+                senseKey = 0x03,
+                asc = 0x11
+            )
+        }
+        return data
+    }
+
+    /**
+     * 带 C2 读取：返回 `count × 2646` 字节（每扇区 2352 用户数据 + 294 C2 信息）。
+     *
+     * CDB[9] = `0xFA` 的含义是「用户数据 + C2 错误信息」——**不含 96 字节子通道**；
+     * 子通道要另外用 [readSectorsWithQSubchannel]。早先的注释写成「数据 + C2 + 子通道」，
+     * 与 [C2.STRIDE] 的 2646 自相矛盾：照注释分配 2742 会多出 96 字节，剥 PCM 时整体错位。
      */
     override fun readAudioSectorsC2(lba: Int, count: Int): ByteArray {
         require(count in 1..maxSectorsPerRequest) { "count=$count 超出单次上限 $maxSectorsPerRequest" }
@@ -130,8 +183,9 @@ class CdDevice(
         cdb[4] = ((lba ushr 8) and 0xFF).toByte()
         cdb[5] = (lba and 0xFF).toByte()
         cdb[8] = count.toByte()
-        cdb[9] = 0xFA.toByte()                 // 数据 + C2 + 子通道
-        return Sptd.execute(handle, cdb, count * C2.STRIDE)
+        cdb[9] = 0xFA.toByte()
+        val expected = count * C2.STRIDE
+        return exact(ReadCommand.MMC_C2, expected, Sptd.execute(handle, cdb, expected))
     }
 
     /**
@@ -153,7 +207,8 @@ class CdDevice(
         cdb[8] = count.toByte()
         cdb[9] = 0xF8.toByte()
         cdb[10] = 0x02.toByte()                // Q-only subchannel
-        return Sptd.execute(handle, cdb, count * Subchannel.Q_STRIDE)
+        // 子通道也是「请求 N 只要到 M」的受害者：短读会让 Q 帧错位，间隙检测静默失效
+        return exact(ReadCommand.MMC, count * Subchannel.Q_STRIDE, Sptd.execute(handle, cdb, count * Subchannel.Q_STRIDE))
     }
 
     /** 读单个扇区的 Q 子通道（gap 探测用）。 */

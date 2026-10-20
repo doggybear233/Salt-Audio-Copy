@@ -53,6 +53,10 @@ object C2 {
 
     /** 从带 C2 的缓冲里拷出纯 PCM（连续 2352×count）。 */
     fun extractPcm(buf: ByteArray, count: Int): ByteArray {
+        require(count >= 0)
+        require(buf.size >= bufferSize(count)) {
+            "带 C2 的缓冲太短: ${buf.size} < ${bufferSize(count)}（0xFA 每扇区 $STRIDE 字节，不是 2352）"
+        }
         val out = ByteArray(count * DATA)
         for (i in 0 until count) {
             System.arraycopy(buf, i * STRIDE, out, i * DATA, DATA)

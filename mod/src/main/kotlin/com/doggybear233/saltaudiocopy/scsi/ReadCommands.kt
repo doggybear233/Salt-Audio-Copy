@@ -6,11 +6,13 @@ package com.doggybear233.saltaudiocopy.scsi
  * 老式/特殊驱动器对 MMC 的标准 READ CD(0xBE) 支持不好时会只认厂家命令，
  * 所以 EAC 会列出七八种读法并允许手工切换。这里保留可解释的三种加一个厂家变体：
  *
- * - [MMC]：READ CD(0xBE)，CDB[1]=0x04（Expected Sector Type = CD-DA），CDB[9]=0xF8（用户数据+子通道）。
+ * - [MMC]：READ CD(0xBE)，CDB[1]=0x04（Expected Sector Type = CD-DA），CDB[9]=0xF8
+ *   （用户数据 2352 + 每扇区 96 字节子通道）。
  *   这是 MMC 标准写法，绝大多数驱动器可用。
- * - [MMC_C2]：同上，CDB[9]=0xFA（额外要 C2 错误指针）。
+ * - [MMC_C2]：同上，CDB[9]=0xFA = 用户数据 + 每扇区 294 字节 C2 信息，**不含子通道**。
+ *   两者是互斥的读法：要 C2 就没有子通道，要子通道就没有 C2（MMC 规定）。
  * - [READ10]：老式 SCSI-2 READ(10) 的音频读法（0x28，不带 sub-channel/sector-type 概念，
- *   靠 MODE SELECT 把块长设成 2352）。少数早期 SCSI 驱动器只认它。
+ *   块长由驱动器当前模式决定）。少数早期 SCSI 驱动器只认它。
  * - [D8]：厂家私有命令（多见于旧 CD-ROM），LBA 与长度都按 3 字节大端排布，**实验性**。
  *
  * CDB 一律 12 字节（D8 也按 12 下发，多余字节为 0），长度字段用大端。

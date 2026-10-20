@@ -25,6 +25,16 @@ data class DiscToc(
     val leadOut: TocEntry? = entries.firstOrNull { it.track == 0xAA }
     val leadOutLba: Int get() = leadOut?.lba ?: 0
 
+    /**
+     * lead-out 是否可信。
+     *
+     * 有的驱动器（尤其是 BD/DVD 组合光驱读 CD）不回报 0xAA 条目，或把它写成 0。
+     * 此时 [leadOutLba] 只能是 0，末轨扇区会算成负数（拷出 0 字节，日志却是「完成」）。
+     * 判据取「有 0xAA 且地址大于末轨起点」——比只判非空更严，能挡住地址为 0 的情况。
+     */
+    val hasLeadOut: Boolean
+        get() = leadOutLba > (tracks.lastOrNull()?.lba ?: 0)
+
     /** 仅包含真实音轨（不含 lead-out）。 */
     val tracks: List<TocEntry> = entries.filter { it.track in firstTrack..lastTrack }
 
@@ -34,10 +44,11 @@ data class DiscToc(
     fun sectorsOf(index: Int): Pair<Int, Int> {
         val t = tracks[index]
         val next = tracks.getOrNull(index + 1)?.lba ?: leadOutLba
-        return t.lba to (next - t.lba)
+        // TOC 异常时 next 可能小于 t.lba，负数扇区会让读取循环一次都不跑、却报告成功
+        return t.lba to (next - t.lba).coerceAtLeast(0)
     }
 
-    val totalSectors: Int get() = leadOutLba - (tracks.firstOrNull()?.lba ?: 0)
+    val totalSectors: Int get() = (leadOutLba - (tracks.firstOrNull()?.lba ?: 0)).coerceAtLeast(0)
 
     companion object {
         /** 解析 READ TOC/PMA/ATIP format 0 的响应。 */
