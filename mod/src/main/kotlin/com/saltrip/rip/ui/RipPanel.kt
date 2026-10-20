@@ -2,6 +2,7 @@ package com.saltrip.rip.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.clickable
@@ -31,8 +32,10 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.saltrip.rip.ConfigActions
 
 /**
@@ -59,6 +63,11 @@ fun RipPanel() = SaltRipTheme { DockPanelBody() }
 /** 底部坞本体；[PanelMount] 的 hook 直接调用它。 */
 @Composable
 internal fun DockPanelBody() {
+    // 坞是否真的在屏幕上：例行提示据此决定走状态条还是退回宿主 toast。
+    DisposableEffect(Unit) {
+        PanelState.visible = true
+        onDispose { PanelState.visible = false }
+    }
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         // 宿主给的高度可能无界（放进可滚动列时），fillMaxHeight 会抛异常。
         val bounded = constraints.hasBoundedHeight
@@ -91,6 +100,7 @@ private fun PanelSurface() {
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            NoticeBar()
             when {
                 PanelState.settingsOpen -> SettingsPanel()
                 PanelState.busy || PanelState.progress != null -> RunningBlock()
@@ -98,6 +108,56 @@ private fun PanelSurface() {
                 else -> ReadyBlock()
             }
         }
+    }
+}
+
+/* ---------------------------------------------------------------- 提示条 */
+
+/**
+ * 坞上沿的临时提示（方案 A）。
+ *
+ * 宿主的 toast 是整宽贴窗口底的，坞也在底部，必然互相遮挡；
+ * 例行消息改画在这里：不压任何按钮，4 秒后自己收起，点 × 立刻关。
+ * 失败消息仍走宿主 toast（见 [Notify.fail]），因为坞可能被折叠。
+ */
+@Composable
+private fun NoticeBar() {
+    val cs = MaterialTheme.colorScheme
+    val notice = PanelState.notice
+    if (notice == null) {
+        return
+    }
+    // 同一段文案再次触发时 id 变了，计时从头开始。
+    LaunchedEffect(notice.id) {
+        delay(Notify.LINGER_MS)
+        if (PanelState.notice?.id == notice.id) PanelState.notice = null
+    }
+    val warn = notice.kind == NoticeKind.WARN
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (warn) cs.errorContainer.copy(alpha = 0.55f) else cs.surfaceVariant.copy(alpha = 0.75f))
+            .padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = notice.text,
+            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, lineHeight = 16.sp),
+            color = if (warn) cs.onErrorContainer else cs.onSurfaceVariant,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = "×",
+            style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp),
+            color = if (warn) cs.onErrorContainer else cs.onSurfaceVariant.copy(alpha = 0.7f),
+            modifier = Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .clickable { PanelState.notice = null }
+                .padding(horizontal = 8.dp, vertical = 2.dp)
+        )
     }
 }
 

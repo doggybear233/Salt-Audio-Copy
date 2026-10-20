@@ -61,9 +61,27 @@ object ConfigActions {
         return userCancel
     }
 
+    /**
+     * 提示分流：例行成功消息走坞上沿的状态条（[com.saltrip.rip.ui.Notify]），
+     * 警告/失败仍用宿主 toast——宿主 toast 整宽贴窗口底，坞也在底部，
+     * 用它说「扫描完成」这类话必然挡住进度条；但坞被折叠时它是唯一可见的通道。
+     */
     private fun toast(msg: String, type: ToastType = ToastType.Success) {
-        runCatching { WorkshopApi.ui.toast(msg, type) }
-            .onFailure { Diag.log("toast failed", it) }
+        when (type) {
+            ToastType.Success -> com.saltrip.rip.ui.Notify.info(msg)
+            ToastType.Warning -> com.saltrip.rip.ui.Notify.warn(msg)
+            else -> com.saltrip.rip.ui.Notify.fail(msg)
+        }
+    }
+
+    /** 直接弹宿主 toast（状态条不可用时的兜底，以及失败消息）。 */
+    internal fun toastHost(msg: String, hostSuccess: Boolean) {
+        // 宿主 API 不在单测 classpath 上，连 ToastType 的解析都可能抛 NoClassDefFoundError，
+        // 所以整段（包括取枚举值）都包在 runCatching 里。
+        runCatching {
+            val type = if (hostSuccess) ToastType.Success else ToastType.Error
+            WorkshopApi.ui.toast(msg, type)
+        }.onFailure { Diag.log("toast failed", it) }
     }
 
     /**

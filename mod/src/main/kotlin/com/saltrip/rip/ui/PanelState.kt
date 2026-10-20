@@ -47,6 +47,15 @@ object PanelState {
     /** 面板内嵌设置区是否展开。 */
     var settingsOpen: Boolean by mutableStateOf(false)
 
+    /** 坞当前是否在屏幕上（由 [DockPanelBody] 用 DisposableEffect 维护）。 */
+    var visible: Boolean by mutableStateOf(false)
+
+    /** 坞上沿那条临时提示；null 表示没有。 */
+    internal var notice: Notice? by mutableStateOf(null)
+
+    /** 提示的递增序号，用来让相同文案也能重新计时。 */
+    var noticeSeq: Int = 0
+
     /** 测试模式：只有开启时面板才显示「只测不写」等真机测试动作。 */
     var testMode: Boolean by mutableStateOf(false)
 

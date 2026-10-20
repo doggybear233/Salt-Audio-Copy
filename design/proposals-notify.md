@@ -1,5 +1,10 @@
 # 提示（toast）重新设计 · 方案
 
+> **已采纳方案 A（0.30.3 实施）**：例行消息 → 坞上沿状态条，停留 4 秒，点 × 立刻关；
+> 失败/警告仍走宿主 toast。实现见 `ui/Notice.kt`、`ui/RipPanel.kt` 的 `NoticeBar()`，
+> 分流点在 `ConfigActions.toast()`（Success → 状态条，Warning/Error → 宿主 toast）。
+> 面板不在屏幕上时状态条无处显示，`Notify.info` 会自动退回宿主 toast。
+
 ## 现状是怎么来的
 
 插件的所有提示都走同一行：
