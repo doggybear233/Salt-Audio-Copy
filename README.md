@@ -30,11 +30,11 @@
 
 ## 抓轨坞长什么样
 
-![抓轨坞](release/github/screenshots/dock-light-dark.png)
+![抓轨坞](docs/screenshots/dock-light-dark.png)
 
 设置面板（面板内二级导航，8 页）：
 
-![设置](release/github/screenshots/settings-light-dark.png)
+![设置](docs/screenshots/settings-light-dark.png)
 
 ## 从源码构建
 
