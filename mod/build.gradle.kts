@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.saltrip"
-version = "0.38.0"
+version = "0.38.1"
 
 kotlin {
     jvmToolchain(25)
@@ -56,6 +56,10 @@ spmod {
 tasks.withType<Test> {
     useJUnitPlatform()
     jvmArgs("--enable-native-access=ALL-UNNAMED")
+    // 断言的期望值是中文原文；宿主语言的探测在测试里没有宿主，会落到 JVM 默认语言，
+    // 而本机（以及多语言 CI）默认可能是日文/英文。钉死成中文，测的才是格式化逻辑本身。
+    systemProperty("user.language", "zh")
+    systemProperty("user.country", "CN")
     testLogging {
         showStandardStreams = true
         events("passed", "skipped", "failed")

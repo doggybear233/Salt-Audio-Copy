@@ -1,5 +1,6 @@
 package com.saltrip.rip.meta
 
+import com.saltrip.rip.ui.Strings
 import com.saltrip.rip.Diag
 import com.saltrip.rip.scsi.CdText
 import com.saltrip.rip.scsi.DiscToc
@@ -31,7 +32,7 @@ object MetadataService {
 
         val fromCdText = cdtext?.takeIf { it.hasText }?.also {
             notes += "CD-TEXT: 「${it.albumTitle ?: "-"}」/ ${it.albumPerformer ?: "-"}，" +
-                "${it.titles.size} 轨标题（字符集 ${it.charset}）"
+                Strings.fmt("%s 轨标题（字符集 %s）", it.titles.size, it.charset)
         }
 
         // ---- MusicBrainz ----
@@ -39,7 +40,7 @@ object MetadataService {
             val releases = runCatching { MusicBrainzClient.lookup(toc, discId) }
                 .onFailure {
                     Diag.log("mb lookup failed", it)
-                    notes += "MusicBrainz 查询失败: ${it.message}"
+                    notes += Strings.fmt("MusicBrainz 查询失败: %s", it.message)
                 }
                 .getOrDefault(emptyList())
             val ranked = rank(releases, toc.tracks.size, settings.preferTrackCount)
@@ -49,8 +50,8 @@ object MetadataService {
                         listOfNotNull(m.year, "轨数 " + m.tracks.size)
                             .joinToString("，", prefix = "（", postfix = "）")
                 }
-                notes += "MusicBrainz: ${releases.size} 个候选" +
-                    if (ranked.size > shown.size) "（只列前 ${shown.size}）" else ""
+                notes += Strings.fmt("MusicBrainz: %s 个候选", releases.size) +
+                    if (ranked.size > shown.size) Strings.fmt("（只列前 %s）", shown.size) else ""
                 notes += shown
             }
             val idx = settings.releaseIndex.coerceIn(0, (ranked.size - 1).coerceAtLeast(0))

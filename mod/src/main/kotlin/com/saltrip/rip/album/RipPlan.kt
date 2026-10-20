@@ -1,5 +1,6 @@
 package com.saltrip.rip.album
 
+import com.saltrip.rip.ui.Strings
 import com.saltrip.rip.meta.AlbumMeta
 import com.saltrip.rip.naming.TemplateEngine
 import com.saltrip.rip.naming.TrackSelection
@@ -47,10 +48,20 @@ object RipPlan {
     ) {
         fun describe(): String {
             val sb = StringBuilder()
-            sb.appendLine("输出目录：$albumDir")
-            sb.appendLine("专辑：$albumArtist - $albumTitle")
-            sb.appendLine("轨数：${tracks.size}（合计 ${tracks.sumOf { it.sectors }} 扇区，约 ${gb(totalBytes)}）")
-            freeBytes?.let { sb.appendLine("可用空间：${gb(it)}" + if (it < totalBytes) "  ← 不足" else "") }
+            sb.appendLine(Strings.fmt("输出目录：%s", albumDir))
+            sb.appendLine(Strings.fmt("专辑：%s - %s", albumArtist, albumTitle))
+            sb.appendLine(
+                Strings.fmt(
+                    "轨数：%s（合计 %s 扇区，约 %s）",
+                    tracks.size, tracks.sumOf { it.sectors }, gb(totalBytes)
+                )
+            )
+            freeBytes?.let {
+                sb.appendLine(
+                    Strings.fmt("可用空间：%s", gb(it)) +
+                        if (it < totalBytes) "  " + Strings.message("← 不足") else ""
+                )
+            }
             sb.appendLine()
             sb.appendLine("  轨  起始LBA   扇区   间隙前/后  文件名                                  动作")
             for (t in tracks) {
@@ -61,7 +72,11 @@ object RipPlan {
                     )
                 )
             }
-            val extras = listOfNotNull(cueName?.let { "CUE：$it" }, logName?.let { "日志：$it" }, coverName?.let { "封面：$it" })
+            val extras = listOfNotNull(
+                cueName?.let { Strings.fmt("CUE：%s", it) },
+                logName?.let { Strings.fmt("日志：%s", it) },
+                coverName?.let { Strings.fmt("封面：%s", it) }
+            )
             if (extras.isNotEmpty()) {
                 sb.appendLine()
                 extras.forEach { sb.appendLine(it) }

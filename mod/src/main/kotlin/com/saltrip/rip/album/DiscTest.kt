@@ -1,5 +1,6 @@
 package com.saltrip.rip.album
 
+import com.saltrip.rip.ui.Strings
 import com.saltrip.rip.rip.RipEngine
 import com.saltrip.rip.rip.TrackSource
 import com.saltrip.rip.scsi.DiscToc
@@ -43,7 +44,7 @@ object DiscTest {
         for (i in tracks) {
             if (cancel()) break
             val entry = toc.tracks[i]
-            onStage("测试读取第 ${entry.track} 轨…")
+            onStage(Strings.fmt("测试读取第 %s 轨…", entry.track))
             val r = RipEngine.ripTrack(
                 scan, i, SCRATCH, cancel, {},
                 verify = verify,
@@ -61,18 +62,25 @@ object DiscTest {
     }
 
     fun summary(rows: List<Row>): String {
-        if (rows.isEmpty()) return "没有测试任何音轨"
+        if (rows.isEmpty()) return Strings.message("没有测试任何音轨")
         val sb = StringBuilder()
         sb.append("轨  扇区数    CRC32     重试  用时\r\n")
         var bad = 0
         var total = 0L
         for (r in rows) {
             sb.append("%02d  %6d     %08X  %4d  %.1fs".format(r.track, r.sectors, r.crc32, r.errors, r.elapsedMs / 1000.0))
-            if (r.errors > 0) { sb.append("  ⚠ 有无法读取的扇区"); bad++ }
+            if (r.errors > 0) { sb.append("  ⚠ " + Strings.message("有无法读取的扇区")); bad++ }
             sb.append("\r\n")
             total += r.sectors
         }
-        sb.append("合计 %d 轨 / %d 扇区 / %s".format(rows.size, total, if (bad == 0) "全部读通" else "$bad 轨有错误"))
+        sb.append(
+            Strings.fmt(
+                "合计 %s 轨 / %s 扇区 / %s",
+                rows.size, total,
+                if (bad == 0) Strings.message("全部读通")
+                else Strings.fmt("%s 轨有错误", bad)
+            )
+        )
         return sb.toString()
     }
 }

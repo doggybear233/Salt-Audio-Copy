@@ -1,5 +1,6 @@
 package com.saltrip.rip.meta
 
+import com.saltrip.rip.ui.Strings
 import com.saltrip.rip.Diag
 import com.saltrip.rip.scsi.CdText
 import com.saltrip.rip.scsi.DiscToc
@@ -69,11 +70,13 @@ object MetadataCandidates {
             val releases = runCatching { MusicBrainzClient.lookup(toc, discId) }
                 .onFailure {
                     Diag.log("mb lookup failed", it)
-                    notes += "MusicBrainz 查询失败：${it.message ?: it.javaClass.simpleName}"
+                    notes += Strings.fmt(
+                    "MusicBrainz 查询失败：%s", it.message ?: it.javaClass.simpleName
+                )
                 }
                 .getOrDefault(emptyList())
             val ranked = MetadataService.rank(releases, toc.tracks.size, settings.preferTrackCount)
-            if (releases.isEmpty()) notes += "MusicBrainz 没有这张盘的记录"
+            if (releases.isEmpty()) notes += Strings.message("MusicBrainz 没有这张盘的记录")
             ranked.take(12).forEachIndexed { i, m ->
                 val cover = m.releaseId?.let { id ->
                     runCatching { CoverArtClient.front(id, THUMB_SIZE) }.getOrNull()
@@ -90,7 +93,9 @@ object MetadataCandidates {
                     coverMime = cover?.second
                 )
             }
-            if (releases.isNotEmpty()) notes += "MusicBrainz 命中 ${releases.size} 个发行版（显示前 ${out.size} 个）"
+            if (releases.isNotEmpty()) notes += Strings.fmt(
+                    "MusicBrainz 命中 %s 个发行版（显示前 %s 个）", releases.size, out.size
+                )
         }
 
         if (cdtext?.hasText == true) {
@@ -104,7 +109,7 @@ object MetadataCandidates {
                 releaseId = null,
                 source = "cd-text"
             )
-            notes += "CD-TEXT 命中（盘上自带曲名）"
+            notes += Strings.message("CD-TEXT 命中（盘上自带曲名）")
         }
 
         // 先看 CDDB 缓存：gnudb 可能整段网络不通，但以前查过的盘不该再查一次。
@@ -120,7 +125,7 @@ object MetadataCandidates {
                     releaseId = null,
                     source = "gnudb"
                 )
-                notes += "CDDB 缓存命中（离线也能用）"
+                notes += Strings.message("CDDB 缓存命中（离线也能用）")
             }
         }
 

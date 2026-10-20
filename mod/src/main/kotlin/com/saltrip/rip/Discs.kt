@@ -71,7 +71,7 @@ object Discs {
     fun sync(preferred: String = "", quiet: Boolean = false): ScanResult {
         val drives = CdDevice.scanDrives()
         if (drives.isEmpty()) {
-            throw IllegalStateException("没有检测到可用的光驱：光驱没连接，或驱动器里没有光盘。")
+            throw IllegalStateException(Strings.message("没有检测到可用的光驱：光驱没连接，或驱动器里没有光盘。"))
         }
         val candidates = drives.mapNotNull { (path, _) -> runCatching { RipEngine.scan(path) }.getOrNull() }
         if (candidates.isEmpty()) {
@@ -79,14 +79,14 @@ object Discs {
                 runCatching { RipEngine.scan(p) }.exceptionOrNull()
             }
             throw IllegalStateException(
-                "找到了光驱，但读不到光盘信息" + (why?.let { "：" + com.saltrip.rip.scsi.ScsiMessages.human(it) } ?: "：可能是空盘或光盘还没转起来")
+                Strings.message("找到了光驱，但读不到光盘信息") + (why?.let { "：" + com.saltrip.rip.scsi.ScsiMessages.human(it) } ?: Strings.message("：可能是空盘或光盘还没转起来"))
             )
         }
         val want = DriveSelect.normalize(preferred)
         val chosen = if (want.isBlank()) candidates.first()
         else candidates.firstOrNull { DriveSelect.normalize(it.path) == want }
             ?: throw IllegalStateException(
-                "设置里指定了光驱 ${DriveSelect.describe(preferred)}，但没找到它（已发现: " +
+                Strings.fmt("设置里指定了光驱 %s，但没找到它（已发现: ", DriveSelect.describe(preferred)) +
                     candidates.joinToString { it.path } + "）"
             )
 

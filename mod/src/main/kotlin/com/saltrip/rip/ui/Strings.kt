@@ -45,8 +45,25 @@ object Strings {
      */
     fun message(zh: String): String = messageTable()[lang()]?.get(zh) ?: zh
 
+    /**
+     * 带参数的消息：字典里存的是模板（`%s` 占位），先翻译再格式化。
+     *
+     * 之所以不直接翻译拼好的字符串：译文语序和中文不同（英文 "Ripping track 3/11"，
+     * 日文「3/11 トラックを取得中」），只能把参数交给译文自己排。
+     */
+    fun fmt(zhTemplate: String, vararg args: Any?): String {
+        val tpl = message(zhTemplate)
+        return runCatching { String.format(java.util.Locale.ROOT, tpl, *args) }.getOrDefault(tpl)
+    }
+
     /** 测试用：字典里到底收了多少条。 */
     internal fun messageCount(lang: Lang): Int = messageTable()[lang]?.size ?: 0
+
+    /** 测试用：这条中文原文在 en 与 ja 里都有译文吗。 */
+    internal fun hasMessage(zh: String): Boolean = hasMessage(Lang.EN, zh) && hasMessage(Lang.JA, zh)
+
+    internal fun hasMessage(lang: Lang, zh: String): Boolean =
+        !messageTable()[lang]?.get(zh).isNullOrBlank()
 
     private object MessageTables {
         val byLang: Map<Lang, Map<String, String>> by lazy { loadMessages() }

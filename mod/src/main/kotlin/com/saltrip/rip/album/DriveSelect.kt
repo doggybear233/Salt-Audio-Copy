@@ -1,6 +1,7 @@
 package com.saltrip.rip.album
 
 import com.saltrip.rip.rip.ScanResult
+import com.saltrip.rip.ui.Strings
 
 /**
  * 多光驱时的选择。
@@ -32,5 +33,5 @@ object DriveSelect {
 
     /** 给设置里写的值一个稳定回显。 */
     fun describe(preferred: String): String =
-        normalize(preferred).ifEmpty { "自动" }.uppercase()
+        normalize(preferred).ifEmpty { Strings.message("自动") }.uppercase()
 }

@@ -1,5 +1,6 @@
 package com.saltrip.rip.album
 
+import com.saltrip.rip.ui.Strings
 import com.saltrip.rip.rip.WavInfo
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -23,14 +24,17 @@ object OutputCheck {
     ) {
         val ok: Boolean get() = problems.isEmpty()
         fun summary(): String = when {
-            wavCount == 0 && cueCount == 0 -> "目录里没有 WAV/CUE：$dir"
-            ok -> "检查通过：$wavCount 个 WAV，$cueCount 个 CUE"
-            else -> "发现 ${problems.size} 个问题（共 $wavCount 个 WAV，$cueCount 个 CUE）"
+            wavCount == 0 && cueCount == 0 -> Strings.fmt("目录里没有 WAV/CUE：%s", dir)
+            ok -> Strings.fmt("检查通过：%s 个 WAV，%s 个 CUE", wavCount, cueCount)
+            else -> Strings.fmt(
+                "发现 %s 个问题（共 %s 个 WAV，%s 个 CUE）",
+                problems.size, wavCount, cueCount
+            )
         }
     }
 
     fun check(dir: Path): Report {
-        if (!Files.isDirectory(dir)) return Report(dir, 0, 0, listOf(Problem("", "目录不存在：$dir")))
+        if (!Files.isDirectory(dir)) return Report(dir, 0, 0, listOf(Problem("", Strings.fmt("目录不存在：%s", dir))))
         val files = runCatching {
             Files.list(dir).use { s -> s.filter { Files.isRegularFile(it) }.toList() }
         }.getOrDefault(emptyList())
@@ -46,9 +50,16 @@ object OutputCheck {
                     wavCount++
                     val facts = WavInfo.read(f)
                     when {
-                        facts == null -> problems += Problem(name, "文件太短，连 44 字节的 WAV 头都不完整")
-                        !facts.headerOk -> problems += Problem(name, "不是合法的 RIFF/WAVE 头")
-                        facts.dataBytes == 0L -> problems += Problem(name, "只有文件头，没有音频数据")
+                        facts == null -> problems += Problem(
+                            name,
+                            Strings.message("文件太短，连 44 字节的 WAV 头都不完整")
+                        )
+                        !facts.headerOk -> problems += Problem(
+                            name, Strings.message("不是合法的 RIFF/WAVE 头")
+                        )
+                        facts.dataBytes == 0L -> problems += Problem(
+                            name, Strings.message("只有文件头，没有音频数据")
+                        )
                         !WavInfo.wholeSectors(facts) ->
                             problems += Problem(name, "数据长度 ${facts.dataBytes} 不是 2352 的整数倍（抓轨被中断）")
                         facts.sampleRate != 44100 || facts.channels != 2 || facts.bitsPerSample != 16 ->

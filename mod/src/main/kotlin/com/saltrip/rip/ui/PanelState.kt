@@ -22,9 +22,9 @@ object PanelState {
 
 
     /** 一行状态文案，例如「F: HL-DT-ST BD-RE BP71N · 10 轨 · 音频 CD」。 */
-    var status: String by mutableStateOf("尚未扫描光驱")
+    var status: String by mutableStateOf(Strings.message("尚未扫描光驱"))
     /** 第二行补充说明。 */
-    var detail: String by mutableStateOf("点「扫描」识别光盘；识别后可直接抓整盘")
+    var detail: String by mutableStateOf(Strings.message("点「扫描」识别光盘；识别后可直接抓整盘"))
     /** 是否正在执行耗时操作（按钮置灰用）。 */
     var busy: Boolean by mutableStateOf(false)
     /** 当前阶段名，例如「抓取第 3 轨：道」。 */
@@ -231,7 +231,7 @@ object PanelState {
         busy = false
         cancelArmed = false
         stage = ""
-        status = "光驱里没有光盘"
+        status = Strings.message("光驱里没有光盘")
         detail = "$reason\n放入光盘会自动识别；同一张盘放回来可以接着抓"
     }
 
@@ -256,9 +256,9 @@ object PanelState {
      * 也让「点了才报错」变成「点不了且说明原因」。
      */
     fun actionGate(): String? = when {
-        busy -> "正在执行，等当前操作结束"
-        disc == null -> "先点「扫描」识别光盘"
-        disc?.audio != true -> "当前盘不是音频 CD（数据盘不可抓轨）"
+        busy -> Strings.message("正在执行，等当前操作结束")
+        disc == null -> Strings.message("先点「扫描」识别光盘")
+        disc?.audio != true -> Strings.message("当前盘不是音频 CD（数据盘不可抓轨）")
         else -> null
     }
 
@@ -311,8 +311,8 @@ object PanelState {
         ripDone = true
         reRipArmed = false
         finish(
-            statusText = "已抓完 · $trackCount 轨",
-            detailText = "记录、CUE、日志都已写好；再抓一遍请点「重新抓取」（会先确认）"
+            statusText = Strings.fmt("已抓完 · %s 轨", trackCount),
+            detailText = Strings.message("记录、CUE、日志都已写好；再抓一遍请点「重新抓取」（会先确认）")
         )
     }
 
@@ -341,8 +341,8 @@ object PanelFormat {
      * @param sec `-1` = 还在估算（样本不足）；`0` = 收尾阶段
      */
     fun eta(sec: Int): String {
-        if (sec < 0) return "正在估算…"
-        if (sec == 0) return "即将完成"
+        if (sec < 0) return Strings.message("正在估算…")
+        if (sec == 0) return Strings.message("即将完成")
         val step = when {
             sec < 60 -> 5
             sec < 600 -> 15
@@ -351,16 +351,16 @@ object PanelFormat {
         }
         val rounded = ((sec + step - 1) / step) * step
         return when {
-            rounded < 60 -> "剩余约 $rounded 秒"
+            rounded < 60 -> Strings.fmt("剩余约 %s 秒", rounded)
             rounded < 3600 -> {
                 val m = rounded / 60
                 val s = rounded % 60
-                if (s == 0) "剩余约 $m 分" else "剩余约 $m 分 $s 秒"
+                if (s == 0) Strings.fmt("剩余约 %s 分", m) else Strings.fmt("剩余约 %s 分 %s 秒", m, s)
             }
             else -> {
                 val h = rounded / 3600
                 val m = (rounded % 3600) / 60
-                if (m == 0) "剩余约 $h 小时" else "剩余约 $h 小时 $m 分"
+                if (m == 0) Strings.fmt("剩余约 %s 小时", h) else Strings.fmt("剩余约 %s 小时 %s 分", h, m)
             }
         }
     }
@@ -376,9 +376,9 @@ object PanelFormat {
         val parts = ArrayList<String>(4)
         if (info.artist.isNotBlank() && info.artist != "未知艺术家") parts += info.artist
         if (info.album.isNotBlank() && info.album != "未知专辑") parts += info.album
-        parts += "${info.tracks} 轨"
+        parts += Strings.fmt("%s 轨", info.tracks)
         if (info.lengthText.isNotBlank()) parts += info.lengthText
-        if (!info.audio) parts += "非音频盘"
+        if (!info.audio) parts += Strings.message("非音频盘")
         return parts.joinToString(" · ")
     }
 
@@ -395,6 +395,6 @@ object PanelFormat {
     /** `第 3/11 轨 · 62%`。 */
     fun trackLine(trackNo: Int, trackTotal: Int, fraction: Float): String {
         val pct = (fraction.coerceIn(0f, 1f) * 100).toInt()
-        return if (trackTotal > 0) "第 $trackNo/$trackTotal 轨 · $pct%" else "$pct%"
+        return if (trackTotal > 0) Strings.fmt("第 %s/%s 轨 · %s%%", trackNo, trackTotal, pct) else "$pct%"
     }
 }

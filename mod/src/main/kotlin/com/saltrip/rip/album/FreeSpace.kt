@@ -1,6 +1,7 @@
 package com.saltrip.rip.album
 
 import java.nio.file.Path
+import com.saltrip.rip.ui.Strings
 
 /**
  * 磁盘余量检查。
@@ -26,7 +27,7 @@ object FreeSpace {
         var need = requiredBytes(totalSectors, trackCount)
         if (!keepWav) need = need * 3 / 2 // 编码期间 WAV 与 FLAC 同时存在
         if (usableBytes >= need) return null
-        return "磁盘空间不足：需要约 ${mb(need)}，可用 ${mb(usableBytes)}"
+        return Strings.fmt("磁盘空间不足：需要约 %s，可用 %s", mb(need), mb(usableBytes))
     }
 
     fun usableBytes(dir: Path): Long = runCatching {

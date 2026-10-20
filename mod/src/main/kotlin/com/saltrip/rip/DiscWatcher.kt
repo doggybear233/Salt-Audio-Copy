@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - 「没有盘」不是错误：立即清面板并把间隔保持 2 秒，用户放盘后马上能识别。
  * - 只有真正的设备错误（驱动挂起、权限、I/O 失败）才指数退避到 30 秒，
  *   避免驱动卡死时每 2 秒制造一次新的挂起。
- * - [PanelState.busy] 时完全不轮询，不与抓轨抢设备。
+ * - [PanelState.busy] 且未暂停时完全不轮询，不与抓轨抢设备；暂停期间仍轮询以便发现抽盘。
  */
 object DiscWatcher {
 
@@ -48,7 +48,8 @@ object DiscWatcher {
                     break
                 }
                 if (!running.get()) break
-                if (PanelState.busy) {
+                // 暂停时也要继续轮询：否则暂停中抽出光盘，面板还停在旧状态（真机反馈 B7）
+                if (PanelState.busy && !PanelState.paused) {
                     interval = MIN_INTERVAL_MS
                     continue
                 }
@@ -101,7 +102,7 @@ object DiscWatcher {
                         runCatching { PanelState.restoreSnapshot(back, back.ripDone) }
                         PanelState.set(
                             Strings.message("同一张盘放回来了"),
-                            "已恢复上次的状态；未抓完的可以直接再点抓取（设置里开着断点续抓）"
+                            Strings.message("已恢复上次的状态；未抓完的可以直接再点抓取（设置里开着断点续抓）")
                         )
                         Diag.log("DiscWatcher: same disc restored, ripDone=${back.ripDone}")
                         // 已经有候选就不用再联网；没有才补查一次

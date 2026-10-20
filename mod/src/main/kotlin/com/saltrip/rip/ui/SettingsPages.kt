@@ -118,7 +118,7 @@ internal fun SettingsPanel() {
             Row(modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp, max = 292.dp)) {
                 Column(
                     modifier = Modifier
-                        .width(146.dp)
+                        .width(170.dp)
                         .fillMaxHeight()
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 6.dp, vertical = 8.dp),
@@ -144,7 +144,7 @@ internal fun SettingsPanel() {
                                     .background(if (selected) cs.onSurface else Color.Transparent)
                             )
                             Text(
-                                text = "${index + 1}. ${p.title}",
+                                text = "${index + 1}. " + Strings.message(p.title),
                                 fontSize = 12.sp,
                                 lineHeight = 16.sp,
                                 fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
@@ -168,7 +168,7 @@ internal fun SettingsPanel() {
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = page.title,
+                            text = Strings.message(page.title),
                             fontSize = 14.sp,
                             lineHeight = 20.sp,
                             fontWeight = FontWeight.Medium,
@@ -176,7 +176,7 @@ internal fun SettingsPanel() {
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "${visible.size} 项",
+                            text = Strings.fmt("%s 项", visible.size),
                             fontSize = 11.sp,
                             lineHeight = 14.sp,
                             color = cs.onSurfaceVariant.copy(alpha = 0.8f)
@@ -385,8 +385,8 @@ private fun ListDropdown(
 ) {
     val cs = MaterialTheme.colorScheme
     var open by remember { mutableStateOf(false) }
-    val current = item.options.firstOrNull { it.value == value }?.label
-        ?: item.options.firstOrNull()?.label
+    val current = item.options.firstOrNull { it.value == value }?.label?.let { Strings.message(it) }
+        ?: item.options.firstOrNull()?.label?.let { Strings.message(it) }
         ?: value
     Box {
         Row(
@@ -417,7 +417,7 @@ private fun ListDropdown(
                 DropdownMenuItem(
                     text = {
                         Text(
-                            text = o.label,
+                            text = Strings.message(o.label),
                             fontSize = 12.sp,
                             lineHeight = 16.sp,
                             fontWeight = if (o.value == value) FontWeight.Medium else FontWeight.Normal
@@ -533,7 +533,7 @@ private fun TemplateRow(item: SettingItem, label: String, hint: String, value: S
                         modifier = Modifier.clickable { PanelState.appendToken(token) }
                     ) {
                         Text(
-                            text = chipLabel,
+                            text = Strings.message(chipLabel),
                             modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                             fontSize = 11.sp,
                             lineHeight = 14.sp,

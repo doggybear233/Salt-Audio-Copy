@@ -1,5 +1,6 @@
 package com.saltrip.rip.album
 
+import com.saltrip.rip.ui.Strings
 import com.saltrip.rip.rip.TrackSource
 import com.saltrip.rip.scsi.DiscToc
 import com.saltrip.rip.scsi.GapDetector
@@ -69,7 +70,7 @@ object DiscAnalysis {
 
     /** 面板/日志用的表格（等宽，便于直接贴进 issue）。 */
     fun describe(gaps: List<TrackGap>): String {
-        if (gaps.isEmpty()) return "没有音轨"
+        if (gaps.isEmpty()) return Strings.message("没有音轨")
         val sb = StringBuilder()
         sb.append("轨  INDEX 01     时长      间隙\n")
         gaps.forEach { g ->
@@ -79,7 +80,9 @@ object DiscAnalysis {
         }
         val total = gaps.sumOf { it.sectors.toLong() }
         val withGap = gaps.count { it.gapSectors > 0 }
-        sb.append("共 %d 轨 / %s / %d 轨有预间隙".format(gaps.size, CueWriter.msf(total.toInt()), withGap))
+        sb.append(
+            Strings.fmt("共 %s 轨 / %s / %s 轨有预间隙", gaps.size, CueWriter.msf(total.toInt()), withGap)
+        )
         return sb.toString()
     }
 }

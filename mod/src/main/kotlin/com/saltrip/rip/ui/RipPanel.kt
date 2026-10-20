@@ -220,6 +220,18 @@ private fun ReadyBlock() {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            // 抓完之后必须有一行明确的完成标记：以前这条状态只在 Running 区块里显示，
+            // 一回到 Ready 状态就整行消失，用户看不到「已抓完」（真机反馈 C3）。
+            if (PanelState.ripDone) {
+                Text(
+                    text = "\u2713 " + PanelState.status,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = cs.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             Text(
                 text = outputPreview(),
                 style = MaterialTheme.typography.labelSmall,
@@ -347,9 +359,9 @@ private fun RunningBlock() {
                 )
                 Text(
                     text = when {
-                        paused -> "已暂停 · 点「继续」接着抓"
+                        paused -> Strings.message("已暂停 · 点「继续」接着抓")
                         // 8 秒没有任何进度：驱动器在死磕某一块（多半是重读坏道），把等待时间说出来
-                        idleSec >= 8 -> "正在重读这一块 · 已等 ${idleSec} 秒"
+                        idleSec >= 8 -> Strings.fmt("正在重读这一块 · 已等 %s 秒", idleSec)
                         p != null -> PanelFormat.speed(p.speedX) + " · " + PanelFormat.eta(p.etaSec)
                         else -> ""
                     },

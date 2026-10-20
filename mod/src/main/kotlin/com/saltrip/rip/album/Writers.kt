@@ -266,7 +266,9 @@ object LogWriter {
 
     fun write(path: Path, content: String) {
         Files.createDirectories(path.parent)
-        Files.write(path, content.toByteArray(UTF_8))
+        // .log 带 BOM：记事本/部分编辑器对无 BOM 的 UTF-8 会按 ANSI 猜，
+        // 文件后半段一旦出现中日文就整段糊掉（真机反馈「字体不一样」）。CUE 不加，部分播放器会读坏。
+        Files.write(path, byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + content.toByteArray(UTF_8))
     }
 
     /** 每轨 CRC 串联成整盘指纹：把各轨 crc 的字节按顺序再算一次 CRC32。 */
