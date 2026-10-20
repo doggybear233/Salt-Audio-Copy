@@ -440,7 +440,10 @@ object AlbumRipper {
             //（几千万字节的读写），跳过即可。
             val wavWillBeDeleted = settings.format.equals("flac", true) && !settings.keepWav &&
                 !(settings.imageMode && settings.gapMode.lowercase() == "append")
-            if (!r.cancelled && !wavWillBeDeleted) {
+            // 整盘镜像模式下逐轨文件只是拼接的中间产物，随后会被删掉：
+            // 给它们打标签是白写一遍几十 MB，且镜像本身反而没有标签。
+            val trackIsIntermediate = settings.imageMode && settings.gapMode.lowercase() == "append"
+            if (!r.cancelled && !wavWillBeDeleted && !trackIsIntermediate) {
                 val wavTags = mapOf(
                     "title" to title,
                     "artist" to (album?.track(entry.track)?.artist ?: artist),
@@ -563,6 +566,7 @@ object AlbumRipper {
                         runCatching { Files.deleteIfExists(part) }
                     }
                     imageRel = imgTarget.fileName.toString()
+                    var finalImage: java.nio.file.Path = imgTarget
                     if (settings.format.equals("flac", true)) {
                         val flacTarget = imgTarget.resolveSibling(imgTarget.fileName.toString().removeSuffix(".wav") + ".flac")
                         runCatching {
@@ -572,6 +576,7 @@ object AlbumRipper {
                             Diag.log("flac image -> $flacTarget ($size B)")
                             if (!settings.keepWav) runCatching { Files.deleteIfExists(imgTarget) }
                             imageRel = flacTarget.fileName.toString()
+                            finalImage = flacTarget
                             // 结果里的 file 必须指向真实存在的文件：音频已转成 flac，
                             // WAV 也被删了，还指回 WAV 会让「打开目录/复制路径」指向空文件。
                             for (k in results.indices) results[k] = results[k].copy(file = flacTarget)
@@ -580,6 +585,13 @@ object AlbumRipper {
                             warn(Strings.fmt("整盘镜像 FLAC 编码失败（已保留 WAV）: %s", it.message))
                         }
                     }
+                    // 镜像才是用户真正留下的文件：逐轨的标签已跳过，这里必须补上，
+                    // 否则整盘 rip 出来的文件在播放器里没有专辑名/艺术家。
+                    runCatching { tagImage(finalImage, albumTitle, albumArtist, album) }
+                        .onFailure {
+                            Diag.log("image tag failed", it)
+                            warn(Strings.fmt("整盘镜像标签写入失败（音频不受影响）: %s", it.message))
+                        }
                 }.onFailure {
                     Diag.log("image splice failed", it)
                     warn(Strings.fmt("整盘镜像拼接失败（逐轨文件保留）: %s", it.message))
@@ -739,6 +751,52 @@ object AlbumRipper {
             dir, album, results, elapsedMs, cancelled, cueFile, logFile, coverFile, notes, created,
             warnings
         )
+    }
+
+    /**
+     * 整盘镜像的专辑级标签。
+     *
+     * 镜像模式（imageMode + gapMode=append）下逐轨文件是拼接用的中间产物、随后全部删除，
+     * 逐轨标签一律跳过；最终留下的那一个镜像文件必须自己带专辑信息，
+     * 否则整盘抓轨的产物在播放器里没有专辑名/艺术家，会被散成「未知专辑」。
+     */
+    private fun tagImage(file: java.nio.file.Path, title: String, artist: String, album: AlbumMeta?) {
+        val name = file.fileName.toString().lowercase()
+        if (name.endsWith(".flac")) {
+            val tags = FlacMeta.trackTags(
+                albumTitle = title,
+                albumArtist = artist,
+                year = album?.year,
+                genre = album?.genre,
+                trackNumber = 1,
+                trackTitle = title,
+                trackArtist = artist,
+                isrc = null,
+                trackTotal = 1,
+                discNumber = album?.discNumber,
+                totalDiscs = album?.totalDiscs,
+                comment = "Salt Audio Copy $APP_VERSION"
+            )
+            FlacMeta.writeTags(file, tags, "Salt Audio Copy $APP_VERSION")
+            Diag.log("flac image tags: ${tags.size}")
+            return
+        }
+        val why = com.doggybear233.saltaudiocopy.encode.WavTags.writeResult(
+            file,
+            mapOf(
+                "title" to title,
+                "artist" to artist,
+                "albumartist" to artist,
+                "album" to title,
+                "date" to (album?.year?.toString() ?: ""),
+                "genre" to (album?.genre ?: ""),
+                "track" to "1/1",
+                "disc" to album?.discNumber?.let { d -> "%d/%d".format(d, album?.totalDiscs ?: 1) }.orEmpty(),
+                "comment" to "Salt Audio Copy $APP_VERSION"
+            )
+        )
+        if (why != null) error(why)
+        Diag.log("wav image tags written")
     }
 
     private fun mmss(sectors: Int): String {

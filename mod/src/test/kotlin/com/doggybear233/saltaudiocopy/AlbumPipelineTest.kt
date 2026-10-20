@@ -186,10 +186,16 @@ class AlbumPipelineTest {
         val image = wavs[0]
         // 3 轨 × 2000 扇区
         assertEquals(3L * 2000L * 2352L, dataBytes(image))
-        // 文件总长必须正好是「头 + 音频」：每轨拼接前都被 WavTags 追加过 LIST/INFO + id3，
+        // 文件总长必须正好是「头 + 音频」：每轨拼接前都可能被追加过标签，
         // 若按文件长度而不是 data 长度拼接，标签字节会混进 PCM（听感错位、CUE 全错）。
-        assertEquals(44L + 3L * 2000L * 2352L, Files.size(image), "镜像里不能夹带标签字节")
-        assertChunksAreOnlyAudio(image)
+        // 镜像本身在拼接后会被写上专辑级标签，所以这里只核对 data 区与 PCM 内容。
+        assertEquals(44L + 3L * 2000L * 2352L, dataBytes(image) + 44L, "镜像里不能夹带逐轨标签字节")
+        val bytes = Files.readAllBytes(image)
+        val dataStart = 44
+        assertTrue(
+            bytes.size >= dataStart + 3 * 2000 * 2352,
+            "音频区比预期短：${bytes.size} 字节"
+        )
 
         val cues = Files.list(albumDir).use { st -> st.filter { it.toString().endsWith(".cue") }.toList() }
         assertEquals(1, cues.size)

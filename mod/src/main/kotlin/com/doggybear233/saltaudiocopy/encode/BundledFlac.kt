@@ -39,6 +39,9 @@ internal object BundledFlac {
         val dir = dirOverride
             ?: Diag.dataDir()?.resolve("bin")?.resolve("flac-1.4.3")
             ?: Path.of(System.getProperty("java.io.tmpdir"), "saltac-flac-1.4.3")
+        // 每个文件应有的字节数：解压后要逐个核对，否则「写失败但旧文件还在」
+        // 会让 ensure() 把大小不对的 exe 交出去，用户看到的是 0xC0000135。
+        val expectedSizes = HashMap<String, Long>()
         runCatching {
             Files.createDirectories(dir)
             for (name in FILES) {
@@ -49,6 +52,7 @@ internal object BundledFlac {
                 // 而 flac.exe 与 DLL 版本不匹配时会以 0xC0000135 崩掉，很难查。
                 // 这里按资源本身的字节数校验，大小不符就重新解压。
                 val expected = url.openStream().use { it.readBytes() }
+                expectedSizes[name] = expected.size.toLong()
                 if (Files.isRegularFile(target) && Files.size(target) == expected.size.toLong()) continue
                 val tmp = dir.resolve("$name.tmp")
                 Files.write(tmp, expected)
@@ -59,6 +63,17 @@ internal object BundledFlac {
 
         val exe = dir.resolve(EXE)
         if (!Files.isRegularFile(exe) || Files.size(exe) <= 0) return null
+        // 解压失败时旧文件可能还在：大小与资源不一致就不能用，否则错误会推迟到运行期
+        if (expectedSizes.isNotEmpty()) {
+            val bad = expectedSizes.filter { (name, size) ->
+                val f = dir.resolve(name)
+                !Files.isRegularFile(f) || Files.size(f) != size
+            }
+            if (bad.isNotEmpty()) {
+                Diag.log("bundled flac: 解压结果不完整，拒绝使用 $exe（$bad）")
+                return null
+            }
+        }
         resolved = exe.toAbsolutePath()
         return resolved
     }

@@ -1033,6 +1033,10 @@
       "Disc image join failed (per-track files kept): %s",
       "ディスクイメージの結合に失敗（トラック別ファイルは保持）：%s"
     ],
+    "整盘镜像标签写入失败（音频不受影响）: %s": [
+      "Writing disc image tags failed (audio is unaffected): %s",
+      "ディスクイメージのタグ書き込みに失敗（音声には影響なし）：%s"
+    ],
     "封面写入失败: %s": [
       "Cover write failed: %s",
       "カバーの書き込みに失敗：%s"

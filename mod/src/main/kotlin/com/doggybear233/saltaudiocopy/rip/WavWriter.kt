@@ -140,14 +140,30 @@ class WavWriter(
         return if (v > 0) v.toLong() else 0
     }
 
+    /**
+     * 同名文件能不能接着写。
+     *
+     * 只看 RIFF/WAVE/fmt 不够：22/24/34 这类 container 位深的 WAV 也满足这三条，
+     * 但里面是容器字节而不是 CD 的 16 位 PCM。继续往里追加等于把两种数据混在一轨，
+     * 播放器听到的是噪声，日志却报「质量 100%」。所以要连声道/采样率/位深一起比。
+     */
     private fun hasValidHeader(): Boolean {
         raf.seek(0)
         val h = ByteArray(HEADER_SIZE.toInt())
         if (raf.read(h) != h.size) return false
+        fun i16(off: Int): Int = (h[off].toInt() and 0xFF) or ((h[off + 1].toInt() and 0xFF) shl 8)
+        fun i32(off: Int): Int = i16(off) or (i16(off + 2) shl 16)
         val riff = String(h, 0, 4, Charsets.US_ASCII)
         val wave = String(h, 8, 4, Charsets.US_ASCII)
         val fmt = String(h, 12, 4, Charsets.US_ASCII)
-        return riff == "RIFF" && wave == "WAVE" && fmt == "fmt "
+        if (riff != "RIFF" || wave != "WAVE" || fmt != "fmt ") return false
+        if (i16(20) != 1) return false // PCM
+        if (i16(22) != channels) return false
+        if (i32(24) != sampleRate) return false
+        if (i16(34) != bitsPerSample) return false
+        if (i16(32) != channels * bitsPerSample / 8) return false
+        // fmt 块长度必须是 16：更长的可能是 WAVE_FORMAT_EXTENSIBLE，格式未经验证
+        return i32(16) == 16
     }
 
     private fun header(dataLen: Int): ByteArray {
