@@ -253,9 +253,14 @@ class OptionMatrixTest {
         val existing = target.resolve("01 Track 01.wav")
         Files.write(existing, byteArrayOf(9, 9, 9, 9))
         val s = settings().copy(overwritePolicy = "skip")
-        val res = AlbumRipper.rip(scan(), s, { false }, {}, onlyTracks = setOf(1), source = fake())
+        val seen = ArrayList<com.doggybear233.saltaudiocopy.rip.RipProgress>()
+        val res = AlbumRipper.rip(scan(), s, { false }, { seen += it }, onlyTracks = setOf(1), source = fake())
         assertEquals(4L, Files.size(existing), "skip 策略不该动已有文件")
-        assertTrue(res.tracks.isEmpty() || res.tracks.single().skipped, "应报告为跳过：${res.tracks}")
+        assertTrue(res.tracks.isEmpty() || res.tracks.single().skipped, "应报告为跳过或不计入结果：${res.tracks}")
+        // 跳过也要推进进度：否则进度条卡在 0%，用户以为卡死
+        val sectors = scan().toc.sectorsOf(0).second
+        assertEquals(sectors.toLong(), seen.last().sectorsDone.toLong(), "跳过必须计入已完成扇区")
+        assertEquals(1f, seen.last().fraction, "跳过之后进度应到 100%")
     }
 
     @Test

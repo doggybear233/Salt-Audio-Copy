@@ -60,6 +60,23 @@ class AlbumPipelineTest {
         com.doggybear233.saltaudiocopy.rip.WavInfo.read(p)?.dataBytes
             ?: error("不是合法 WAV：$p")
 
+    /** 只允许 fmt + data 两个块；出现 LIST/id3 说明标签被拼进了镜像。 */
+    private fun assertChunksAreOnlyAudio(p: Path) {
+        val bytes = Files.readAllBytes(p)
+        val ids = ArrayList<String>()
+        var off = 12
+        while (off + 8 <= bytes.size) {
+            val id = String(bytes, off, 4, Charsets.US_ASCII)
+            val size = (bytes[off + 4].toLong() and 0xFF) or
+                ((bytes[off + 5].toLong() and 0xFF) shl 8) or
+                ((bytes[off + 6].toLong() and 0xFF) shl 16) or
+                ((bytes[off + 7].toLong() and 0xFF) shl 24)
+            ids += id
+            off += 8 + size.toInt() + (size.toInt() and 1)
+        }
+        assertEquals(listOf("fmt ", "data"), ids, "镜像 WAV 只应含 fmt + data，实际 $ids：$p")
+    }
+
     private fun fake() = FakeTrackSource(sectors = 6000)
 
     private fun scan() = ScanResult("\\\\.\\X:", FakeTrackSource.inquiry(), FakeTrackSource.disc3Tracks(6000))
@@ -169,6 +186,10 @@ class AlbumPipelineTest {
         val image = wavs[0]
         // 3 轨 × 2000 扇区
         assertEquals(3L * 2000L * 2352L, dataBytes(image))
+        // 文件总长必须正好是「头 + 音频」：每轨拼接前都被 WavTags 追加过 LIST/INFO + id3，
+        // 若按文件长度而不是 data 长度拼接，标签字节会混进 PCM（听感错位、CUE 全错）。
+        assertEquals(44L + 3L * 2000L * 2352L, Files.size(image), "镜像里不能夹带标签字节")
+        assertChunksAreOnlyAudio(image)
 
         val cues = Files.list(albumDir).use { st -> st.filter { it.toString().endsWith(".cue") }.toList() }
         assertEquals(1, cues.size)

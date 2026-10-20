@@ -343,8 +343,16 @@ object AlbumRipper {
                 // 用户会以为少的那几轨是抓失败了。
                 warn(Strings.fmt("第 %s 轨目标文件已存在，按设置跳过（该轨没有抓）", entry.track))
                 Diag.log("skip existing track=${entry.track} base=$baseName")
-                // 跳过的轨也计入「已完成」，否则进度条永远到不了 100%、剩余时间越算越离谱
+                // 跳过的轨也计入「已完成」，否则进度条永远到不了 100%、剩余时间越算越离谱。
+                // 只加 doneBase 不发回调也不行：面板只在回调里刷新，进度条会一直停在上一轨。
                 doneBase += sectors
+                val skipMs = (System.nanoTime() - startedAt) / 1_000_000
+                onProgress(
+                    RipProgress(
+                        doneBase, totalAll, bytesBase, skipMs, 0,
+                        eta.sample(doneBase, totalAll, skipMs)
+                    )
+                )
                 continue
             }
             val rel = target.fileName.toString()

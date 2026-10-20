@@ -136,8 +136,38 @@ class WritersTest {
         val bytes = Files.readAllBytes(p)
         assertEquals(0, bytes[44].toInt())
         assertEquals(0, bytes[44 + 15].toInt())
-        assertEquals(0, bytes[44 + 16].toInt())
+        // 右移 4 个采样 = 16 字节：开头 16 字节补零，原数据整体后移
+        assertEquals(1, bytes[44 + 17].toInt(), "原第 1 字节应落在 +17")
+        assertEquals(47, bytes[44 + 64 - 1].toInt(), "原数据最后一个字节（47）应落在末尾")
+        assertEquals(0, bytes[44].toInt())
         assertEquals(64 + 44, bytes.size)
+    }
+
+    @Test
+    fun pcmOffsetBeyondDataSilencesEverythingWithoutThrowing() {
+        // 用户把偏移设成 ±2000 samples，而小文件只有 64 字节：要么整段静音、要么保持原样，
+        // 但绝不能越界写坏文件（以前没有这条用例，越界行为无人知道）
+        val dir = Files.createTempDirectory("saltac-off3")
+        val p = dir.resolve("a.wav")
+        val data = ByteArray(64) { it.toByte() }
+        WavWriter(p).use { it.write(data, 0, data.size) }
+        PcmOffset.apply(p, 2000)
+        val bytes = Files.readAllBytes(p)
+        assertEquals(44 + 64, bytes.size, "长度不能变")
+        assertEquals(64, bytes.drop(44).count { it.toInt() == 0 }, "整段应为静音")
+    }
+
+    @Test
+    fun pcmOffsetIgnoresTrailingBytesThatAreNotAFullSample() {
+        val dir = Files.createTempDirectory("saltac-off4")
+        val p = dir.resolve("a.wav")
+        val data = ByteArray(62) { it.toByte() }   // 不是 4 的倍数
+        WavWriter(p).use { it.write(data, 0, data.size) }
+        PcmOffset.apply(p, 4)
+        val bytes = Files.readAllBytes(p)
+        assertEquals(44 + 62, bytes.size, "非整采样长度不能让文件变长")
+        assertEquals(60, bytes[44 + 60].toInt(), "不足一个采样时整段保持原样")
+        assertEquals(61, bytes[44 + 61].toInt())
     }
 
     @Test

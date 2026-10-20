@@ -45,7 +45,13 @@ class AlbumRipperLiveTest {
         assertEquals(1, t.number)
         assertEquals("未知艺术家/未知专辑", out.relativize(res.outDir).toString().replace('\\', '/'))
         assertTrue(Files.exists(t.file), "WAV 应存在: ${t.file}")
-        assertEquals(44L + t.sectors * 2352L, Files.size(t.file), "WAV 大小应为 44+扇区*2352")
+        // 打完标签后文件会比「44 + 音频」大（LIST/INFO + id3），只能按 data 长度断言
+        val facts = com.doggybear233.saltaudiocopy.rip.WavInfo.read(t.file)
+            ?: error("不是合法 WAV：${t.file}")
+        assertEquals(t.sectors * 2352L, facts.dataBytes, "data 长度应为 扇区*2352")
+        assertTrue(Files.size(t.file) > 44L + t.sectors * 2352L, "打完标签的文件应比纯音频大")
+        val tagBytes = Files.size(t.file) - 44L - facts.dataBytes
+        assertTrue(tagBytes in 1..(1L shl 20), "标签长度应在合理范围，实际 $tagBytes 字节")
         assertTrue(t.crc32 != 0L, "CRC 不应为 0")
 
         val cue = res.cueFile!!

@@ -19,13 +19,27 @@ data class InquiryData(
  * 一个 CD/DVD 驱动器的 SPTI 句柄。
  * 语义与 EAC 的单请求记录一致：所有命令串行执行，一个设备一个句柄。
  */
-class CdDevice(
+class CdDevice private constructor(
     val path: String,
-    preferred: ReadCommand? = ReadCommandPreference.preferred,
-    private val allowCommandFallback: Boolean = true
+    private val transport: ScsiTransport,
+    preferred: ReadCommand?,
+    private val allowCommandFallback: Boolean
 ) : com.doggybear233.saltaudiocopy.rip.TrackSource {
 
-    private val handle: MemorySegment = Win32.openDevice(path, writable = true)
+    /** 真实设备：打开 SPTI 句柄。 */
+    constructor(
+        path: String,
+        preferred: ReadCommand? = ReadCommandPreference.preferred,
+        allowCommandFallback: Boolean = true
+    ) : this(path, SptiTransport(Win32.openDevice(path, writable = true)), preferred, allowCommandFallback)
+
+    /** 测试用：命令逻辑跑在内存假实现上，不碰真驱动器。 */
+    internal constructor(
+        transport: ScsiTransport,
+        preferred: ReadCommand? = ReadCommandPreference.preferred,
+        allowCommandFallback: Boolean = true
+    ) : this("(fake)", transport, preferred, allowCommandFallback)
+
     @Volatile
     private var closed = false
 
@@ -42,15 +56,14 @@ class CdDevice(
     override val maxSectorsPerRequest: Int = MAX_SECTORS
 
     fun inquiry(): InquiryData {
-        val data = Sptd.execute(handle, cdb(0x12, 0x00, 0x00, 0x00, 0x24, 0x00), 36)
+        val data = transport.execute(cdb(0x12, 0x00, 0x00, 0x00, 0x24, 0x00), 36)
         fun str(from: Int, to: Int) = String(data, from, to - from, Charsets.US_ASCII).trim()
         return InquiryData(str(8, 16), str(16, 32), str(32, 36), data[0].toInt() and 0x1F)
     }
 
     /** READ TOC format 0 + MSF。 */
     fun readToc(): DiscToc {
-        val data = Sptd.execute(
-            handle,
+        val data = transport.execute(
             cdb(0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x24, 0x00),
             804
         )
@@ -77,8 +90,7 @@ class CdDevice(
     fun readCdText(): CdText.Info? {
         for (alloc in intArrayOf(0x2000, 0x0800)) {
             val data = try {
-                Sptd.execute(
-                    handle,
+                transport.execute(
                     cdb(
                         0x43, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00,
                         (alloc ushr 8) and 0xFF, alloc and 0xFF, 0x00
@@ -117,7 +129,7 @@ class CdDevice(
                 }
                 if (cmd == ReadCommand.READ10) ensureRead10BlockSize()
                 val expected = count * sectorSize
-                return exact(cmd, expected, Sptd.execute(handle, cmd.cdb(lba, count), expected))
+                return exact(cmd, expected, transport.execute(cmd.cdb(lba, count), expected))
             } catch (e: ScsiException) {
                 if (!plan.advanceAfter(e)) throw e
             }
@@ -136,7 +148,7 @@ class CdDevice(
                 }
                 if (cmd == ReadCommand.READ10) ensureRead10BlockSize()
                 val expected = count * sectorSize
-                val got = Sptd.executeInto(handle, cmd.cdb(lba, count), buf, expected)
+                val got = transport.executeInto(cmd.cdb(lba, count), buf, expected)
                 if (got != expected) {
                     throw ScsiException(
                         "短读：命令 ${cmd.id} 期望 $expected 字节，驱动只回了 $got 字节（盘面或线缆问题）",
@@ -189,7 +201,7 @@ class CdDevice(
         val cdb = ByteArray(12)
         cdb[0] = 0x55.toByte()                        // MODE SELECT(10)
         cdb[8] = param.size.toByte()                  // 参数列表长度（低字节）
-        Sptd.executeOut(handle, cdb, param)
+        transport.executeOut(cdb, param)
         blockLengthReady = true
         Diag.log("READ(10): block length set to $sectorSize")
     }
@@ -213,7 +225,7 @@ class CdDevice(
         cdb[8] = count.toByte()
         cdb[9] = 0xFA.toByte()
         val expected = count * C2.STRIDE
-        return exact(ReadCommand.MMC_C2, expected, Sptd.execute(handle, cdb, expected))
+        return exact(ReadCommand.MMC_C2, expected, transport.execute(cdb, expected))
     }
 
     /**
@@ -236,7 +248,7 @@ class CdDevice(
         cdb[9] = 0xF8.toByte()
         cdb[10] = 0x02.toByte()                // Q-only subchannel
         // 子通道也是「请求 N 只要到 M」的受害者：短读会让 Q 帧错位，间隙检测静默失效
-        return exact(ReadCommand.MMC, count * Subchannel.Q_STRIDE, Sptd.execute(handle, cdb, count * Subchannel.Q_STRIDE))
+        return exact(ReadCommand.MMC, count * Subchannel.Q_STRIDE, transport.execute(cdb, count * Subchannel.Q_STRIDE))
     }
 
     /** 读单个扇区的 Q 子通道（gap 探测用）。 */
@@ -244,10 +256,10 @@ class CdDevice(
         Subchannel.parseQ(Subchannel.qOnlySlice(readSectorsWithQSubchannel(lba, 1), 0))
 
     /** 直接下发任意 CDB（诊断/实验用）。 */
-    fun rawCommand(cdb: ByteArray, readSize: Int): ByteArray = Sptd.execute(handle, cdb, readSize)
+    fun rawCommand(cdb: ByteArray, readSize: Int): ByteArray = transport.execute(cdb, readSize)
 
     /** TEST UNIT READY。 */    fun testUnitReady(): Boolean = runCatching {
-        Sptd.execute(handle, cdb(0x00, 0, 0, 0, 0, 0), 0)
+        transport.execute(cdb(0x00, 0, 0, 0, 0, 0), 0)
         true
     }.getOrDefault(false)
 
@@ -259,7 +271,7 @@ class CdDevice(
         c[3] = (readKbps and 0xFF).toByte()
         c[4] = ((writeKbps ushr 8) and 0xFF).toByte()
         c[5] = (writeKbps and 0xFF).toByte()
-        Sptd.execute(handle, c, 0)
+        transport.execute(c, 0)
     }
 
     /**
@@ -267,17 +279,17 @@ class CdDevice(
      * immed=1 让人机交互不必等机械动作完成（不然会卡住整个抓轨线程）。
      */
     fun eject() {
-        Sptd.execute(handle, cdb(0x1B, 0x01, 0, 0, 0x02, 0), 0)
+        transport.execute(cdb(0x1B, 0x01, 0, 0, 0x02, 0), 0)
     }
 
     /** 收回托盘（LoEj=1 且 Start=1）。 */
     fun load() {
-        Sptd.execute(handle, cdb(0x1B, 0x01, 0, 0, 0x03, 0), 0)
+        transport.execute(cdb(0x1B, 0x01, 0, 0, 0x03, 0), 0)
     }
 
     /** PREVENT/ALLOW MEDIUM REMOVAL（0x1E）：true 防止用户中途按弹出键。 */
     fun preventRemoval(prevent: Boolean) {
-        Sptd.execute(handle, cdb(0x1E, 0, 0, 0, if (prevent) 1 else 0, 0), 0)
+        transport.execute(cdb(0x1E, 0, 0, 0, if (prevent) 1 else 0, 0), 0)
     }
 
     private fun cdb(vararg b: Int): ByteArray = ByteArray(b.size) { (b[it] and 0xFF).toByte() }
@@ -285,7 +297,7 @@ class CdDevice(
     override fun close() {
         if (closed) return
         closed = true
-        Win32.close(handle)
+        transport.close()
     }
 
     companion object {

@@ -1441,8 +1441,13 @@ object ConfigActions {
         toast(Strings.message("正在取消…"), ToastType.Warning)
     }
 
-    /** 删除本次新建的文件，返回删掉的个数。失败只记日志。 */
-    private fun deleteCreated(files: List<java.nio.file.Path>): Int {
+    /**
+     * 删除本次新建的文件，返回删掉的个数。失败只记日志。
+     *
+     * internal 是为了能单测：这是「取消后删文件」这类破坏性行为的唯一入口，
+     * 以前没有测试，漏记或多记 createdFiles 都会删错东西或留垃圾。
+     */
+    internal fun deleteCreated(files: List<java.nio.file.Path>): Int {
         var n = 0
         for (f in files) {
             val ok = runCatching { java.nio.file.Files.deleteIfExists(f) }
