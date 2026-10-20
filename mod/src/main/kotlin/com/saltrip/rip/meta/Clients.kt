@@ -138,8 +138,50 @@ object CoverArtClient {
  */
 object GnudbClient {
 
-    private const val HOST = "http://gnudb.gnudb.org/~cddb/cddb.cgi"
+    /**
+     * CDDB 服务地址，按顺序试。
+     *
+     * 为什么要有镜像：gnudb 托管在 Hetzner，部分网络（本机实测）TCP 直接超时，
+     * `Test-NetConnection gnudb.gnudb.org -Port 80` 23 秒都不通——不是插件写错。
+     * dbpoweramp 的老镜像还能连（协议同样是 cddb.cgi）。
+     */
+    private val MIRRORS = listOf(
+        "http://gnudb.gnudb.org/~cddb/cddb.cgi",
+        "https://gnudb.gnudb.org/~cddb/cddb.cgi",
+        "http://freedb.dbpoweramp.com/~cddb/cddb.cgi"
+    )
+
     private val THROTTLE_MS = 500L
+
+    /** 本次运行里已经证明连不上的镜像，别再每次都等一遍超时。 */
+    private val deadMirrors: MutableSet<String> = java.util.Collections.synchronizedSet(HashSet())
+
+    /** 上一次实际成功的镜像（诊断用）。 */
+    @Volatile
+    var lastMirror: String? = null
+        private set
+
+    private fun request(query: String): HttpResult {
+        var lastError: Throwable? = null
+        for (host in MIRRORS) {
+            if (host in deadMirrors) continue
+            try {
+                Http.throttle(java.net.URI(host).host ?: host, THROTTLE_MS)
+                val r = Http.get("$host?$query", accept = "text/plain")
+                lastMirror = host
+                return r
+            } catch (e: Throwable) {
+                lastError = e
+                deadMirrors += host
+                Diag.log("cddb mirror unreachable: $host -> ${e.message}")
+            }
+        }
+        throw java.io.IOException(
+            "CDDB 服务全部连不上（${MIRRORS.size} 个镜像都失败：" +
+                (lastError?.message ?: "未知原因") + "）",
+            lastError
+        )
+    }
 
     data class Entry(val category: String, val discId: String)
 
@@ -152,9 +194,7 @@ object GnudbClient {
                 "proto" to "6"
             )
         )
-        Http.throttle("gnudb.gnudb.org", THROTTLE_MS)
-        val r = Http.get("$HOST?$q", accept = "text/plain")
-        val lines = r.text.lines()
+        val lines = request(q).text.lines()
         if (lines.isEmpty()) return emptyList()
         val first = lines[0]
         val entries = ArrayList<Entry>()
@@ -193,9 +233,7 @@ object GnudbClient {
                 "proto" to "6"
             )
         )
-        Http.throttle("gnudb.gnudb.org", THROTTLE_MS)
-        val r = Http.get("$HOST?$q", accept = "text/plain")
-        return parseReadResponse(r.text.lines(), entry.discId)
+        return parseReadResponse(request(q).text.lines(), entry.discId)
     }
 
     /** 解析 `cddb read` 的响应文本；抽出来便于单测。 */

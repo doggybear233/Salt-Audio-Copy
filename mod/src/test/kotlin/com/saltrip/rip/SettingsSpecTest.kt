@@ -112,7 +112,7 @@ class SettingsSpecTest {
                 }
             }
         }
-        assertEquals(50, SettingsSpec.settingKeys.size, "50 个设置键：51 减去被删掉的「显示诊断工具」")
+        assertEquals(51, SettingsSpec.settingKeys.size, "51 个设置键（0.33.0 加 proxyUrl）")
         assertEquals(
             SettingsSpec.settingKeys.size,
             SettingsSpec.settingKeys.toSet().size,

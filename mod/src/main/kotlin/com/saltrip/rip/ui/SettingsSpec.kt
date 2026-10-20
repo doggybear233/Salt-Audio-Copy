@@ -145,6 +145,7 @@ object SettingsSpec {
             "p6", "元数据", listOf(
                 sw("fetchMetadata"),
                 sw("autoLookupOnInsert").copy(visibleWhen = { it.fetchMetadata }),
+            txt("proxyUrl", "http://127.0.0.1:7890").copy(visibleWhen = { it.fetchMetadata }),
                 sw("useCdText"),
                 sw("preferTrackCount").copy(visibleWhen = { it.fetchMetadata }),
                 txt("releaseIndex", "0＝第一个候选").copy(visibleWhen = { it.fetchMetadata }),
@@ -311,6 +312,7 @@ object SettingsAccess {
         "overrideFile" -> s.overrideFile
         "readCommand" -> s.readCommand
         "errorRecovery" -> s.errorRecovery
+        "proxyUrl" -> s.proxyUrl
         "gapMode" -> s.gapMode
         "gapMethod" -> s.gapMethod
         "driveLetter" -> s.driveLetter
@@ -342,6 +344,7 @@ object SettingsAccess {
         "overrideFile" -> s.copy(overrideFile = v)
         "readCommand" -> s.copy(readCommand = v)
         "errorRecovery" -> s.copy(errorRecovery = v)
+        "proxyUrl" -> s.copy(proxyUrl = v)
         "gapMode" -> s.copy(gapMode = v)
         "gapMethod" -> s.copy(gapMethod = v)
         "driveLetter" -> s.copy(driveLetter = v)

@@ -3,6 +3,27 @@
 Windows 上把 CD 精确抓成 WAV + CUE + 日志，并把专辑信息（MusicBrainz / gnudb / Cover Art Archive）一起落盘。
 算法与参数来自对 EAC 1.8 的逆向（见 `../architecture.md`、`../features.md`）。
 
+## 0.33.0（查不到元数据：CDDB 镜像 + 代理 + 说清原因）
+
+这张盘「抓不出元数据」不是解析 bug，实测结论：
+
+- MusicBrainz 有响应，但这张盘（discid `jCz7JPOv0e14IuzcyS.StppLPio-`）**在库里没有记录**（404）。
+  用 libdiscid 规则独立重算过同一个 id，说明不是 id 算错。
+- gnudb（CDDB）**网络层不通**：`gnudb.gnudb.org` TCP 80/443 在本机都是 connect timeout
+  （`Test-NetConnection` 23 秒仍失败），插件以前会重试 4 次，等于白等约 48 秒。
+- `freedb.freedb.org` / `cddb.musicbrainz.org` 已 NXDOMAIN；`freedb.dbpoweramp.com` 能连，
+  但对本盘返回 `401 No such CD entry`。
+
+因此这一版做三件事：
+
+- **CDDB 镜像轮换**：`GnudbClient` 依次试 `gnudb` HTTP → `gnudb` HTTPS → `freedb.dbpoweramp.com`，
+  连不上的镜像记进 `deadMirrors`，本次运行不再等它；日志里能看出是哪个镜像失败。
+- **连接超时压到 4 秒、连不上不再重试**：`Http.configure()` 统一设置，
+  `UnknownHostException` / connect timeout 直接短路，避免面板看起来卡死。
+- **新增设置「HTTP 代理（可选）」（5 · 元数据）**：写 `127.0.0.1:7890` 之类即可走代理，
+  空 = 直连。改完不用重启宿主，每次查询前会重新读设置。
+  面板空态也会区分「这张盘没记录」和「网络不通，可以填代理」，并仍可改用手动填写。
+
 ## 0.32.0（查不到元数据时可手填）
 
 - 网络查不到（小众独立盘、自制合集、gnudb 没收录）时，「刷新元数据」自动变成**「手动填写元数据…」**：

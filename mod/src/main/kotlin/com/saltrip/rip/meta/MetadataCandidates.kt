@@ -55,6 +55,9 @@ object MetadataCandidates {
         settings: RipSettings,
         cdtext: CdText.Info? = null
     ): Result {
+        // 设置里的代理每次查询前同步一次：用户改完设置不必重启宿主。
+        Http.configure(settings.proxyUrl)
+        if (Http.proxyInUse()) Diag.log("http proxy in use: ${settings.proxyUrl}")
         val notes = ArrayList<String>()
         val discId = runCatching { DiscId.musicBrainz(toc) }
             .onFailure { Diag.log("discid failed", it) }.getOrNull().orEmpty()
@@ -140,6 +143,7 @@ object MetadataCandidates {
         cdtext: CdText.Info? = null,
         notes: MutableList<String> = ArrayList()
     ): AlbumMeta? {
+        Http.configure(settings.proxyUrl)
         val discId = runCatching { DiscId.musicBrainz(toc) }.getOrDefault("")
         val cddb = runCatching { DiscId.cddb(toc) }.getOrDefault("")
 

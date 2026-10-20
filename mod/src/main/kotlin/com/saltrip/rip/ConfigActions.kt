@@ -579,9 +579,17 @@ object ConfigActions {
                 // 查过一轮了：没有候选时面板按钮改成「手动填写元数据…」。
                 PanelState.lookupTried = true
                 if (result.candidates.isEmpty()) {
+                    // 分清「这张盘没记录」和「网络根本不通」：后者让用户去填代理，否则会白试。
+                    val netNote = result.notes.firstOrNull {
+                        it.contains("连不上") || it.contains("超时") || it.contains("失败")
+                    }
                     PanelState.set(
                         "没查到专辑信息",
-                        "点「手动填写元数据…」自己写歌手/专辑名/歌名，或换一张盘再查"
+                        if (netNote != null) {
+                            "网络不通：$netNote —— 可在设置里填 HTTP 代理，或直接手动填写"
+                        } else {
+                            "点「手动填写元数据…」自己写歌手/专辑名/歌名，或换一张盘再查"
+                        }
                     )
                     if (interactive) toast("未找到元数据\n" + result.notes.takeLast(2).joinToString("\n"), ToastType.Warning)
                 } else {

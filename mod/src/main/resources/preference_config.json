@@ -272,6 +272,13 @@
           "default_value": true
         },
         {
+          "key": "proxyUrl",
+          "title": "HTTP 代理（可选）",
+          "summary": "形如 127.0.0.1:7890。CDDB 服务在部分网络被墙，填代理可直连；留空＝直连。",
+          "type": "edittext",
+          "default_value": ""
+        },
+        {
           "type": "switch",
           "key": "useCdText",
           "title": "读取 CD-TEXT",

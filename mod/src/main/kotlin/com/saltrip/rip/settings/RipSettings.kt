@@ -38,6 +38,13 @@ data class RipSettings(
      * 面板上的专辑名要自己点按钮才出现。
      */
     val autoLookupOnInsert: Boolean = true,
+    /**
+     * 可选 HTTP 代理，如 `127.0.0.1:7890`。空 = 直连。
+     *
+     * gnudb 在部分网络下 TCP 不通（实测 Hetzner 段被墙），而 MusicBrainz 能连；
+     * 给个代理口子比让用户自己改系统设置靠谱。
+     */
+    val proxyUrl: String = "",
     /** 封面长边像素（Cover Art Archive 的 front-<size>）。 */
     /** 0 = 原图（用户默认要求）；>0 = Cover Art Archive 的 front-<size> 缩略图。 */
     val coverSize: Int = 0,
@@ -148,6 +155,7 @@ object SettingsStore {
     private const val KEY_RETRY_DELAY = "retryDelayMs"
     private const val KEY_FETCH_META = "fetchMetadata"
     private const val KEY_AUTO_LOOKUP = "autoLookupOnInsert"
+    private const val KEY_PROXY = "proxyUrl"
     private const val KEY_COVER_SIZE = "coverSize"
     private const val KEY_WRITE_CUE = "writeCue"
     private const val KEY_WRITE_LOG = "writeLog"
@@ -227,6 +235,7 @@ object SettingsStore {
             retryDelayMs = readInt(h, KEY_RETRY_DELAY, d.retryDelayMs),
             fetchMetadata = readBool(h, KEY_FETCH_META, d.fetchMetadata),
             autoLookupOnInsert = readBool(h, KEY_AUTO_LOOKUP, d.autoLookupOnInsert),
+            proxyUrl = h.get(KEY_PROXY, d.proxyUrl),
             coverSize = readInt(h, KEY_COVER_SIZE, d.coverSize),
             writeCue = readBool(h, KEY_WRITE_CUE, d.writeCue),
             writeLog = readBool(h, KEY_WRITE_LOG, d.writeLog),
@@ -284,6 +293,7 @@ object SettingsStore {
             h.set(KEY_RETRY_DELAY, s.retryDelayMs.toString())
             h.set(KEY_FETCH_META, s.fetchMetadata)
             h.set(KEY_AUTO_LOOKUP, s.autoLookupOnInsert)
+            h.set(KEY_PROXY, s.proxyUrl)
             h.set(KEY_COVER_SIZE, s.coverSize.toString())
             h.set(KEY_WRITE_CUE, s.writeCue)
             h.set(KEY_WRITE_LOG, s.writeLog)

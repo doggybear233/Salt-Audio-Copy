@@ -22,6 +22,48 @@ object Http {
     private val throttleLock = Any()
     private val lastCall = HashMap<String, Long>()
 
+    /** 可选 HTTP 代理；空 = 直连。由设置里的 `proxyUrl` 决定（见 [configure]）。 */
+    @Volatile
+    private var proxy: java.net.Proxy? = null
+
+    /** 连接超时压到 4 秒：gnudb 在部分网络下是「丢包黑洞」，等 10 秒纯属干等。 */
+    @Volatile
+    private var connectTimeoutMs = 4_000
+
+    @Volatile
+    private var readTimeoutMs = 20_000
+
+    /**
+     * 配置代理与超时。设置改了要重新调；不调就用直连 + 默认超时。
+     *
+     * 代理写在设置里而不是靠 `-Dhttp.proxyHost`：宿主 JVM 是共享的，
+     * 改全局属性会影响宿主自己的网络行为。
+     */
+    fun configure(proxyUrl: String = "", connectMs: Int = 4_000, readMs: Int = 20_000) {
+        connectTimeoutMs = connectMs
+        readTimeoutMs = readMs
+        proxy = parseProxy(proxyUrl)
+    }
+
+    /** 接受 `127.0.0.1:7890`、`http://127.0.0.1:7890`；解析不了就当直连。 */
+    internal fun parseProxy(raw: String): java.net.Proxy? {
+        val s = raw.trim()
+        if (s.isEmpty()) return null
+        val noScheme = s.removePrefix("http://").removePrefix("https://")
+        val host = noScheme.substringBeforeLast(':', "").ifBlank { return null }
+        val port = noScheme.substringAfterLast(':', "").toIntOrNull() ?: return null
+        if (port !in 1..65535) return null
+        return runCatching {
+            java.net.Proxy(
+                java.net.Proxy.Type.HTTP,
+                java.net.InetSocketAddress(host, port)
+            )
+        }.getOrNull()
+    }
+
+    /** 当前是否走代理（诊断/日志用）。 */
+    fun proxyInUse(): Boolean = proxy != null
+
     /** 同一主机两次请求之间的最小间隔（MusicBrainz 要求 1 req/s）。 */
     fun throttle(host: String, minGapMs: Long) {
         synchronized(throttleLock) {
@@ -44,9 +86,10 @@ object Http {
         while (true) {
             attempt++
             try {
-                val conn = (URI(url).toURL().openConnection() as HttpURLConnection).apply {
-                    readTimeout = 20_000
-                    connectTimeout = 10_000
+                val base = URI(url).toURL()
+                val conn = ((if (proxy != null) base.openConnection(proxy) else base.openConnection()) as HttpURLConnection).apply {
+                    readTimeout = readTimeoutMs
+                    connectTimeout = connectTimeoutMs
                     requestMethod = "GET"
                     instanceFollowRedirects = true
                     setRequestProperty("User-Agent", DEFAULT_UA)
@@ -72,7 +115,10 @@ object Http {
                 runCatching { conn.disconnect() }
                 return HttpResult(code, bytes, ct)
             } catch (e: Exception) {
-                if (attempt > retries) {
+                // 连不上（connect timed out / UnknownHost）重试也没用，只会把面板卡更久。
+                val unreachable = e is java.net.UnknownHostException ||
+                    (e is java.net.SocketTimeoutException && e.message?.contains("connect", true) == true)
+                if (attempt > retries || unreachable) {
                     Diag.log("http failed after $attempt attempts: $url", e)
                     throw java.io.IOException("网络请求失败: ${e.message}", e)
                 }
