@@ -12,6 +12,30 @@
 - 插件标识改为自有品牌：`Plugin-Id = com.doggybear233.saltaudiocopy`、`Plugin-Provider = doggybear233`、Kotlin 包 `com.doggybear233.saltaudiocopy`；日志文件名改为 `saltaudiocopy.log`，不再保留 `saltrip` 字样（旧版插件目录需手动删除）。
 - 发布物料：`release/github`、`release/steam`。
 
+### 1.0.0 发布前两轮修复
+
+第一轮（批次 01–18）主要修正确性：多光驱盘符、UI 线程读盘、SCSI 传输长度与 sense 解析、
+CD-TEXT 分块与字符集、续抓双写、Test&Copy 三通道参数一致、镜像拼接把标签当音频、
+CUE 的 FILE 类型、空间预检、6 个从未存盘的设置项、FLAC 标签口径、WAV ID3 结构等。
+
+第二轮（批次 R2-01–R2-11）主要修「用户会真的踩到」的问题：
+
+- 物料：内置 FLAC 的 GPL 全文与 `THIRD-PARTY-NOTICES.md`、Release 图片改绝对链接、
+  `mod/README.md` 与 1.0.0 对齐、校验次数文案统一为「连续 1 / 2 / 5 次一致」。
+- 网络：取消只作用于本次查询（不再一次取消永久失效）、单次查询 60 秒总预算、
+  `Retry-After` 有上限、封面并发有超时且线程为 daemon、403/429 不再被当成「没有记录」。
+- 元数据：medium 先按 `discs[].id` 精确匹配（多碟同轨数不再取错碟）、失败原因不再跨调用残留。
+- 盘与并发：盘符统一走 `DriveSelect`、`DiscWatcher.stop()` 会 join 旧线程、
+  抓轨中禁止保存元数据、保存前比对盘指纹（A 盘的元数据不会写进 B 盘缓存）。
+- 产物：整套产物（音频 / CUE / 日志 / 封面）共用同一覆盖后缀；自检认得 FLAC 的 CUE；
+  镜像模式下逐轨不打标签、改给镜像写专辑级标签；`.part` 原子重写；续抓校验 `SALT` 守卫
+  与采样格式（24 位 WAV 不会被当成同一轨继续追加）。
+- SCSI：MODE SELECT(10) 用 Data-Out 下发并回读块长；结构化 sense 全 0 时回退原始消息。
+- 设置与预览：`SettingsCoverageTest` 改成字段级双向断言（写错字段必红）；
+  预览路径纯内存计算，输出根在网络盘时设置页不再卡顿。
+- 测试有效性：真机/联网用例改成 `@Tag("live")` 并默认不跑（`gradlew liveTest` 单独跑），
+  默认套件 555 个用例，失败即真回归。
+
 ## 0.40 — 0.43
 
 - 新增「环境自检」（系统语言 / 代码页 / CJK 路径读写）与「网络自检」。
