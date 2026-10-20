@@ -1,4 +1,4 @@
-# 盐专辑（Salt Audio Copy）手动验收清单 v7
+# 盐专辑（Salt Audio Copy）手动验收清单 v8
 
 只列**必须真机 / 真宿主 UI / 真编码器**才能验的项目——自动化测试已经覆盖 438 项（含 FLAC / 内置编码器 / 选项矩阵 / 多语言表）。
 每条都写了「怎么算通过」和「失败时给我什么」，照着做、把结果发我就行。
@@ -6,7 +6,7 @@
 **日志**：面板 → 设置 → 8 · 诊断 → 「查看日志路径」（会 toast 出完整路径），或者直接找
 
 ```
-%APPDATA%\Salt Player for Windows\workshop\plugins\plugin-com.saltrip.saltaudiocopy-0.43.1\logs\saltrip.log
+%APPDATA%\Salt Player for Windows\workshop\plugins\plugin-com.saltrip.saltaudiocopy-1.0.0\logs\saltrip.log
 ```
 
 **回报格式**：条目编号 + 通过/失败 + （失败时）截图或日志尾部 30 行。日志里以 `[SaltAudioCopy]` 开头。
@@ -17,11 +17,11 @@
 
 1. **先删掉旧版本**：关掉宿主 → 打开
    `%APPDATA%\Salt Player for Windows\workshop\plugins`，把 `plugin-com.saltrip.saltaudiocopy-*` 里
-   **不是** 0.43.1 的目录全删掉（上一次「手填不刷新 / 卡 21%」其实是宿主还在跑 0.36.3）。
-2. 宿主「模组管理」导入 `plugin-com.saltrip.saltaudiocopy-0.43.1.spmod` → 启用。
+   **不是** 1.0.0 的目录全删掉（上一次「手填不刷新 / 卡 21%」其实是宿主还在跑 0.36.3）。
+2. 宿主「模组管理」导入 `plugin-com.saltrip.saltaudiocopy-1.0.0.spmod` → 启用。
 3. 权限勾选里需要 **class-transform**（面板挂载用），缺失时面板不会出现。
 4. 通过：启用后无报错；「CD 工具箱」页出现坞（封面 + 标题 + 状态 + 按钮行）；
-   面板 → 设置，标题右侧能看到 **v0.43.1**（看不到就说明跑的还是旧版）。
+   面板 → 设置，标题右侧能看到 **v1.0.0**（看不到就说明跑的还是旧版）。
 
 ## A. 面板与外观
 
@@ -206,7 +206,7 @@ C1 失败 —— 截图见附件；日志尾部：
   ⑤ 诊断页按钮。都应为所选语言。
 - **R7 `.errors.txt`**：一次干净的整盘抓轨（全绿）后，输出目录里**不应**出现 `.errors.txt`。
 
-## 0.43.1 复测项（名称与文案）
+## 1.0.0 复测项（名称与文案）
 
 | # | 步骤 | 通过标准 |
 |---|---|---|

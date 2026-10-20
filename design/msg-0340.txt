@@ -1,7 +1,0 @@
-0.34.0: 网络自检 + CDDB 缓存 + 握手自适应 + 手动预填 CD-TEXT
-
-- 诊断页新增 testNetwork：并发探测 MB / Cover Art / gnudb(HTTP,HTTPS) / dbpoweramp
-- CddbCache：cache/cddb-<id>.json（album.json 格式，30 天），命中即离线可用
-- GnudbClient: hello 3/4 段变体自适应，500 换变体重试；连接超时 2.5s
-- openManualMeta: 有 CD-TEXT 时预填专辑名/艺术家/曲名
-- 测试 337 通过（NetAndCacheTest 9 例）

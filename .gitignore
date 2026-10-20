@@ -13,3 +13,6 @@ Thumbs.db
 .vscode/
 *.swp
 design/dbg_spw.db
+
+# Release bundles (generated)
+release/

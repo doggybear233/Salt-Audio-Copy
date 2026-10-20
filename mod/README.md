@@ -3,6 +3,15 @@
 Windows 上把 CD 精确抓成 WAV + CUE + 日志，并把专辑信息（MusicBrainz / gnudb / Cover Art Archive）一起落盘。
 算法与参数来自对 EAC 1.8 的逆向（见 `../architecture.md`、`../features.md`）。
 
+## 1.0.0
+
+首个正式版。功能与 0.43.1 一致，变化在发布层面：
+
+- 版本号 1.0.0（`mod/build.gradle.kts` 与 `Version.kt` 同源）。
+- 仓库整理：根目录的一次性探测脚本移入 `tools/probes/`；新增根 `README.md` / `LICENSE`（MIT）/ `CHANGELOG.md`。
+- 发布物料生成到 `release/github/`（spmod + Release 说明 + 校验值 + 截图）与 `release/steam/`（spmod + 512×512 预览图 + 中英文简介 + 标签 + 上传步骤）；`release/` 不进版本库。
+- 438 tests / 0 failed。
+
 ## 0.43.1
 
 - **插件名统一为 ASCII**：`spmod { PluginName = "Salt Audio Copy" }`。宿主清单（manifest）不能按语言切换显示名，而 `Manifest` 写盘时按字节折行会切坏 UTF-8 中文，所以清单名固定用英文。

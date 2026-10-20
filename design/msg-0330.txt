@@ -1,7 +1,0 @@
-0.33.0: 元数据查询修 CDDB 镜像/超时，新增 HTTP 代理设置
-
-- Http: configure(proxyUrl, connect, read) + parseProxy，4s 连接超时，连接失败不再重试
-- GnudbClient: gnudb HTTP/HTTPS + freedb.dbpoweramp.com 镜像轮换，失败镜像记入 deadMirrors
-- RipSettings/SettingsSpec/preference_config.json: 新增 proxyUrl（5 · 元数据，edittext）
-- ConfigActions: 空态区分「无记录」与「网络不通」，后者提示填代理
-- 测试: HttpProxyTest 5 例，328 tests / 0 failed
