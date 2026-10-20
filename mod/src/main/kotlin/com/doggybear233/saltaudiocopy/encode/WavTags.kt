@@ -51,7 +51,9 @@ object WavTags {
         "date" to "TYER",
         "genre" to "TCON",
         "comment" to "COMM",
-        "track" to "TRCK"
+        "track" to "TRCK",
+        "disc" to "TPOS",
+        "composer" to "TCOM"
     )
 
     /**
@@ -158,8 +160,16 @@ object WavTags {
             val frameId = ID3_IDS[key] ?: continue
             val body = java.io.ByteArrayOutputStream()
             body.write(1) // encoding 1 = UTF-16LE with BOM
+            if (frameId == "COMM") {
+                // COMM 的帧体不是纯文本：encoding(1) + 语言(3) + 简短描述(以 NUL 结尾) + 正文。
+                // 以前写成 encoding + BOM + 文本，严格解析器（foobar2000）会读成乱码或丢弃。
+                body.write('e'.code); body.write('n'.code); body.write('g'.code)
+                body.write(0); body.write(0) // 空描述（UTF-16 空串 = 两个 0 字节）
+            }
             body.write(0xFF); body.write(0xFE)
-            body.write(value.toByteArray(Charsets.UTF_16LE))
+            // TYER 规范只接受 4 位年份：带上「2019-05-01」会被判非法
+            val text = if (frameId == "TYER") value.take(4) else value
+            body.write(text.toByteArray(Charsets.UTF_16LE))
             body.write(0); body.write(0)
             val data = body.toByteArray()
             writeAscii(frames, frameId)
@@ -191,20 +201,30 @@ object WavTags {
      * 把标签写进 [file]（原地重写：先写 `.tmp` 再原子替换）。
      * 不是 RIFF/WAVE 的文件直接跳过（返回 false），不抛异常。
      */
-    fun write(file: Path, tags: Map<String, String>): Boolean {
-        if (!Files.isRegularFile(file)) return false
-        val bytes = Files.readAllBytes(file)
-        if (bytes.size < 12) return false
-        if (ascii(bytes, 0, 4) != "RIFF" || ascii(bytes, 8, 4) != "WAVE") return false
+    fun write(file: Path, tags: Map<String, String>): Boolean = writeResult(file, tags) == null
+
+    /**
+     * 与 [write] 相同，但把「为什么没写成」带出来（null = 成功）。
+     *
+     * 以前调用方只能拿到 false，日志里只有「WAV 标签写入失败」而没有任何原因，
+     * 用户与排查都无从下手。
+     */
+    fun writeResult(file: Path, tags: Map<String, String>): String? {
+        if (!Files.isRegularFile(file)) return "文件不存在：$file"
+        val bytes = runCatching { Files.readAllBytes(file) }.getOrElse {
+            return "读文件失败：${it.message ?: it.javaClass.simpleName}"
+        }
+        if (bytes.size < 12) return "文件太短（${bytes.size} 字节），不像 WAV"
+        if (ascii(bytes, 0, 4) != "RIFF" || ascii(bytes, 8, 4) != "WAVE") return "不是 RIFF/WAVE 文件"
 
         // INFO 可能整块写不出来（纯韩文/阿拉伯文在日文系统上无法编码），
         // 这时至少还有 id3 能无损保存，不能因此整份放弃。
         val info = listBlock(tags)
         val id3 = id3Block(tags)
-        if (info == null && id3 == null) return false
+        if (info == null && id3 == null) return "标签里没有任何可写入的字段（全部为空或无法编码）"
 
         // 先去掉旧的 LIST/INFO 与 id3 块（重复打标签时不叠加）
-        val body = stripMeta(bytes) ?: return false
+        val body = stripMeta(bytes) ?: return "RIFF 块结构损坏，拒绝改写"
 
         val merged = ByteArray(body.size + (info?.size ?: 0) + (id3?.size ?: 0))
         System.arraycopy(body, 0, merged, 0, body.size)
@@ -217,9 +237,13 @@ object WavTags {
         fixRiffSize(merged)
 
         val tmp = file.resolveSibling(file.fileName.toString() + ".tagtmp")
-        Files.write(tmp, merged)
-        Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING)
-        return true
+        return runCatching {
+            Files.write(tmp, merged)
+            Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING)
+        }.exceptionOrNull()?.let {
+            runCatching { Files.deleteIfExists(tmp) }
+            "写临时文件失败：${it.message ?: it.javaClass.simpleName}"
+        }
     }
 
     /**
@@ -308,11 +332,23 @@ object WavTags {
             if (frameSizeRaw <= 0 || p + 10 + frameSizeRaw > end) break
             val bodyStart = p + 10
             val enc = bytes[bodyStart].toInt() and 0xFF
-            val text = when (enc) {
-                1 -> decodeUtf16(bytes, bodyStart + 1, frameSizeRaw - 1)
-                2 -> String(bytes, bodyStart + 1, frameSizeRaw - 1, Charsets.UTF_16BE)
-                3 -> String(bytes, bodyStart + 1, frameSizeRaw - 1, Charsets.UTF_8)
-                else -> String(bytes, bodyStart + 1, frameSizeRaw - 1, Charsets.ISO_8859_1)
+            var textOff = bodyStart + 1
+            var textLen = frameSizeRaw - 1
+            if (frameId == "COMM") {
+                // encoding + 语言(3) + 空描述(2) 之后才是正文
+                textOff += 3
+                textLen -= 3
+                if (textLen >= 2 && bytes[textOff] == 0.toByte() && bytes[textOff + 1] == 0.toByte()) {
+                    textOff += 2
+                    textLen -= 2
+                }
+            }
+            val text = when {
+                textLen <= 0 -> ""
+                enc == 1 -> decodeUtf16(bytes, textOff, textLen)
+                enc == 2 -> String(bytes, textOff, textLen, Charsets.UTF_16BE)
+                enc == 3 -> String(bytes, textOff, textLen, Charsets.UTF_8)
+                else -> String(bytes, textOff, textLen, Charsets.ISO_8859_1)
             }.trimEnd('\u0000')
             val key = ID3_IDS.entries.firstOrNull { it.value == frameId }?.key
             if (key != null && text.isNotBlank()) out[key] = text

@@ -44,19 +44,21 @@ internal object BundledFlac {
             for (name in FILES) {
                 val target = dir.resolve(name)
                 val url = BundledFlac::class.java.getResource("$RESOURCE_DIR/$name") ?: return@runCatching
-                // 已经解压过就跳过：每次都覆盖会让插件升级后多写 1 MB
-                if (Files.isRegularFile(target) && Files.size(target) > 0) continue
-                url.openStream().use { input ->
-                    val tmp = dir.resolve("$name.tmp")
-                    Files.copy(input, tmp, StandardCopyOption.REPLACE_EXISTING)
-                    Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING)
-                }
+                // 「文件存在」不等于「文件完整」：上次解压到一半被杀、磁盘写失败、
+                // 或用户/杀毒软件动了 bin 目录，都会留下一个大小不对的文件，
+                // 而 flac.exe 与 DLL 版本不匹配时会以 0xC0000135 崩掉，很难查。
+                // 这里按资源本身的字节数校验，大小不符就重新解压。
+                val expected = url.openStream().use { it.readBytes() }
+                if (Files.isRegularFile(target) && Files.size(target) == expected.size.toLong()) continue
+                val tmp = dir.resolve("$name.tmp")
+                Files.write(tmp, expected)
+                Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING)
                 Diag.log("bundled flac: extracted $name (${Files.size(target)} B)")
             }
         }.onFailure { Diag.log("bundled flac extract failed", it) }
 
         val exe = dir.resolve(EXE)
-        if (!Files.isRegularFile(exe)) return null
+        if (!Files.isRegularFile(exe) || Files.size(exe) <= 0) return null
         resolved = exe.toAbsolutePath()
         return resolved
     }

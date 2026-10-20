@@ -425,23 +425,28 @@ object AlbumRipper {
             // WAV 的 LIST/INFO 标签：资源管理器/播放器读它显示标题、艺术家、专辑
             //（反馈 6：抓下来的文件在资源管理器里没有标签）。追加在 data 之后，
             // 不影响 PCM 字节，因此也不影响 CRC 与编码器输入。
-            if (!r.cancelled) {
-                runCatching {
-                    com.doggybear233.saltaudiocopy.encode.WavTags.write(
-                        outFile,
-                        mapOf(
-                            "title" to title,
-                            "artist" to (album?.track(entry.track)?.artist ?: artist),
-                            "album" to (album?.albumTitle ?: ""),
-                            "date" to (album?.year?.toString() ?: ""),
-                            "genre" to (album?.genre ?: ""),
-                            "track" to "%d/%d".format(entry.track, availableTracks.size),
-                            "comment" to "Salt Audio Copy $APP_VERSION"
-                        )
-                    )
-                }.onFailure {
-                    Diag.log("wav tag failed track=${entry.track}", it)
-                    warn(Strings.fmt("第 %s 轨 WAV 标签写入失败（音频不受影响）: %s", entry.track, it.message))
+            // FLAC 模式且不保留 WAV 时，这个文件马上会被删掉：整文件重写标签纯属浪费
+            //（几千万字节的读写），跳过即可。
+            val wavWillBeDeleted = settings.format.equals("flac", true) && !settings.keepWav &&
+                !(settings.imageMode && settings.gapMode.lowercase() == "append")
+            if (!r.cancelled && !wavWillBeDeleted) {
+                val wavTags = mapOf(
+                    "title" to title,
+                    "artist" to (album?.track(entry.track)?.artist ?: artist),
+                    "albumartist" to albumArtist,
+                    "album" to albumTitle,
+                    "date" to (album?.year?.toString() ?: ""),
+                    "genre" to (album?.genre ?: ""),
+                    "track" to "%d/%d".format(entry.track, availableTracks.size),
+                    "disc" to album?.discNumber?.let { d ->
+                        "%d/%d".format(d, album?.totalDiscs ?: 1)
+                    }.orEmpty(),
+                    "comment" to "Salt Audio Copy $APP_VERSION"
+                )
+                val why = com.doggybear233.saltaudiocopy.encode.WavTags.writeResult(outFile, wavTags)
+                if (why != null) {
+                    Diag.log("wav tag failed track=${entry.track}: $why")
+                    warn(Strings.fmt("第 %s 轨 WAV 标签写入失败（音频不受影响）: %s", entry.track, why))
                 }
             }
             var finalFile = outFile

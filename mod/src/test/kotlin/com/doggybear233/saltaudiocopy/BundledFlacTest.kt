@@ -80,4 +80,19 @@ class BundledFlacTest {
         assertEquals(0, code, "内置 flac.exe 启动失败（缺 DLL？）：$out")
         assertTrue(out.startsWith("flac "), "版本输出不对：$out")
     }
+    @Test
+    fun truncatedExtractionIsRepaired() {
+        BundledFlac.dirOverride = dir
+        BundledFlac.resetForTest()
+        val exe = BundledFlac.ensure()
+        assertNotNull(exe)
+        val full = Files.size(exe)
+        // 模拟「上次解压到一半被杀」：文件还在，但内容不完整
+        Files.write(exe, ByteArray(16))
+        BundledFlac.resetForTest()
+        val again = BundledFlac.ensure()
+        assertNotNull(again)
+        assertEquals(full, Files.size(again), "大小不符时必须重新解压")
+    }
+
 }
