@@ -32,7 +32,14 @@ class CdDevice(
     val sectorSize: Int = 2352
     override val devicePath: String get() = path
 
-    override val maxSectorsPerRequest: Int = 16
+    /**
+     * 单条 READ CD 最多取多少扇区。
+     *
+     * 16 太保守：约 37 KB/命令，命令开销比数据本身还大，把 8x 的盘压到 4x 以下。
+     * 27 扇区（约 1/3 秒音频、63 KB）是 EAC / cdparanoia 的常用值；
+     * 再大有些驱动器会直接 ILLEGAL REQUEST。
+     */
+    override val maxSectorsPerRequest: Int = MAX_SECTORS
 
     fun inquiry(): InquiryData {
         val data = Sptd.execute(handle, cdb(0x12, 0x00, 0x00, 0x00, 0x24, 0x00), 36)
@@ -199,6 +206,10 @@ class CdDevice(
     }
 
     companion object {
+
+        /** 单次 READ CD 的扇区数；27 与 EAC 一致（约 1/3 秒音频）。 */
+        const val MAX_SECTORS: Int = 27
+
         /** 枚举 `\\.\A:` … `\\.\Z:` 中能被 SPTI 打开且报告为 CD-ROM 的设备。 */
         fun scanDrives(): List<Pair<String, InquiryData>> {
             val out = ArrayList<Pair<String, InquiryData>>()

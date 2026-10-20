@@ -3,6 +3,16 @@
 Windows 上把 CD 精确抓成 WAV + CUE + 日志，并把专辑信息（MusicBrainz / gnudb / Cover Art Archive）一起落盘。
 算法与参数来自对 EAC 1.8 的逆向（见 `../architecture.md`、`../features.md`）。
 
+## 0.41.0
+
+- **抓轨速度**：单条 READ CD 从 16 扇区提到 **27**（约 63 KB/命令，EAC 同值）。
+  16 扇区时命令开销比数据传输还大，实测把 8x 的盘压到 4x 以下。
+- **「不限速」真的会提速**：以前 `driveSpeed = 0` 直接跳过 SET CD SPEED，驱动器停在默认低速；
+  现在发 40x（7056 KB/s）让驱动器自己钳制。
+- **兼容兜底**：首块读取若被驱动器以 ILLEGAL REQUEST 拒绝，自动退回 16 扇区继续抓，
+  不会因为「读得太快」整张盘失败。
+- 新增 `ReadSpeedTest` 3 例；434 tests / 0 failed。
+
 ## 0.40.2
 
 - **有本地元数据的盘不再被自动联网查询顶掉**：插入时若这张盘已有手填/选过的名字，

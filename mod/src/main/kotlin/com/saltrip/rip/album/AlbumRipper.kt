@@ -29,6 +29,17 @@ import java.nio.file.Path
  *
  * 所有失败都在这里聚合成 [AlbumRipResult]，由调用方转成 UI 提示。
  */
+/** 面板上的限速值 → 真正下发给 SET CD SPEED 的 KB/s。 */
+internal fun speedRequestKbps(driveSpeed: Int): Int = if (driveSpeed > 0) driveSpeed else UNLIMITED_KBPS
+
+/**
+ * 「不限速」时发一个比任何光驱都高的值，让驱动器自己压到上限。
+ *
+ * 不能用 0xFFFF（MMC 里表示「不改变」），也不能用 0（部分驱动器当「默认低速」），
+ * 所以显式要 40x，由驱动器钳制。
+ */
+internal const val UNLIMITED_KBPS: Int = 7056
+
 object AlbumRipper {
 
     /** 版本号只从 [com.saltrip.rip.Version] 取，别再硬编码（会让日志抬头长期停在旧版本）。 */
@@ -51,7 +62,8 @@ object AlbumRipper {
         val scan = RipEngine.selectScan(settings.driveLetter, scan)
         val toc = scan.toc
         if (settings.driveSpeed > 0) {
-            runCatching { CdDevice(scan.path).use { it.setSpeed(settings.driveSpeed) } }
+            val kbps = speedRequestKbps(settings.driveSpeed)
+        runCatching { CdDevice(scan.path).use { it.setSpeed(kbps) } }
                 .onSuccess { Diag.log("drive speed limited to ${settings.driveSpeed} KB/s") }
                 .onFailure { Diag.log("set speed failed", it) }
         }

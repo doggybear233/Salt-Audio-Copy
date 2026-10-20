@@ -245,7 +245,9 @@ object RipEngine {
                         Diag.log("resume track=$trackNo 从 $done/$total 扇区续抓（已有 $prior 字节）")
                     }
                 }
-                val chunk = dev.maxSectorsPerRequest
+                // 有些驱动器不接受 27 扇区的 READ CD：首块就回 ILLEGAL REQUEST 时退回 16，
+                // 不然整张盘会因为「读得太快」而抓不动。
+                var chunk = dev.maxSectorsPerRequest
                 SectorBuffer(chunk).use { first ->
                     SectorBuffer(chunk).use { second ->
                         val a = ByteArray(first.size)
@@ -254,13 +256,22 @@ object RipEngine {
                             if (cancel()) { cancelled = true; break }
                             val n = minOf(chunk, total - done)
                             val retriesBefore = retries
-                            val len = readCompare(
-                                dev, first.segment, second.segment, startLba + done, n,
-                                a, b, verify, maxRetries, retryDelayMs,
-                                onRetry = { retries++ },
-                                policy = SecureRip.policyFor(errorRecovery, maxRetries),
-                                flush = flush
-                            )
+                            val len = try {
+                                readCompare(
+                                    dev, first.segment, second.segment, startLba + done, n,
+                                    a, b, verify, maxRetries, retryDelayMs,
+                                    onRetry = { retries++ },
+                                    policy = SecureRip.policyFor(errorRecovery, maxRetries),
+                                    flush = flush
+                                )
+                            } catch (e: com.saltrip.rip.scsi.ScsiException) {
+                                if (chunk > 16 && done == 0) {
+                                    Diag.log("read chunk $chunk rejected, falling back to 16: ${e.message}")
+                                    chunk = 16
+                                    continue
+                                }
+                                throw e
+                            }
                             if (retries > retriesBefore && retried.size < 64) {
                                 retried += (startLba + done) until (startLba + done + n)
                             }
