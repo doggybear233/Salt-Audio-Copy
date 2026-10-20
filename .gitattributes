@@ -1,0 +1,25 @@
+# 统一换行：文本走自动，脚本按平台固定，产物一律二进制。
+* text=auto
+
+# Windows 批处理必须 CRLF，否则 cmd 解析会出问题
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# POSIX 脚本与 Gradle wrapper 必须 LF
+gradlew text eol=lf
+gradlew.bat text eol=crlf
+*.sh text eol=lf
+
+# 二进制：插件包、可执行文件、原生库、图片
+*.spmod binary
+*.exe binary
+*.dll binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.bmp binary
+*.jar binary
+*.zip binary

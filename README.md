@@ -38,15 +38,15 @@
 
 ## 从源码构建
 
-需要 JDK 25 与 Gradle（`dev-env.ps1` 里是本机的路径约定）：
+需要 **JDK 25**（`mod/build.gradle.kts` 里是 `jvmToolchain(25)`）。仓库自带 Gradle wrapper，不必预装 Gradle：
 
 ```powershell
-.\dev-env.ps1              # 设置 JAVA_HOME / GRADLE_HOME
 cd mod
-gradle clean test plugin    # 跑单元测试并产出 .spmod
+.\gradlew.bat clean test plugin    # 跑单元测试并产出 .spmod
 # 产物：mod\build\libs\plugin-com.doggybear233.saltaudiocopy-<版本>.spmod
 ```
 
+- `dev-env.ps1` 是可选的本地脚本（作者机器上的 JDK / Gradle 路径）：它只校验 `JAVA_HOME` 指向的 `bin\java.exe` 是否存在，缺失就报错退出；普通构建不需要它，只要 PATH 上能用到 JDK 25。
 - 单元测试 438 项（含硬件门控用例，设 `SALTAC_HW=1` 才会碰真光驱）。
 - 真机测试清单：`manual-test-checklist.md`。
 
