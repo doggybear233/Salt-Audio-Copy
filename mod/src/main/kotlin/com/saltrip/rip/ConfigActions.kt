@@ -548,6 +548,23 @@ object ConfigActions {
             Diag.log("auto lookup skipped: 设置里关掉了「插入或换盘时自动查元数据」")
             return
         }
+        // 本地已经有这张盘的元数据（手填或上次选过的候选）时，自动查询不要插一脚：
+        // 网络查不到会把面板上的名字顶成「未知」，用户还得再开一次手填面板保存才回来。
+        if (!interactive && !manual) {
+            val localId = PanelState.disc?.discId.orEmpty()
+            val local = if (localId.isBlank()) null else runCatching {
+                readCachedAlbum(settings.effectiveRoot, localId)
+            }.getOrNull()
+            if (hasLocalNames(local)) {
+                Diag.log("auto lookup skipped: 本地已有元数据（source=${local?.source}）")
+                PanelState.rememberMeta(localId, local)
+                PanelState.set(
+                    Strings.message("使用已保存的元数据"),
+                    Strings.message("这张盘有你填过或选过的信息；要重新联网查可以点「刷新元数据」")
+                )
+                return
+            }
+        }
         if (!lookupBusy.compareAndSet(false, true)) {
             Diag.log("lookup skipped: 上一次查询还没结束")
             return
@@ -573,11 +590,15 @@ object ConfigActions {
                 Diag.log("candidates:\n" + result.notes.joinToString("\n"))
 
                 val playable = (scan.toc.leadOutLba - (scan.toc.tracks.firstOrNull()?.lba ?: 0)).coerceAtLeast(0)
+                // 查不到时沿用面板上已有的歌手/专辑（本地缓存或刚手填的），
+                // 否则「刷新一下」就把用户的信息清空了。
+                val keepArtist = keepNames(result.best?.albumArtist, PanelState.disc?.artist)
+                val keepAlbum = keepNames(result.best?.albumTitle, PanelState.disc?.album)
                 PanelState.showDisc(
                     PanelState.DiscInfo(
                         tracks = scan.toc.tracks.size,
-                        artist = result.best?.albumArtist.orEmpty(),
-                        album = result.best?.albumTitle.orEmpty(),
+                        artist = keepArtist,
+                        album = keepAlbum,
                         lengthText = PanelFormat.duration(playable * 1000L / 75L),
                         discId = result.discId,
                         audio = scan.toc.isAudioCd
@@ -1357,6 +1378,19 @@ object ConfigActions {
             toast(Strings.message("设置没能写回磁盘（详见日志）"), ToastType.Error)
         }
     }
+
+
+    /**
+     * 本地缓存算不算「已经有名字」。
+     *
+     * 自动查询只在没有本地信息时才跑：否则网络查不到会把面板顶回「未知艺术家」。
+     */
+    internal fun hasLocalNames(meta: com.saltrip.rip.meta.AlbumMeta?): Boolean =
+        meta != null && (meta.albumArtist.isNotBlank() || meta.albumTitle.isNotBlank())
+
+    /** 查询结果为空时沿用面板上已有的名字，别把用户填的清空。 */
+    internal fun keepNames(best: String?, current: String?): String =
+        best?.takeIf { it.isNotBlank() } ?: current.orEmpty()
 
     /** 保存面板里编辑的三个模板（目录 / 文件名 / 封面名）。 */
     @JvmStatic
