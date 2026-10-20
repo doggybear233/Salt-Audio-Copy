@@ -58,7 +58,9 @@ data class RipResult(
     val gapSectors: Int = 0,
     val peakLevel: Double = 0.0,
     /** 因校验不一致而重读过的扇区区间（诊断用，最多保留 64 段） */
-    val retried: List<IntRange> = emptyList()
+    val retried: List<IntRange> = emptyList(),
+    /** 用尽重试仍未达到一致读的块数（>0 说明这轨的音频不是 100% 可信） */
+    val unstableChunks: Int = 0
 )
 
 /**
@@ -164,6 +166,7 @@ object RipEngine {
         val crc = CRC32()
         var done = 0
         var retries = 0
+        var unstableChunks = 0
         val retried = ArrayList<IntRange>()
         var c2Active = useC2
         var c2Errors = 0
@@ -244,12 +247,23 @@ object RipEngine {
                 if (writeFile && resume) {
                     val prior = (wav as? WavWriter)?.priorDataBytes ?: 0L
                     val already = (prior / 2352L).toInt()
-                    if (already in 1 until total) {
-                        (wav as WavWriter).truncateData(already * 2352L)
-                        done = already
-                        crc.reset()
-                        crcFile(crc, outFile, already * 2352L)
-                        Diag.log("resume track=$trackNo 从 $done/$total 扇区续抓（已有 $prior 字节）")
+                    when {
+                        // 同名文件里已经是一整轨（上次抓完，或覆盖策略让本次复用了同名文件）：
+                        // append 模式从文件尾继续写会变成「两遍音频」，必须先清空重抓。
+                        total > 0 && already >= total -> {
+                            (wav as WavWriter).truncateData(0)
+                            done = 0
+                            crc.reset()
+                            Diag.log("resume track=$trackNo 旧文件已完整（$prior 字节 / $total 扇区），清空重抓")
+                        }
+
+                        already in 1 until total -> {
+                            (wav as WavWriter).truncateData(already * 2352L)
+                            done = already
+                            crc.reset()
+                            crcFile(crc, outFile, already * 2352L)
+                            Diag.log("resume track=$trackNo 从 $done/$total 扇区续抓（已有 $prior 字节）")
+                        }
                     }
                 }
                 // 有些驱动器不接受 27 扇区的 READ CD：首块就回 ILLEGAL REQUEST 时退回 16，
@@ -269,7 +283,8 @@ object RipEngine {
                                     a, b, verify, maxRetries, retryDelayMs,
                                     onRetry = { retries++ },
                                     policy = SecureRip.policyFor(errorRecovery, maxRetries),
-                                    flush = flush
+                                    flush = flush,
+                                    onUnstable = { unstableChunks++ }
                                 )
                             } catch (e: com.doggybear233.saltaudiocopy.scsi.ScsiException) {
                                 if (chunk > 16 && done == 0) {
@@ -308,12 +323,14 @@ object RipEngine {
         val elapsed = (System.nanoTime() - t0) / 1_000_000
         val result = RipResult(
             trackNo, outFile, done, done.toLong() * 2352, crc.value, elapsed, cancelled, retries,
-            gapSectors = gapSectors, peakLevel = peak, retried = retried.toList()
+            gapSectors = gapSectors, peakLevel = peak, retried = retried.toList(),
+            unstableChunks = unstableChunks
         )
         Diag.log(
             "rip track=$trackNo sectors=$done/$total crc32=0x${java.lang.Long.toHexString(crc.value)} " +
                 "test=${!writeFile} gap=$gapSectors peak=${SecureRip.peakDb(peak)}dBFS " +
-                "retries=$retries verify=$verify c2=${if (useC2) "on($c2Errors 扇区报告)" else "off"} " +
+                "retries=$retries unstable=$unstableChunks verify=$verify " +
+                "c2=${if (useC2) "on($c2Errors 扇区报告)" else "off"} " +
                 "elapsed=${elapsed}ms cancelled=$cancelled -> $outFile"
         )
         return result
@@ -380,7 +397,9 @@ object RipEngine {
         onRetry: () -> Unit,
         policy: SecureRip.Policy = SecureRip.policyFor("medium", maxRetries),
         /** 每次「重读同一块」之前调用，用于击破驱动器缓存。 */
-        flush: (() -> Unit)? = null
+        flush: (() -> Unit)? = null,
+        /** 重试次数用尽仍未达到一致读时调用（块级，用于把「不稳定的音频」暴露给用户）。 */
+        onUnstable: () -> Unit = {}
     ): Int {
         val effective = if (!verify) SecureRip.Policy(1, 1) else policy
         var alreadyRead = 0
@@ -397,6 +416,7 @@ object RipEngine {
             },
             log = { Diag.log("$it lba=$lba n=$n") }
         )
+        if (!chunk.stable) onUnstable()
         val len = minOf(chunk.data.size, a.size)
         System.arraycopy(chunk.data, 0, a, 0, len)
         if (len > 0) MemorySegment.copy(a, 0, seg1, ValueLayout.JAVA_BYTE, 0L, len)

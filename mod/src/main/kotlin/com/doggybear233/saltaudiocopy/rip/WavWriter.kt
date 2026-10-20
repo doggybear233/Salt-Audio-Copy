@@ -39,8 +39,13 @@ class WavWriter(
 
     init {
         val resumed = if (append && raf.length() >= HEADER_SIZE && hasValidHeader()) {
-            val existing = raf.length() - HEADER_SIZE
-            raf.seek(raf.length())
+            val declared = declaredDataBytes()
+            // 被强杀时 finish() 没跑，头部 data 长度还是 0（或被上次回填成旧值），
+            // 只能按文件实际长度推断已写多少，否则续抓会从 0 重来、把整轨再写一遍。
+            val actual = raf.length() - HEADER_SIZE
+            val existing = if (declared in 1..actual) declared else actual
+            raf.seek(HEADER_SIZE + existing)
+            raf.setLength(HEADER_SIZE + existing)
             existing
         } else {
             -1L
@@ -54,6 +59,16 @@ class WavWriter(
             priorDataBytes = 0
             dataBytes = 0
         }
+    }
+
+    /** 头部 `data` 块声明的长度；读不到或长度字段越界时返回 0。 */
+    private fun declaredDataBytes(): Long {
+        raf.seek(40)
+        val b = ByteArray(4)
+        if (raf.read(b) != 4) return 0
+        val v = (b[0].toInt() and 0xFF) or ((b[1].toInt() and 0xFF) shl 8) or
+            ((b[2].toInt() and 0xFF) shl 16) or ((b[3].toInt() and 0xFF) shl 24)
+        return if (v > 0) v.toLong() else 0
     }
 
     private fun hasValidHeader(): Boolean {

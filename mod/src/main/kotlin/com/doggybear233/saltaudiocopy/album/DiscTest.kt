@@ -20,7 +20,9 @@ object DiscTest {
         val sectors: Int,
         val crc32: Long,
         val errors: Int,
-        val elapsedMs: Long
+        val elapsedMs: Long,
+        /** 用尽重试仍未达到一致读的块数：>0 表示这轨音频不可全信 */
+        val unstable: Int = 0
     )
 
     /** 仅供 RipEngine 使用；`writeFile = false` 时该路径不会被创建。 */
@@ -38,7 +40,11 @@ object DiscTest {
         defeatCache: Boolean = false,
         gapMethod: String = "q",
         tracks: List<Int> = toc.tracks.indices.toList(),
-        source: TrackSource? = null
+        source: TrackSource? = null,
+        /** 与正式抓轨保持一致的读策略、间隙模式与限速（否则测出来的结果不代表真抓）。 */
+        errorRecovery: String = "medium",
+        gapMode: String = "append",
+        speedKbps: Int = 0
     ): List<Row> {
         val rows = ArrayList<Row>()
         for (i in tracks) {
@@ -54,9 +60,12 @@ object DiscTest {
                 defeatCache = defeatCache,
                 writeFile = false,
                 gapMethod = gapMethod,
+                errorRecovery = errorRecovery,
+                gapMode = gapMode,
+                speedKbps = speedKbps,
                 source = source
             )
-            rows += Row(entry.track, r.sectors, r.crc32, r.readErrors, r.elapsedMs)
+            rows += Row(entry.track, r.sectors, r.crc32, r.readErrors, r.elapsedMs, r.unstableChunks)
         }
         return rows
     }
@@ -70,6 +79,10 @@ object DiscTest {
         for (r in rows) {
             sb.append("%02d  %6d     %08X  %4d  %.1fs".format(r.track, r.sectors, r.crc32, r.errors, r.elapsedMs / 1000.0))
             if (r.errors > 0) { sb.append("  ⚠ " + Strings.message("有无法读取的扇区")); bad++ }
+            if (r.unstable > 0) {
+                sb.append("  ⚠ " + Strings.fmt("%s 个块读不稳", r.unstable))
+                bad++
+            }
             sb.append("\r\n")
             total += r.sectors
         }

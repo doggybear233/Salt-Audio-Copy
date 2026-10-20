@@ -10,6 +10,7 @@ import com.doggybear233.saltaudiocopy.meta.TrackMeta
 import com.doggybear233.saltaudiocopy.naming.TemplateEngine
 import com.doggybear233.saltaudiocopy.rip.RipEngine
 import com.doggybear233.saltaudiocopy.rip.RipProgress
+import com.doggybear233.saltaudiocopy.rip.RipResult
 import com.doggybear233.saltaudiocopy.rip.ScanResult
 import com.doggybear233.saltaudiocopy.rip.TrackSource
 import com.doggybear233.saltaudiocopy.encode.FlacEncoder
@@ -210,6 +211,42 @@ object AlbumRipper {
         var cancelled = false
         val eta = com.doggybear233.saltaudiocopy.rip.EtaEstimator()
 
+        // Test&Copy 的「测试」「复制」「重抓」三条通道必须用**完全相同**的读取参数：
+        // 以前重抓漏了间隙参数，边界一挪音频就不同，CRC 永远对不上，用户看到的是
+        // 「重抓后仍不一致」，其实是自己跟自己比错了位置。
+        fun ripOnce(
+            index: Int,
+            target: Path,
+            write: Boolean,
+            resume: Boolean,
+            onProg: (RipProgress) -> Unit
+        ): RipResult {
+            val e = toc.tracks[index]
+            val nextIdx = toc.tracks.indexOfFirst { it.track == e.track + 1 }
+            val gapAfterHere = if (preScanned.isEmpty() || nextIdx < 0) null
+            else preScanned[toc.tracks[nextIdx].track]?.takeIf { it > 0 }
+            return RipEngine.ripTrack(
+                scan, index, target, cancel, onProg,
+                verify = settings.secureMode,
+                maxRetries = settings.maxRetries,
+                retryDelayMs = settings.retryDelayMs,
+                useC2 = settings.useC2,
+                defeatCache = settings.defeatCache,
+                writeFile = write,
+                detectGaps = settings.detectGaps && preScanned.isEmpty(),
+                knownGapSectors = preScanned[e.track],
+                gapMethod = settings.gapMethod,
+                // 下界用上一轨 INDEX 01：预间隙扇区属于上一轨范围，用「上一轨结束」会扫不到
+                gapFloorLba = if (index > 0) toc.tracks[index - 1].lba else toc.sectorsOf(index).first,
+                errorRecovery = settings.errorRecovery,
+                gapMode = settings.gapMode,
+                nextGapSectors = gapAfterHere,
+                resume = resume,
+                source = source,
+                speedKbps = kbps
+            )
+        }
+
         // Test & Copy：先用「只读不写」的测试通道跑一遍，拿到每轨 CRC 作为对照
         val testCrc = HashMap<Int, Long>()
         if (settings.testAndCopy) {
@@ -220,24 +257,7 @@ object AlbumRipper {
                 // 测试通道失败不该毁掉整次抓轨：这一轨只是没有 CRC 参照，
                 // 复制通道仍然照常跑（用户要的是文件，不是「因为测试读不出来就全放弃」）。
                 val r = runCatching {
-                    RipEngine.ripTrack(
-                    scan, i, dir.resolve("__test__.tmp"), cancel, { },
-                    verify = settings.secureMode,
-                    maxRetries = settings.maxRetries,
-                    retryDelayMs = settings.retryDelayMs,
-                    useC2 = settings.useC2,
-                        defeatCache = settings.defeatCache,
-                    writeFile = false,
-                    knownGapSectors = preScanned[entry.track],
-                    gapMethod = settings.gapMethod,
-                    gapMode = settings.gapMode,
-                    nextGapSectors = if (preScanned.isEmpty()) null else {
-                        val nextIdx = toc.tracks.indexOfFirst { it.track == entry.track + 1 }
-                        if (nextIdx >= 0) preScanned[toc.tracks[nextIdx].track] else null
-                    },
-                    source = source,
-                    speedKbps = kbps
-                    )
+                    ripOnce(i, dir.resolve("__test__.tmp"), write = false, resume = false) { }
                 }.onFailure {
                     Diag.log("test read failed track=${entry.track}", it)
                     warn(Strings.fmt("第 %s 轨测试读取失败，本轨不做 Test&Copy 比对: %s", entry.track, it.message))
@@ -310,8 +330,7 @@ object AlbumRipper {
             if (rel != baseName + ".wav") Diag.log("overwrite policy renamed '$baseName.wav' -> '$rel'")
             val outFile = target
             onStage(Strings.fmt("抓取第 %s 轨：%s", entry.track, title))
-            val r = RipEngine.ripTrack(
-                scan, i, outFile, cancel, { p ->
+            var r = ripOnce(i, outFile, write = true, resume = settings.resume) { p ->
                     // 关键：elapsed 必须是**整盘累计**时间、done 是**整盘累计**扇区，
                     // 否则「本轨已用 / 全盘已完成」两个量纲混用，剩余时间会乱跳甚至变大
                     val nowMs = (System.nanoTime() - startedAt) / 1_000_000
@@ -322,23 +341,15 @@ object AlbumRipper {
                             eta.sample(done, totalAll, nowMs)
                         )
                     )
-                },
-                verify = settings.secureMode,
-                maxRetries = settings.maxRetries,
-                retryDelayMs = settings.retryDelayMs,
-                useC2 = settings.useC2,
-                detectGaps = settings.detectGaps && preScanned.isEmpty(),
-                        knownGapSectors = preScanned[entry.track],
-                        gapMethod = settings.gapMethod,
-                // 下界用上一轨 INDEX 01：预间隙扇区属于上一轨范围，用「上一轨结束」会扫不到
-                gapFloorLba = if (i > 0) toc.tracks[i - 1].lba else startLba,
-                errorRecovery = settings.errorRecovery,
-                gapMode = settings.gapMode,
-                nextGapSectors = if (gapAfter > 0) gapAfter else null,
-                resume = settings.resume,
-                source = source,
-                speedKbps = kbps
-            )
+                }
+            if (r.unstableChunks > 0) {
+                warn(
+                    Strings.fmt(
+                        "第 %s 轨有 %s 个块读不稳（已用最后一次结果，可能有杂音）",
+                        entry.track, r.unstableChunks
+                    )
+                )
+            }
             if (settings.testAndCopy && !r.cancelled) {
                 val expected = testCrc[entry.track]
                 if (expected != null && expected != r.crc32) {
@@ -352,16 +363,10 @@ object AlbumRipper {
                             entry.track, expected, r.crc32
                         )
                     )
-                    val again = RipEngine.ripTrack(
-                        scan, i, outFile, cancel, { },
-                        verify = settings.secureMode,
-                        maxRetries = settings.maxRetries,
-                        retryDelayMs = settings.retryDelayMs,
-                        useC2 = settings.useC2,
-                        resume = false,
-                        source = source,
-                        speedKbps = kbps
-                    )
+                    val again = ripOnce(i, outFile, write = true, resume = false) { }
+                    // 文件内容现在是重抓的结果：后续的 CRC、峰值、写入标签都必须按它记账，
+                    // 否则日志里的整盘 CRC 与实际音频对不上。
+                    r = again
                     if (again.crc32 != expected) {
                         warn(Strings.fmt("第 %s 轨重抓后仍与测试通道不一致（0x%08X）", entry.track, again.crc32))
                     } else {

@@ -87,9 +87,81 @@ class RipPipelineTest {
         assertEquals(44L + 2000L * 2352, Files.size(partial))
     }
 
+    /**
+     * 续抓 + 同名完整文件：以前 append 会从文件尾再写一遍，得到的 WAV 是「两遍音频」，
+     * 时长翻倍、CRC 全错，但日志显示 100% 完成。
+     */
     @Test
-    fun verifyRetriesUntilTwoReadsAgree() {
-        val fake = FakeTrackSource(sectors = 6000, corruptFirstRead = mutableSetOf(288))
+    fun resumeOnCompleteFileRewritesInsteadOfAppendingTwice() {
+        val fake = FakeTrackSource(sectors = 6000)
+        val out = dir.resolve("full.wav")
+        val full = RipEngine.ripTrack(
+            scan = scan(6000), trackIndex = 0, outFile = out,
+            cancel = { false }, onProgress = {}, source = fake
+        )
+        assertEquals(44L + 2000L * 2352, Files.size(out))
+
+        val again = RipEngine.ripTrack(
+            scan = scan(6000), trackIndex = 0, outFile = out,
+            cancel = { false }, onProgress = {}, resume = true, source = fake
+        )
+        assertEquals(full.crc32, again.crc32)
+        assertEquals(
+            44L + 2000L * 2352, Files.size(out),
+            "续抓遇到完整旧文件必须清空重抓，不能追加成两遍"
+        )
+    }
+
+    /**
+     * 进程被强杀时头部 data 长度还是 0：必须按文件实际长度续抓，否则从 0 重来、
+     * 把已经读好的部分再写一遍。
+     */
+    @Test
+    fun resumeUsesFileLengthWhenHeaderSaysZero() {
+        val fake = FakeTrackSource(sectors = 6000)
+        val whole = dir.resolve("whole2.wav")
+        val full = RipEngine.ripTrack(
+            scan = scan(6000), trackIndex = 0, outFile = whole,
+            cancel = { false }, onProgress = {}, source = fake
+        )
+        val partial = dir.resolve("crash.wav")
+        val bytes = Files.readAllBytes(whole).copyOf(44 + 800 * 2352)
+        // 模拟「写到一半被强杀」：长度字段没回填
+        for (i in 40..43) bytes[40 + (i - 40)] = 0
+        Files.write(partial, bytes)
+
+        val resumed = RipEngine.ripTrack(
+            scan = scan(6000), trackIndex = 0, outFile = partial,
+            cancel = { false }, onProgress = {}, resume = true, source = fake
+        )
+        assertEquals(full.crc32, resumed.crc32)
+        assertEquals(44L + 2000L * 2352, Files.size(partial))
+    }
+
+    /**
+     * 「读不稳」必须进入结果，而不是只写一行日志：以前用尽重试仍不一致也报告 100% 质量。
+     */
+    @Test
+    fun unstableChunksAreReportedWhenReadsNeverAgree() {
+        val fake = FakeTrackSource(sectors = 6000)
+        val jitter = object : com.doggybear233.saltaudiocopy.rip.TrackSource by fake {
+            private var n = 0
+            override fun readAudioSectors(lba: Int, count: Int): ByteArray {
+                n++
+                val b = fake.readAudioSectors(lba, count)
+                b[0] = (b[0].toInt() xor n).toByte()
+                return b
+            }
+        }
+        val r = RipEngine.ripTrack(
+            scan = scan(6000), trackIndex = 0, outFile = dir.resolve("jitter.wav"),
+            cancel = { false }, onProgress = {}, verify = true, maxRetries = 2, source = jitter
+        )
+        assertTrue(r.unstableChunks > 0, "每次都不同时必须记录为不稳定块")
+    }
+
+    @Test
+    fun verifyRetriesUntilTwoReadsAgree() {        val fake = FakeTrackSource(sectors = 6000, corruptFirstRead = mutableSetOf(288))
         val out = dir.resolve("01.wav")
         val r = RipEngine.ripTrack(
             scan = scan(6000), trackIndex = 0, outFile = out,

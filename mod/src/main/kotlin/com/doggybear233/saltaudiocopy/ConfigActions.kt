@@ -1257,7 +1257,10 @@ object ConfigActions {
                     retryDelayMs = settings.retryDelayMs,
                     useC2 = settings.useC2,
                     defeatCache = settings.defeatCache,
-                    gapMethod = settings.gapMethod
+                    gapMethod = settings.gapMethod,
+                    errorRecovery = settings.errorRecovery,
+                    gapMode = settings.gapMode,
+                    speedKbps = settings.driveSpeed
                 )
                 val text = DiscTest.summary(rows)
                 Diag.log("test-only done: ${rows.size} tracks")

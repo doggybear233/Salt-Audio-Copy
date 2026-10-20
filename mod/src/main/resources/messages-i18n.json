@@ -1276,6 +1276,14 @@
     "读不到光盘，元数据没有写入": [
       "Cannot read the disc, so the metadata was not written",
       "ディスクを読み取れないため、メタデータは書き込まれませんでした"
+    ],
+    "%s 个块读不稳": [
+      "%s unstable block(s)",
+      "%s 個のブロックが安定しません"
+    ],
+    "第 %s 轨有 %s 个块读不稳（已用最后一次结果，可能有杂音）": [
+      "Track %s has %s unstable block(s); the last read was used and may contain noise",
+      "第 %s トラックの %s 個のブロックが安定せず（最後の読み取りを使用、ノイズが含まれる可能性）"
     ]
   }
 }
