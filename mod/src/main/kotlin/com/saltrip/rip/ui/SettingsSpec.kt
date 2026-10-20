@@ -51,7 +51,14 @@ data class SettingItem(
     val visibleWhen: (RipSettings) -> Boolean = { true },
     val enabledWhen: (RipSettings) -> Boolean = { true },
     /** 数字输入框的提示（仅 UI）。 */
-    val placeholder: String = ""
+    val placeholder: String = "",
+    /**
+     * 路径项在当前设置下的实际值（仅 UI）。
+     *
+     * 「输出目录」这类项留空时有隐藏默认值（系统音乐文件夹），光看输入框是空字符串，
+     * 用户根本不知道文件会落到哪；面板因此在键下面再画一行这个值。
+     */
+    val current: ((RipSettings) -> String)? = null
 )
 
 /** 一个二级页。 */
@@ -72,7 +79,6 @@ object SettingsSpec {
         SettingItem(SettingKind.TEXT, key, "", placeholder = placeholder)
 
     private fun path(key: String) = SettingItem(SettingKind.PATH, key, "")
-
     private fun act(name: String, label: String, hint: String = "") =
         SettingItem(SettingKind.ACTION, name, label, hint)
 
@@ -80,8 +86,7 @@ object SettingsSpec {
     val pages: List<SettingPage> = listOf(
         SettingPage(
             "p2", "输出位置", listOf(
-                path("outputRoot"),
-                act("chooseOutputRoot", "选择输出目录…", "默认音乐库"),
+                path("outputRoot").copy(current = { s -> "当前：${s.effectiveRoot}" }),
                 opt(
                     "overwritePolicy",
                     "suffix" to "加 (2) 另存", "overwrite" to "覆盖", "skip" to "跳过"

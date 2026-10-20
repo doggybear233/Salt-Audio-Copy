@@ -121,6 +121,20 @@ class SettingsSpecTest {
     }
 
     @Test
+    fun outputRootRowShowsTheEffectivePath() {
+        val item = SettingsSpec.item("outputRoot")
+        assertNotNull(item, "输出目录项必须在 spec 里")
+        val shown = item!!.current?.invoke(RipSettings())
+        assertNotNull(shown, "输出目录必须显示当前生效路径，否则留空时用户不知道文件落哪")
+        assertTrue(shown!!.startsWith("当前："), "文案要以「当前：」开头，实际是 $shown")
+        val root = RipSettings().effectiveRoot.toString()
+        assertTrue(shown.contains(root), "应包含实际根目录 $root，实际是 $shown")
+
+        val custom = RipSettings(outputRoot = "D:\\音楽")
+        assertTrue(item.current!!.invoke(custom).contains("D:\\音楽"), "填了自定义目录就要显示它")
+    }
+
+    @Test
     fun conditionalPagesHideWhatDoesNotApply() {
         val wav = RipSettings(format = "wav")
         val flac = RipSettings(format = "flac")
@@ -157,6 +171,6 @@ class SettingsSpecTest {
                 "$name 必须是 static"
             )
         }
-        assertEquals(14, SettingsSpec.actionKeys.size, "全站 14 个按钮（1 个目录选择器 + 诊断页 13 个）")
+        assertEquals(13, SettingsSpec.actionKeys.size, "全站 13 个按钮（都在诊断页；目录选择器已合并进「输出目录」行）")
     }
 }

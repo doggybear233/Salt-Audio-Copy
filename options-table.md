@@ -1,15 +1,14 @@
-# 盐专辑（Salt Audio Copy）配置界面选项统计表 v2（0.39.0）
+# 盐专辑（Salt Audio Copy）配置界面选项统计表 v2（0.39.1）
 
-> 0.39.0 起配置页为 **8 组 / 47 个设置键 / 14 个按钮**（已移除「导入编码器」相关选项）；面板内是同一份数据的 8 页二级导航。
+> 0.39.1 起配置页为 **8 组 / 47 个设置键 / 13 个按钮**（已移除「导入编码器」相关选项）；面板内是同一份数据的 8 页二级导航。
 > 本表由 `design/options_table.py` 从 `mod/src/main/resources/preference_config.json` 生成，与代码同步。
 > 末列「改法（你填）」留空；要改就在那格写（行首加 `#` 表示删掉这一项）。
 
-## 1 · 输出位置（7 设置 + 1 按钮）
+## 1 · 输出位置（7 设置 + 0 按钮）
 
 | 序号 | 选项名（界面原文） | key | 控件 | 取值 / 格式 | 默认 | 作用 | 改法（你填） |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | 输出根目录 | `outputRoot` | 输入 | 任意路径；空 = 系统「音乐」 | （空） | 抓轨产物根目录；面板里点这一行也能改 |  |
-| B1 | 选择输出目录… | — | 按钮 | `ConfigActions.chooseOutputRoot` | — | 弹系统文件夹选择框，选完即存 |  |
 | 2 | 同名文件已存在时 | `overwritePolicy` | 单选 | 加 (2) 另存（suffix） / 覆盖（overwrite） / 跳过（skip） | suffix | 撞名策略 |  |
 | 3 | 断点续抓 | `resume` | 开关 | 开 / 关 | 开 | 目标 WAV 已有则从断点继续 |  |
 | 4 | 碟号（0=自动） | `discNumberOverride` | 输入 | 整数，0 = 用元数据 | `0` | 多碟套装的当前碟号，配 `%discnumber%` |  |
@@ -91,19 +90,19 @@
 | 序号 | 选项名（界面原文） | key | 控件 | 取值 / 格式 | 默认 | 作用 | 改法（你填） |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 47 | 只抓这些音轨 | `trackSelection` | 输入 | 如 `1-5,8`；空 = 整盘 | （空） | 只抓部分轨 |  |
-| B2 | ① 扫描驱动器 | — | 按钮 | `ConfigActions.scanDrives` | — | 重新枚举光驱 |  |
-| B3 | ①.2 抓轨计划预览（不写盘） | — | 按钮 | `ConfigActions.previewPlan` | — | 算出目录/文件名/预计耗时，不写盘 |  |
-| B4 | ①.5 间隙预扫（只读） | — | 按钮 | `ConfigActions.analyzeDisc` | — | 整盘扫 INDEX 00（只读） |  |
-| B5 | ①.3 探测可用读命令（只读） | — | 按钮 | `ConfigActions.probeReadCommands` | — | 逐条试读命令，报告哪些可用 |  |
-| B6 | 只测不写（Test only） | — | 按钮 | `ConfigActions.testDisc` | — | 读完整张盘但不写文件 |  |
-| B7 | ③ 仅查询元数据 | — | 按钮 | `ConfigActions.lookupMetadata` | — | 只联网查元数据并列出候选 |  |
-| B8 | ③.5 导出元数据模板 | — | 按钮 | `ConfigActions.exportAlbumJson` | — | 导出可手改的元数据模板 |  |
-| B9 | ④ 试抓第 1 轨 | — | 按钮 | `ConfigActions.ripFirstTrack` | — | 只抓第 1 轨验证链路 |  |
-| B10 | 取消当前抓轨 | — | 按钮 | `ConfigActions.cancelRip` | — | 中止当前抓轨（已写文件保留） |  |
-| B11 | 试写测试（中文路径） | — | 按钮 | `ConfigActions.probePath` | — | 在含中文的路径下试写一小段 |  |
-| B12 | 恢复默认设置 | — | 按钮 | `ConfigActions.resetDefaults` | — | 把全部设置恢复默认 |  |
-| B13 | 打开日志文件夹 | — | 按钮 | `ConfigActions.openLogFolder` | — | 打开日志所在文件夹 |  |
-| B14 | 网络自检（音乐库 / CDDB） | — | 按钮 | `ConfigActions.testNetwork` | — | 并发探测 MusicBrainz / Cover Art / CDDB，判断是没记录还是网不通 |  |
+| B1 | ① 扫描驱动器 | — | 按钮 | `ConfigActions.scanDrives` | — | 重新枚举光驱 |  |
+| B2 | ①.2 抓轨计划预览（不写盘） | — | 按钮 | `ConfigActions.previewPlan` | — | 算出目录/文件名/预计耗时，不写盘 |  |
+| B3 | ①.5 间隙预扫（只读） | — | 按钮 | `ConfigActions.analyzeDisc` | — | 整盘扫 INDEX 00（只读） |  |
+| B4 | ①.3 探测可用读命令（只读） | — | 按钮 | `ConfigActions.probeReadCommands` | — | 逐条试读命令，报告哪些可用 |  |
+| B5 | 只测不写（Test only） | — | 按钮 | `ConfigActions.testDisc` | — | 读完整张盘但不写文件 |  |
+| B6 | ③ 仅查询元数据 | — | 按钮 | `ConfigActions.lookupMetadata` | — | 只联网查元数据并列出候选 |  |
+| B7 | ③.5 导出元数据模板 | — | 按钮 | `ConfigActions.exportAlbumJson` | — | 导出可手改的元数据模板 |  |
+| B8 | ④ 试抓第 1 轨 | — | 按钮 | `ConfigActions.ripFirstTrack` | — | 只抓第 1 轨验证链路 |  |
+| B9 | 取消当前抓轨 | — | 按钮 | `ConfigActions.cancelRip` | — | 中止当前抓轨（已写文件保留） |  |
+| B10 | 试写测试（中文路径） | — | 按钮 | `ConfigActions.probePath` | — | 在含中文的路径下试写一小段 |  |
+| B11 | 恢复默认设置 | — | 按钮 | `ConfigActions.resetDefaults` | — | 把全部设置恢复默认 |  |
+| B12 | 打开日志文件夹 | — | 按钮 | `ConfigActions.openLogFolder` | — | 打开日志所在文件夹 |  |
+| B13 | 网络自检（音乐库 / CDDB） | — | 按钮 | `ConfigActions.testNetwork` | — | 并发探测 MusicBrainz / Cover Art / CDDB，判断是没记录还是网不通 |  |
 
 ## B 面板设置（8 页二级导航）
 

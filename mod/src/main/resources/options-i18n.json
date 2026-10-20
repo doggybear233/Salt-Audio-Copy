@@ -5,10 +5,6 @@
       "Output folder",
       "Empty = your Music folder. Chinese, Japanese and Korean paths are fine."
     ],
-    "chooseOutputRoot": [
-      "Choose output folder…",
-      "Opens the system folder picker; the choice is saved right away."
-    ],
     "overwritePolicy": [
       "If the file already exists",
       "suffix = save as (2) (default, never overwrites) / overwrite = overwrite / skip = skip that track"
@@ -250,10 +246,6 @@
     "outputRoot": [
       "出力フォルダ",
       "空欄＝システムの「ミュージック」。中国語・日本語・韓国語のパスも可。"
-    ],
-    "chooseOutputRoot": [
-      "出力フォルダを選択…",
-      "システムのフォルダ選択画面を開き、選んだ時点で設定に保存します。"
     ],
     "overwritePolicy": [
       "同名ファイルがある場合",

@@ -958,13 +958,28 @@ object ConfigActions {
     internal fun manualCachePath(root: java.nio.file.Path, discId: String, leadOutLba: Int): java.nio.file.Path =
         com.saltrip.rip.album.DiscCache.path(root, discId.ifBlank { "disc-$leadOutLba" })
 
-    /** 读已有的 album.json 缓存（读不到就当没有，不报错）。 */
+    /**
+     * 读已有的 album.json 缓存（读不到就当没有，不报错）。
+     *
+     * 先在当前输出根里找；找不到再看系统「音乐」文件夹——用户改过输出根之后，
+     * 之前手填的元数据与封面还留在旧根下，不回落就会显示成「未知艺术家 / 未知专辑」。
+     */
     internal fun readCachedAlbum(root: java.nio.file.Path, discId: String): com.saltrip.rip.meta.AlbumMeta? {
         if (discId.isBlank()) return null
-        val p = com.saltrip.rip.album.DiscCache.path(root, discId)
-        if (!java.nio.file.Files.isRegularFile(p)) return null
-        return com.saltrip.rip.meta.MetaOverride.load(p)
-            .also { if (it == null) Diag.log("readCachedAlbum: 解析失败或为空 $p") }
+        val candidates = listOf(root, runCatching { com.saltrip.rip.scsi.Win32.musicFolder() }.getOrNull())
+            .filterNotNull()
+            .distinct()
+        for (dir in candidates) {
+            val p = com.saltrip.rip.album.DiscCache.path(dir, discId)
+            if (!java.nio.file.Files.isRegularFile(p)) continue
+            val meta = com.saltrip.rip.meta.MetaOverride.load(p)
+            if (meta != null) {
+                if (dir != root) Diag.log("readCachedAlbum: $root 下没有，改用 $p")
+                return meta
+            }
+            Diag.log("readCachedAlbum: 解析失败或为空 $p")
+        }
+        return null
     }
 
     /** 抓取整张专辑：元数据 → 模板命名 → 逐轨双读校验 → 封面/CUE/日志。 */
@@ -1510,6 +1525,9 @@ object ConfigActions {
      * edittext 里手打路径对普通用户是不可接受的门槛（还容易漏正斜杠），
      * 所以开系统文件夹选择框。宿主没有提供选择器 API，这里直接用 Swing（JRE 自带 java.desktop），
      * 在 EDT 上弹出、工作线程等结果，父窗口尽量挂到宿主可见窗口上，避免对话框跑到应用背后。
+     *
+     * 选完**立刻落盘**（设置面板开着时同时更新草稿），不再等用户按「保存」——
+     * 以前只改草稿却照样提示「输出目录：…」，用户以为生效，结果下一次抓轨还落在旧目录。
      */
     @JvmStatic
     fun chooseOutputRoot() {
@@ -1520,13 +1538,13 @@ object ConfigActions {
                 toast(Strings.message("已取消选择"), ToastType.Warning)
                 return@pickerThread
             }
-            if (PanelState.settingsOpen) {
-                PanelState.updateDraft { it.copy(outputRoot = picked) }
-            } else {
-                val s = SettingsStore.load(true)
-                SettingsStore.save(s.copy(outputRoot = picked))
+            val s = SettingsStore.load(true)
+            if (!SettingsStore.save(s.copy(outputRoot = picked))) {
+                toast(Strings.message("设置没能写回磁盘"), ToastType.Error)
+                return@pickerThread
             }
-            toast(Strings.fmt("输出目录：%s", picked), ToastType.Success)
+            if (PanelState.settingsOpen) PanelState.updateDraft { it.copy(outputRoot = picked) }
+            toast(Strings.fmt("输出目录已改为：%s", picked), ToastType.Success)
             Diag.log("outputRoot set to $picked")
         }
     }

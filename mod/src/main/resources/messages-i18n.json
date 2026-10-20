@@ -1264,6 +1264,10 @@
     "FLAC（内置编码器）": [
       "FLAC (built-in encoder)",
       "FLAC（内蔵エンコーダー）"
+    ],
+    "输出目录已改为：%s": [
+      "Output folder is now: %s",
+      "出力フォルダを変更しました：%s"
     ]
   }
 }

@@ -289,7 +289,21 @@ private fun SettingRow(item: SettingItem, s: RipSettings) {
             modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            LabelColumn(label, hint, enabled, Modifier.weight(1f))
+            Column(Modifier.weight(1f)) {
+                LabelColumn(label, hint, enabled, Modifier.fillMaxWidth())
+                val current = item.current?.invoke(s)
+                if (!current.isNullOrBlank()) {
+                    Text(
+                        text = current,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                        color = cs.primary.copy(alpha = if (enabled) 0.9f else 0.4f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+            }
             TextButton(onClick = { choosePath(item.key) }, enabled = enabled) {
                 Text(Strings.key("choose"), fontSize = 12.sp, lineHeight = 16.sp, color = cs.onSurfaceVariant)
             }
@@ -369,7 +383,6 @@ private fun runAction(name: String) {
         "resetDefaults" -> ConfigActions.resetDefaults()
         "openLogFolder" -> ConfigActions.openLogFolder()
         "testNetwork" -> ConfigActions.testNetwork()
-        "chooseOutputRoot" -> ConfigActions.chooseOutputRoot()
         else -> Unit
     }
 }

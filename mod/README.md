@@ -3,6 +3,20 @@
 Windows 上把 CD 精确抓成 WAV + CUE + 日志，并把专辑信息（MusicBrainz / gnudb / Cover Art Archive）一起落盘。
 算法与参数来自对 EAC 1.8 的逆向（见 `../architecture.md`、`../features.md`）。
 
+## 0.39.1
+
+修用户报的两个「输出根目录」问题：
+
+- **设置里有两个选目录的入口**：`1 · 输出位置` 同时有「输出目录」行（自带「选择」）与动作行「选择输出目录…」。
+  删掉动作行（配置页 47 键 / **13 按钮**），目录选择只留在「输出目录」行上。
+- **改根目录不生效**：以前设置面板开着时 `chooseOutputRoot()` 只改草稿就提示「输出目录：…」，
+  用户以为已生效，实际要按「保存」；于是抓轨仍落在旧根（真机日志：`outputRoot set to D:\音楽` 之后
+  `album done … dir=C:\Users\…\Music`）。现在选完**立刻落盘**并同步草稿，提示改成「输出目录已改为：…」。
+- **看不到当前根目录**：路径行加了 `SettingItem.current`，面板在键下面用彩色字显示「当前：<生效路径>」，
+  留空（=系统音乐文件夹）时也看得见到底落在哪。
+- 换根之后旧的手填元数据/封面不再消失：`readCachedAlbum` 找不到时回落到系统「音乐」文件夹的同名缓存。
+- 测试：`SettingsSpecTest.outputRootRowShowsTheEffectivePath`；409 tests / 0 failed / 11 skipped。
+
 ## 0.39.0（删掉「导入编码器」这套选项：FLAC 只用内置 1.4.3）
 
 0.38.0 起已经随包带 Xiph FLAC 1.4.3，但设置里还留着「选 flac.exe…」「外部编码器（自定义命令行）」
