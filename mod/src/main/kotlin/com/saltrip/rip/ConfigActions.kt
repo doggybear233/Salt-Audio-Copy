@@ -808,6 +808,8 @@ object ConfigActions {
                 .getOrNull()?.let { PanelState.discCover = it }
         }
         PanelState.lookupTried = true
+        // 内存里留一份：换输出根 / 缓存读不到时标题不会变「未知」
+        PanelState.rememberMeta(before?.discId.orEmpty(), album)
         PanelState.closeManual()
         PanelState.set(
             Strings.message("已保存手动元数据"),
@@ -842,6 +844,9 @@ object ConfigActions {
                 }
                 Diag.log("manual album.json saved: $cachePath")
                 saveManualCover(cachePath, root, discId)
+                PanelState.rememberMeta(discId, finalAlbum)
+                // 保险副本：用户之后换输出根、甚至删掉输出目录，这张盘的信息都还在
+                if (discId.isNotBlank()) com.saltrip.rip.album.DiscCache.mirrorToVault(root, discId)
 
                 // 文件已落盘：从缓存重建一次盘摘要（补上真实 DiscID 与封面）。
                 // 这一步是幂等的，也能修掉 freshScan 期间被清空的名字。
@@ -967,20 +972,8 @@ object ConfigActions {
      */
     internal fun readCachedAlbum(root: java.nio.file.Path, discId: String): com.saltrip.rip.meta.AlbumMeta? {
         if (discId.isBlank()) return null
-        val candidates = listOf(root, runCatching { com.saltrip.rip.scsi.Win32.musicFolder() }.getOrNull())
-            .filterNotNull()
-            .distinct()
-        for (dir in candidates) {
-            val p = com.saltrip.rip.album.DiscCache.path(dir, discId)
-            if (!java.nio.file.Files.isRegularFile(p)) continue
-            val meta = com.saltrip.rip.meta.MetaOverride.load(p)
-            if (meta != null) {
-                if (dir != root) Diag.log("readCachedAlbum: $root 下没有，改用 $p")
-                return meta
-            }
-            Diag.log("readCachedAlbum: 解析失败或为空 $p")
-        }
-        return null
+        // 输出根 → 保险副本 → 系统音乐文件夹（换过输出根也不丢手填信息）
+        return com.saltrip.rip.album.DiscCache.load(root, discId)
     }
 
     /** 抓取整张专辑：元数据 → 模板命名 → 逐轨双读校验 → 封面/CUE/日志。 */
@@ -1540,11 +1533,25 @@ object ConfigActions {
                 return@pickerThread
             }
             val s = SettingsStore.load(true)
+            val oldRoot = s.effectiveRoot
             if (!SettingsStore.save(s.copy(outputRoot = picked))) {
                 toast(Strings.message("设置没能写回磁盘"), ToastType.Error)
                 return@pickerThread
             }
             if (PanelState.settingsOpen) PanelState.updateDraft { it.copy(outputRoot = picked) }
+            // 当前这张盘的元数据留在旧根里：先搬一份到保险副本，换根后照样认得出这是哪张专辑。
+            // 不这么做的话，面板会立刻变成「未知艺术家 / 未知专辑」，抓轨也按未知命名。
+            PanelState.disc?.discId?.takeIf { it.isNotBlank() }?.let { id ->
+                runCatching {
+                    if (oldRoot != null && oldRoot != java.nio.file.Path.of(picked)) {
+                        com.saltrip.rip.album.DiscCache.mirrorToVault(oldRoot, id)
+                    }
+                }.onFailure { Diag.log("root change: 迁移元数据缓存失败", it) }
+            }
+            // 名字立刻按新根重算（Discs 会带上内存/保险副本里的歌手与专辑）
+            runCatching {
+                com.saltrip.rip.Discs.sync(SettingsStore.load().driveLetter, quiet = false)
+            }.onFailure { Diag.log("root change: 面板刷新失败", it) }
             toast(Strings.fmt("输出目录已改为：%s", picked), ToastType.Success)
             Diag.log("outputRoot set to $picked")
         }

@@ -36,6 +36,7 @@ class DiscCacheDisplayTest {
         Discs.rootOverride = root
         PanelState.disc = null
         PanelState.discCover = null
+        PanelState.forgetMeta()
         PanelState.showCandidates(emptyList())
     }
 

@@ -84,7 +84,7 @@ object AlbumRipper {
         val cachedMeta = if (settings.reuseAlbumJson) {
             runCatching {
                 val discId = DiscId.musicBrainz(toc)
-                MetaOverride.load(DiscCache.path(settings.effectiveRoot, discId))
+                DiscCache.load(settings.effectiveRoot, discId)
             }.onFailure { Diag.log("album.json cache read failed", it) }.getOrNull()
         } else null
         if (cachedMeta != null) notes += Strings.message("使用上次保存的元数据（album.json）")

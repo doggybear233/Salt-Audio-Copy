@@ -254,6 +254,32 @@ object PanelState {
      */
     var metaBusy: Boolean by mutableStateOf(false)
 
+    /**
+     * 当前盘最近一次解析出的元数据（内存里留一份）。
+     *
+     * 换输出根、缓存文件读不到时，面板标题与输出预览仍然要有歌手/专辑名；
+     * 否则用户会看到刚填好的信息突然变「未知」。
+     */
+    internal var discMeta: com.saltrip.rip.meta.AlbumMeta? by mutableStateOf(null)
+
+    /** [discMeta] 属于哪张盘；与当前 disc 不一致时不能拿来用。 */
+    internal var discMetaId: String by mutableStateOf("")
+
+    internal fun rememberMeta(discId: String, meta: com.saltrip.rip.meta.AlbumMeta?) {
+        if (discId.isBlank()) return
+        discMetaId = discId
+        discMeta = meta
+    }
+
+    internal fun knownMeta(discId: String): com.saltrip.rip.meta.AlbumMeta? =
+        discMeta?.takeIf { discMetaId == discId }
+
+    /** 清掉内存里的元数据（换盘、测试隔离用）。 */
+    internal fun forgetMeta() {
+        discMetaId = ""
+        discMeta = null
+    }
+
     /** 当前盘是否可以抓（必须是音频 CD）。 */
     val hasAudioDisc: Boolean get() = disc?.audio == true
 
@@ -277,7 +303,12 @@ object PanelState {
     /** 本地缓存里的完整元数据（决定 %year%/%genre% 这类变量），没有就 null。 */
     internal fun resolvedAlbumMeta(settings: com.saltrip.rip.settings.RipSettings): com.saltrip.rip.meta.AlbumMeta? {
         val id = disc?.discId ?: return null
-        return runCatching { com.saltrip.rip.ConfigActions.readCachedAlbum(settings.effectiveRoot, id) }.getOrNull()
+        knownMeta(id)?.let { return it }
+        val fromDisk = runCatching {
+            com.saltrip.rip.ConfigActions.readCachedAlbum(settings.effectiveRoot, id)
+        }.getOrNull()
+        if (fromDisk != null) rememberMeta(id, fromDisk)
+        return fromDisk
     }
 
     /**

@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.saltrip"
-version = "0.39.3"
+version = "0.39.4"
 
 kotlin {
     jvmToolchain(25)

@@ -33,7 +33,7 @@ object Discs {
         val discId = if (r.toc.isAudioCd) runCatching { DiscId.musicBrainz(r.toc) }.getOrDefault("") else ""
         // 本地缓存（含手填）里的歌手/专辑要带出来：换盘监视每 2 秒重建一次 DiscInfo，
         // 不能每次都把用户填的名字抹成空串（0.36.3 之后用户实测「保存了又变回去」）。
-        val cached = cachedMeta(discId)
+        val cached = cachedMeta(discId) ?: PanelState.knownMeta(discId)
         return PanelState.DiscInfo(
             tracks = r.toc.tracks.size,
             artist = cached?.albumArtist.orEmpty(),
@@ -47,8 +47,12 @@ object Discs {
     /** 这张盘在本地的 album.json（手填或上次抓轨留下的），没有就返回 null。 */
     private fun cachedMeta(discId: String): com.saltrip.rip.meta.AlbumMeta? {
         if (discId.isBlank()) return null
-        val base = root() ?: return null
-        return runCatching { ConfigActions.readCachedAlbum(base, discId) }.getOrNull()
+        val base = root()
+        val meta = runCatching {
+            if (base != null) ConfigActions.readCachedAlbum(base, discId) else null
+        }.getOrNull()
+        if (meta != null) PanelState.rememberMeta(discId, meta)
+        return meta
     }
 
     fun publish(r: ScanResult) {
@@ -56,7 +60,7 @@ object Discs {
         val info = info(r)
         PanelState.showDisc(info)
         // 坞上的封面：候选里有就用候选的，没有就用本地缓存里的（手导的封面也在这）
-        PanelState.discCover = cachedMeta(info.discId)?.cover
+        PanelState.discCover = cachedMeta(info.discId)?.cover ?: PanelState.knownMeta(info.discId)?.cover
     }
 
     /**
