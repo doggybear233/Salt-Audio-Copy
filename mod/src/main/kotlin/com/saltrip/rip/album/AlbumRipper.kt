@@ -30,7 +30,8 @@ import java.nio.file.Path
  */
 object AlbumRipper {
 
-    const val APP_VERSION = "0.7.0"
+    /** 版本号只从 [com.saltrip.rip.Version] 取，别再硬编码（会让日志抬头长期停在旧版本）。 */
+    const val APP_VERSION = com.saltrip.rip.Version.VALUE
 
     /**
      * @param onlyTracks 只抓指定轨号（1 起）；null 表示整盘。用于「抓选中的轨」与集成测试。
@@ -56,6 +57,13 @@ object AlbumRipper {
         RipEngine.requireAudioCd(toc)
         val startedAt = System.nanoTime()
         val notes = ArrayList<String>()
+        // 「用户需要知道的问题」单独收一份：笔记里有不少是提示性的（用了缓存、错误报告路径…），
+        // 混在一起会让「全绿」的完成提示盖住真正的失败（比如 FLAC 没编出来、CUE 没写出来）。
+        val warnings = ArrayList<String>()
+        fun warn(msg: String) {
+            notes += msg
+            warnings += msg
+        }
 
         // 读命令偏好要在任何 CdDevice 之前生效（抓轨、预扫、CD-TEXT 都会新建设备）
         com.saltrip.rip.scsi.ReadCommandPreference.apply(settings.readCommand)
@@ -66,7 +74,7 @@ object AlbumRipper {
             runCatching { CdDevice(scan.path).use { it.readCdText() } }
                 .onFailure {
                     Diag.log("cd-text read failed", it)
-                    notes += "CD-TEXT 读取失败: ${it.message}"
+                    warn("CD-TEXT 读取失败: ${it.message}")
                 }
                 .getOrNull()
         } else null
@@ -82,7 +90,7 @@ object AlbumRipper {
 
         val album = cachedMeta ?: if (settings.fetchMetadata) {
             runCatching { MetadataService.lookup(toc, settings, notes, cdtext) }
-                .onFailure { Diag.log("metadata lookup failed", it); notes += "元数据查询异常: ${it.message}" }
+                .onFailure { Diag.log("metadata lookup failed", it); warn("元数据查询异常: ${it.message}") }
                 .getOrNull()
         } else {
             notes += "已关闭联网元数据查询"
@@ -159,7 +167,7 @@ object AlbumRipper {
             } else {
                 runCatching { CdDevice(scan.path).use { collect(it) } }.onFailure {
                     Diag.log("gap prescan failed", it)
-                    notes += "间隙预扫失败（抓轨时逐轨再试）: ${it.message}"
+                    warn("间隙预扫失败（抓轨时逐轨再试）: ${it.message}")
                 }
             }
         }
@@ -215,7 +223,7 @@ object AlbumRipper {
             if (settings.guardDisc && results.isNotEmpty() && source == null) {
                 val now = runCatching { CdDevice(scan.path).use { it.readToc() } }.getOrNull()
                 if (now != null && !DiscGuard.sameDisc(toc, now)) {
-                    notes += DiscGuard.mismatchMessage(toc.leadOutLba, now.leadOutLba, "第 ${entry.track} 轨之前")
+                    warn(DiscGuard.mismatchMessage(toc.leadOutLba, now.leadOutLba, "第 ${entry.track} 轨之前"))
                     Diag.log("disc changed before track ${entry.track}: leadOut ${toc.leadOutLba} -> ${now.leadOutLba}")
                     cancelled = true
                     break
@@ -300,8 +308,10 @@ object AlbumRipper {
                         "test&copy mismatch track=${entry.track} test=0x%08X copy=0x%08X，重抓一次"
                             .format(expected, r.crc32)
                     )
-                    notes += "第 ${entry.track} 轨测试/复制 CRC 不一致（0x%08X vs 0x%08X），已重抓"
-                        .format(expected, r.crc32)
+                    warn(
+                        "第 ${entry.track} 轨测试/复制 CRC 不一致（0x%08X vs 0x%08X），已重抓"
+                            .format(expected, r.crc32)
+                    )
                     val again = RipEngine.ripTrack(
                         scan, i, outFile, cancel, { },
                         verify = settings.secureMode,
@@ -312,7 +322,7 @@ object AlbumRipper {
                         source = source
                     )
                     if (again.crc32 != expected) {
-                        notes += "第 ${entry.track} 轨重抓后仍与测试通道不一致（0x%08X）".format(again.crc32)
+                        warn("第 ${entry.track} 轨重抓后仍与测试通道不一致（0x%08X）".format(again.crc32))
                     } else {
                         notes += "第 ${entry.track} 轨重抓后与测试通道一致"
                     }
@@ -320,7 +330,7 @@ object AlbumRipper {
             }
             if (settings.offsetSamples != 0 && !r.cancelled) {
                 runCatching { PcmOffset.apply(outFile, settings.offsetSamples) }
-                    .onFailure { Diag.log("offset shift failed on $outFile", it); notes += "offset 校正失败: ${it.message}" }
+                    .onFailure { Diag.log("offset shift failed on $outFile", it); warn("offset 校正失败: ${it.message}") }
             }
             // WAV 的 LIST/INFO 标签：资源管理器/播放器读它显示标题、艺术家、专辑
             //（反馈 6：抓下来的文件在资源管理器里没有标签）。追加在 data 之后，
@@ -341,7 +351,7 @@ object AlbumRipper {
                     )
                 }.onFailure {
                     Diag.log("wav tag failed track=${entry.track}", it)
-                    notes += "第 ${entry.track} 轨 WAV 标签写入失败（音频不受影响）: ${it.message}"
+                    warn("第 ${entry.track} 轨 WAV 标签写入失败（音频不受影响）: ${it.message}")
                 }
             }
             var finalFile = outFile
@@ -374,7 +384,7 @@ object AlbumRipper {
                     if (!settings.keepWav) runCatching { Files.deleteIfExists(outFile) }
                 } catch (e: Throwable) {
                     Diag.log("external encode failed track=${entry.track}", e)
-                    notes += "第 ${entry.track} 轨外部编码失败（已保留 WAV）: ${e.message}"
+                    warn("第 ${entry.track} 轨外部编码失败（已保留 WAV）: ${e.message}")
                 }
             }
             if (encodeAllowed && settings.format.equals("flac", true)) {
@@ -390,14 +400,17 @@ object AlbumRipper {
                     if (settings.writeTags) {
                         runCatching {
                             val isrc = album?.track(entry.track)?.isrc
+                            // 专辑名/艺术家一律传「已解析」的值：没有元数据时用占位名，
+                            // 免得目录叫「未知专辑」而标签里根本没有 ALBUM 字段——
+                            // 播放器会把这些文件散成「未知专辑」而聚合不起来。
                             val tags = FlacMeta.trackTags(
-                                albumTitle = album?.albumTitle,
-                                albumArtist = album?.albumArtist,
+                                albumTitle = albumTitle,
+                                albumArtist = albumArtist,
                                 year = album?.year,
                                 genre = album?.genre,
                                 trackNumber = entry.track,
                                 trackTitle = title,
-                                trackArtist = album?.track(entry.track)?.artist,
+                                trackArtist = artist,
                                 isrc = isrc,
                                 trackTotal = availableTracks.size,
                                 discNumber = album?.discNumber,
@@ -410,13 +423,13 @@ object AlbumRipper {
                             Diag.log("flac tags track=${entry.track}: ${tags.size}")
                         }.onFailure {
                             Diag.log("flac tag failed track=${entry.track}", it)
-                            notes += "第 ${entry.track} 轨标签写入失败（音频不受影响）: ${it.message}"
+                            warn("第 ${entry.track} 轨标签写入失败（音频不受影响）: ${it.message}")
                         }
                     }
                     if (!settings.keepWav) runCatching { Files.deleteIfExists(outFile) }
                 } catch (e: Throwable) {
                     Diag.log("flac encode failed track=${entry.track}", e)
-                    notes += "第 ${entry.track} 轨 FLAC 编码失败（已保留 WAV）: ${e.message}"
+                    warn("第 ${entry.track} 轨 FLAC 编码失败（已保留 WAV）: ${e.message}")
                 }
             }
             fileNames += finalRel
@@ -475,14 +488,17 @@ object AlbumRipper {
                             Diag.log("flac image -> $flacTarget ($size B)")
                             if (!settings.keepWav) runCatching { Files.deleteIfExists(imgTarget) }
                             imageRel = flacTarget.fileName.toString()
+                            // 结果里的 file 必须指向真实存在的文件：音频已转成 flac，
+                            // WAV 也被删了，还指回 WAV 会让「打开目录/复制路径」指向空文件。
+                            for (k in results.indices) results[k] = results[k].copy(file = flacTarget)
                         }.onFailure {
                             Diag.log("flac image encode failed", it)
-                            notes += "整盘镜像 FLAC 编码失败（已保留 WAV）: ${it.message}"
+                            warn("整盘镜像 FLAC 编码失败（已保留 WAV）: ${it.message}")
                         }
                     }
                 }.onFailure {
                     Diag.log("image splice failed", it)
-                    notes += "整盘镜像拼接失败（逐轨文件保留）: \${it.message}"
+                    warn("整盘镜像拼接失败（逐轨文件保留）: ${it.message}")
                 }
             }
         }
@@ -501,7 +517,7 @@ object AlbumRipper {
             val p = dir.resolve(TemplateEngine.sanitizeSegment(settings.coverFileName) + ext)
             runCatching { Files.write(p, cover) }
                 .onSuccess { coverFile = p; Diag.log("cover written: $p (${cover.size} B)") }
-                .onFailure { Diag.log("cover write failed", it); notes += "封面写入失败: ${it.message}" }
+                .onFailure { Diag.log("cover write failed", it); warn("封面写入失败: ${it.message}") }
         }
 
         // 封面内嵌放在封面落盘之后：抓轨阶段 mp3/flac 标签已写好，这里只补 picture 块。
@@ -517,7 +533,7 @@ object AlbumRipper {
                 Diag.log("flac cover embedded in $ok file(s)")
             }.onFailure {
                 Diag.log("flac cover embed failed", it)
-                notes += "封面内嵌失败（音频与封面文件不受影响）: ${it.message}"
+                warn("封面内嵌失败（音频与封面文件不受影响）: ${it.message}")
             }
         }
 
@@ -529,17 +545,19 @@ object AlbumRipper {
                 val text = if (imageRel != null) {
                     CueWriter.buildImage(
                         album, results, imageRel!!, toc.tracks.first().lba,
-                        catalog = cdtext?.upc, songwriters = cdtext?.songwriters.orEmpty()
+                        catalog = cdtext?.upc, songwriters = cdtext?.songwriters.orEmpty(),
+                        annotateCrc = settings.annotateCueCrc
                     )
                 } else {
                     CueWriter.build(
                         album, results, fileNames,
-                        catalog = cdtext?.upc, songwriters = cdtext?.songwriters.orEmpty()
+                        catalog = cdtext?.upc, songwriters = cdtext?.songwriters.orEmpty(),
+                        annotateCrc = settings.annotateCueCrc
                     )
                 }
                 CueWriter.write(p, text)
             }.onSuccess { cueFile = p; Diag.log("cue written: $p") }
-                .onFailure { Diag.log("cue write failed", it); notes += "CUE 写入失败: ${it.message}" }
+                .onFailure { Diag.log("cue write failed", it); warn("CUE 写入失败: ${it.message}") }
         }
 
         var logFile: Path? = null
@@ -568,14 +586,12 @@ object AlbumRipper {
                 )
                 LogWriter.write(p, text)
             }.onSuccess { logFile = p; Diag.log("log written: $p") }
-                .onFailure { Diag.log("log write failed", it) }
+                .onFailure { Diag.log("log write failed", it); warn("日志写入失败: ${it.message}") }
         }
 
         if (settings.writeAlbumJson && results.isNotEmpty()) {
             val p = dir.resolve("album.json")
             runCatching {
-                // 写盘用的元数据要跟目录/文件名一致：抓不到元数据时落占位名，
-                // 否则下次读回来是空标题，反而把用户已经修好的目录名带偏。
                 // 写盘用的元数据要跟目录/文件名一致：抓不到元数据时落占位名，
                 // 否则下次读回来是空标题，反而把用户已经修好的目录名带偏。
                 val base = album ?: AlbumMeta(
@@ -598,7 +614,7 @@ object AlbumRipper {
                 }.onFailure { Diag.log("album.json cache write failed", it) }
                 notes += "元数据副本: ${p.fileName}"
                 Diag.log("album.json written: $p")
-            }.onFailure { Diag.log("album.json write failed", it) }
+            }.onFailure { Diag.log("album.json write failed", it); warn("元数据副本写入失败: ${it.message}") }
         }
 
         // 只有出现错误/重试/失败备注时才落错误报告，正常抓轨保持目录干净
@@ -631,7 +647,8 @@ object AlbumRipper {
             }
         }.getOrDefault(emptyList())
         return AlbumRipResult(
-            dir, album, results, elapsedMs, cancelled, cueFile, logFile, coverFile, notes, created
+            dir, album, results, elapsedMs, cancelled, cueFile, logFile, coverFile, notes, created,
+            warnings
         )
     }
 

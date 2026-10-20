@@ -223,7 +223,9 @@ object SettingsStore {
         cached?.let { if (!force) return it }
         val h = helper()
         val d = RipSettings()
-        val s = if (h == null) d else RipSettings(
+        // 宿主配置拿不到时沿用内存里的那份：不然「保存后立刻 force 读」会退回默认值，
+        // 面板上看起来像设置没生效（测试环境也走这条路径）。
+        val s = if (h == null) (cached ?: d) else RipSettings(
             outputRoot = read(h, KEY_OUTPUT_ROOT, d.outputRoot).ifBlank { Win32.musicFolder().toString() },
             folderTemplate = read(h, KEY_FOLDER_TEMPLATE, d.folderTemplate),
             fileTemplate = read(h, KEY_FILE_TEMPLATE, d.fileTemplate),
@@ -278,10 +280,11 @@ object SettingsStore {
         return s
     }
 
-    fun save(s: RipSettings) {
+    /** 写回配置。返回 false 表示没写成功（宿主配置不可用或中途抛错），调用方必须告诉用户。 */
+    fun save(s: RipSettings): Boolean {
         cached = s
-        val h = helper() ?: return
-        runCatching {
+        val h = helper() ?: return false
+        return runCatching {
             h.set(KEY_OUTPUT_ROOT, s.outputRoot)
             h.set(KEY_FOLDER_TEMPLATE, s.folderTemplate)
             h.set(KEY_FILE_TEMPLATE, s.fileTemplate)
@@ -301,19 +304,19 @@ object SettingsStore {
             h.set(KEY_OFFSET, s.offsetSamples.toString())
             h.set(KEY_CUE_CRC, s.annotateCueCrc)
             h.set(KEY_USE_C2, s.useC2)
-        h.set(KEY_DEFEAT_CACHE, s.defeatCache)
+            h.set(KEY_DEFEAT_CACHE, s.defeatCache)
             h.set(KEY_TEST_COPY, s.testAndCopy)
             h.set(KEY_TEST_MODE, s.testMode)
             h.set(KEY_WAV_TAGS, s.writeWavTags)
             h.set(KEY_DETECT_GAPS, s.detectGaps)
             h.set(KEY_ERROR_RECOVERY, s.errorRecovery)
             h.set(KEY_GAP_MODE, s.gapMode)
-        h.set(KEY_GAP_METHOD, s.gapMethod)
+            h.set(KEY_GAP_METHOD, s.gapMethod)
             h.set(KEY_RESUME, s.resume)
             h.set(KEY_FLAC_EXE, s.flacExe)
-        h.set(KEY_ENCODER_EXE, s.encoderExe)
-        h.set(KEY_ENCODER_ARGS, s.encoderArgs)
-        h.set(KEY_ENCODER_EXT, s.encoderExt)
+            h.set(KEY_ENCODER_EXE, s.encoderExe)
+            h.set(KEY_ENCODER_ARGS, s.encoderArgs)
+            h.set(KEY_ENCODER_EXT, s.encoderExt)
             h.set(KEY_FLAC_LEVEL, s.flacLevel.toString())
             h.set(KEY_KEEP_WAV, s.keepWav)
             h.set(KEY_RELEASE_INDEX, s.releaseIndex.toString())
@@ -329,6 +332,7 @@ object SettingsStore {
             h.set(KEY_DRIVE_SPEED, s.driveSpeed.toString())
             h.set(KEY_EJECT, s.ejectAfterRip.toString())
             h.save()
-        }.onFailure { Diag.log("settings save failed", it) }
+            true
+        }.onFailure { Diag.log("settings save failed", it) }.getOrDefault(false)
     }
 }

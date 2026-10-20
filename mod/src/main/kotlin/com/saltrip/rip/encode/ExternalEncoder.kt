@@ -4,7 +4,7 @@ import com.saltrip.rip.Diag
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 /**
  * 通用外部编码器（EAC 的 "External compressor" 思路）。
@@ -83,45 +83,47 @@ object ExternalEncoder {
 
     /**
      * 跑编码器并返回产物字节数。失败时删除半成品并抛出——半截文件比没有文件更坑人。
+     *
+     * [runner] 只为测试存在（见 [ProcessRunner]）；生产调用点用默认值即可。
      */
-    fun encode(exe: String, argv: List<String>, outFile: Path, timeoutSec: Long = 1800): Long {
+    fun encode(
+        exe: String,
+        argv: List<String>,
+        outFile: Path,
+        timeoutSec: Long = 1800,
+        runner: ProcessRunner = runnerOverride ?: SystemProcessRunner
+    ): Long {
         Files.createDirectories(outFile.parent)
         Files.deleteIfExists(outFile)
         val cmd = ArrayList<String>(argv.size + 1)
         cmd += exe
         cmd += argv
         Diag.log("external encode: ${cmd.joinToString(" ")}")
-        val pb = ProcessBuilder(cmd)
-        pb.redirectErrorStream(true)
-        val p = try {
-            pb.start()
-        } catch (e: Exception) {
+        val res = try {
+            runner.run(cmd, timeoutSec)
+        } catch (e: TimeoutException) {
+            Files.deleteIfExists(outFile)
+            throw IllegalStateException("编码器超时（${timeoutSec}s）", e)
+        } catch (e: java.io.IOException) {
+            Files.deleteIfExists(outFile)
             throw IllegalStateException("无法启动编码器 $exe：${e.message}", e)
         }
-        val buf = StringBuilder()
-        val reader = Thread {
-            runCatching {
-                p.inputStream.bufferedReader().forEachLine { line ->
-                    if (buf.length < 4000) buf.appendLine(line)
-                }
-            }
-        }
-        reader.isDaemon = true
-        reader.start()
-        val ok = p.waitFor(timeoutSec, TimeUnit.SECONDS)
-        if (!ok) {
-            p.destroyForcibly()
+        if (res.exitCode != 0) {
             Files.deleteIfExists(outFile)
-            throw IllegalStateException("编码器超时（${timeoutSec}s）")
-        }
-        reader.join(2000)
-        if (p.exitValue() != 0) {
-            Files.deleteIfExists(outFile)
-            throw IllegalStateException("编码器退出码 ${p.exitValue()}：${buf.toString().trim().take(400)}")
+            throw IllegalStateException("编码器退出码 ${res.exitCode}：${res.output.take(400)}")
         }
         if (!Files.exists(outFile) || Files.size(outFile) <= 0L) {
             throw IllegalStateException("编码器报告成功但没有产出文件（检查参数模板里的 %out%）")
         }
         return Files.size(outFile)
     }
+
+    /**
+     * 测试缝：非空时所有编码调用都走它。
+     *
+     * 用全局开关而不是把 runner 一路穿过 `AlbumRipper` 的参数表——
+     * 抓轨主流程不该为了可测性多背一个参数；测试在 `@AfterTest` 里清空即可。
+     */
+    @Volatile
+    internal var runnerOverride: ProcessRunner? = null
 }

@@ -51,7 +51,9 @@ data class AlbumRipResult(
     val coverFile: Path?,
     val notes: List<String>,
     /** 本次运行**新建**的文件（取消时只删这些，不碰用户原有的文件）。 */
-    val createdFiles: List<Path> = emptyList()
+    val createdFiles: List<Path> = emptyList(),
+    /** 需要让用户知道的问题（编码失败、CUE/日志没写出来…）；空 = 一切正常。 */
+    val warnings: List<String> = emptyList()
 )
 
 /**
@@ -70,7 +72,9 @@ object CueWriter {
         /** CD-TEXT 的 UPC/EAN（MCN）；有就写 CUE 的 CATALOG 行 */
         catalog: String? = null,
         /** 轨号 → 词曲作者；CD-TEXT 0x82 有就写 SONGWRITER 行 */
-        songwriters: Map<Int, String> = emptyMap()
+        songwriters: Map<Int, String> = emptyMap(),
+        /** 每轨写一行 `REM CRC32`，方便事后比对抓轨是否一致（EAC 日志里的 CRC 同理） */
+        annotateCrc: Boolean = false
     ): String {
         val sb = StringBuilder()
         sb.append(BOM)
@@ -91,6 +95,7 @@ object CueWriter {
             t.artist?.takeIf { it.isNotBlank() }?.let { line("    PERFORMER \"${q(it)}\"") }
             t.isrc?.takeIf { it.isNotBlank() }?.let { line("    ISRC $it") }
             songwriters[t.number]?.takeIf { it.isNotBlank() }?.let { line("    SONGWRITER \"${q(it)}\"") }
+            if (annotateCrc) line("    REM CRC32 %08X".format(t.crc32))
             if (t.gapSectors > 0) {
                 line("    INDEX 00 00:00:00")
                 line("    INDEX 01 ${msf(t.gapSectors)}")
@@ -114,7 +119,8 @@ object CueWriter {
         firstLba: Int,
         comment: String = "Salt Audio Copy",
         catalog: String? = null,
-        songwriters: Map<Int, String> = emptyMap()
+        songwriters: Map<Int, String> = emptyMap(),
+        annotateCrc: Boolean = false
     ): String {
         val sb = StringBuilder()
         sb.append(BOM)
@@ -125,17 +131,18 @@ object CueWriter {
         album?.cddbId?.takeIf { it.isNotBlank() }?.let { line("REM CDDBID $it") }
         catalog?.takeIf { it.isNotBlank() }?.let { line("CATALOG $it") }
         line("REM COMMENT \"$comment\"")
-        album?.albumArtist?.let { line("PERFORMER \"${q(it)}\")") }
-        album?.albumTitle?.let { line("TITLE \"${q(it)}\")") }
+        album?.albumArtist?.let { line("PERFORMER \"${q(it)}\"") }
+        album?.albumTitle?.let { line("TITLE \"${q(it)}\"") }
         line()
         line("FILE \"${q(imageName)}\" WAVE")
         tracks.forEach { t ->
             val start = (t.startLba - firstLba).coerceAtLeast(0)
             line("  TRACK %02d AUDIO".format(t.number))
             line("    TITLE \"${q(t.title)}\"")
-            t.artist?.takeIf { it.isNotBlank() }?.let { line("    PERFORMER \"${q(it)}\")") }
+            t.artist?.takeIf { it.isNotBlank() }?.let { line("    PERFORMER \"${q(it)}\"") }
             t.isrc?.takeIf { it.isNotBlank() }?.let { line("    ISRC $it") }
             songwriters[t.number]?.takeIf { it.isNotBlank() }?.let { line("    SONGWRITER \"${q(it)}\"") }
+            if (annotateCrc) line("    REM CRC32 %08X".format(t.crc32))
             if (t.gapSectors > 0) {
                 line("    INDEX 00 ${msf((start - t.gapSectors).coerceAtLeast(0))}")
             }

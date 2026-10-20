@@ -928,7 +928,6 @@ object ConfigActions {
         }
     }
 
-    /** 抓轨实际读取的缓存路径；DiscID 缺失时按 lead-out 兜底，避免各写各的。 */
     /**
      * 把导入的封面复制到 album.json 旁边（`<discId>.album.cover.jpg`），
      * 下次读缓存时 [com.saltrip.rip.meta.MetaOverride.load] 会自动带上。
@@ -1064,14 +1063,34 @@ object ConfigActions {
                         if (retries > 0) add("重试 $retries 次")
                     }
                     PanelState.markRipped(result.tracks.size)
-                    PanelState.status = "已抓完 · ${result.tracks.size} 轨 · 用时 ${result.elapsedMs / 1000} 秒"
+                    val warns = result.warnings
+                    PanelState.status = if (warns.isEmpty()) {
+                        "已抓完 · ${result.tracks.size} 轨 · 用时 ${result.elapsedMs / 1000} 秒"
+                    } else {
+                        // 有失败项时别只给绿字：用户会以为 FLAC/CUE 都好好生成了
+                        "已抓完（${warns.size} 项需要留意）· ${result.tracks.size} 轨 · 用时 ${result.elapsedMs / 1000} 秒"
+                    }
                     PanelState.lastOutDir = result.outDir
                     PanelState.detail = buildString {
                         append(result.outDir)
                         result.cueFile?.let { append("\nCUE：").append(it) }
+                        if (warns.isNotEmpty()) {
+                            append("\n需要留意：")
+                            warns.take(3).forEach { append("\n· ").append(it) }
+                            if (warns.size > 3) append("\n· …共 ").append(warns.size).append(" 项，详见日志")
+                        }
                         append("\n再抓一遍请点「重新抓取」（会先确认）")
                     }
-                    toast(bits.joinToString("\n") + "\n${result.outDir}", ToastType.Success)
+                    if (warns.isEmpty()) {
+                        toast(bits.joinToString("\n") + "\n${result.outDir}", ToastType.Success)
+                    } else {
+                        toast(
+                            "抓轨结束，但有 ${warns.size} 项需要注意：\n" +
+                                warns.take(2).joinToString("\n") +
+                                "\n${result.outDir}",
+                            ToastType.Warning
+                        )
+                    }
                 }
             } catch (e: com.saltrip.rip.scsi.ScsiException) {
                 Diag.log("ripAlbum scsi failure", e)
@@ -1240,14 +1259,30 @@ object ConfigActions {
         return n
     }
 
+    /**
+     * 写回设置并给出反馈。
+     *
+     * 宿主配置写不进去时**不能**继续报成功：用户会以为重启后还在，实际只在本次运行有效。
+     * 顺带把「保存失败」这件事写进面板 detail，方便事后判断。
+     */
+    internal fun persist(next: com.saltrip.rip.settings.RipSettings, okMessage: String): Boolean {
+        val ok = SettingsStore.save(next)
+        if (ok) {
+            toast(okMessage, ToastType.Success)
+        } else {
+            PanelState.set("设置没能写回磁盘", "宿主配置不可用，改动只在本次运行有效；详见日志")
+            toast("设置没能写回磁盘（详见日志）", ToastType.Error)
+        }
+        return ok
+    }
+
     /** 切换测试模式（设置页与面板测试动作的开关）。 */
     @JvmStatic
     fun toggleTestMode() {
         val s = SettingsStore.load(true)
         val next = s.copy(testMode = !s.testMode)
-        SettingsStore.save(next)
+        persist(next, "测试模式：${if (next.testMode) "开" else "关"}")
         PanelState.testMode = next.testMode
-        toast("测试模式：${if (next.testMode) "开" else "关"}", ToastType.Success)
     }
 
     /** 打开设置页：整份设置读进草稿，固定停在「输出位置」。 */
@@ -1274,10 +1309,16 @@ object ConfigActions {
             coverFileName = PanelState.draft.coverFileName.ifBlank { "cover" },
             multiDiscFolder = PanelState.draft.multiDiscFolder.ifBlank { "CD%discnumber%" }
         )
-        SettingsStore.save(d)
+        val saved = SettingsStore.save(d)
         PanelState.testMode = d.testMode
         PanelState.settingsOpen = false
-        toast("设置已保存", ToastType.Success)
+        if (saved) {
+            toast("设置已保存", ToastType.Success)
+        } else {
+            // 宿主配置写不进去时不能只说「已保存」：用户会以为重启后还在
+            PanelState.set("设置没能写回磁盘", "宿主配置不可用，改动只在本次运行有效；详见日志")
+            toast("设置没能写回磁盘（详见日志）", ToastType.Error)
+        }
     }
 
     /** 保存面板里编辑的三个模板（目录 / 文件名 / 封面名）。 */
@@ -1289,8 +1330,7 @@ object ConfigActions {
             fileTemplate = file.ifBlank { "%tracknr2% %title%" },
             coverFileName = cover.ifBlank { "cover" }
         )
-        SettingsStore.save(next)
-        toast("模板已保存", ToastType.Success)
+        persist(next, "模板已保存")
     }
 
     /** 保存单个布尔设置（面板开关用）。 */
@@ -1311,7 +1351,7 @@ object ConfigActions {
                 return
             }
         }
-        SettingsStore.save(next)
+        persist(next, "已保存：$key")
         if (key == "testMode") PanelState.testMode = value
     }
 
@@ -1320,8 +1360,7 @@ object ConfigActions {
     fun toggleSecureMode() {
         val s = SettingsStore.load(true)
         val next = s.copy(secureMode = !s.secureMode)
-        SettingsStore.save(next)
-        toast("双读校验：${if (next.secureMode) "开" else "关"}", ToastType.Success)
+        persist(next, "双读校验：${if (next.secureMode) "开" else "关"}")
     }
 
     /** 切换元数据联网查询。 */
@@ -1329,8 +1368,7 @@ object ConfigActions {
     fun toggleMetadata() {
         val s = SettingsStore.load(true)
         val next = s.copy(fetchMetadata = !s.fetchMetadata)
-        SettingsStore.save(next)
-        toast("联网元数据：${if (next.fetchMetadata) "开" else "关"}", ToastType.Success)
+        persist(next, "联网元数据：${if (next.fetchMetadata) "开" else "关"}")
     }
 
     /**
@@ -1340,9 +1378,9 @@ object ConfigActions {
     @JvmStatic
     fun selectDrive(letter: String) {
         val s = SettingsStore.load(true)
-        SettingsStore.save(s.copy(driveLetter = letter.uppercase()))
-        PanelState.selectedDrive = letter.uppercase()
-        toast("已切换到光驱 ${letter.uppercase()}:", ToastType.Success)
+        val upper = letter.uppercase()
+        PanelState.selectedDrive = upper
+        persist(s.copy(driveLetter = upper), "已切换到光驱 $upper:")
         scanDrives()
     }
 
@@ -1645,8 +1683,7 @@ object ConfigActions {
     /** 恢复内置默认设置（不碰已存在的文件）。 */
     @JvmStatic
     fun resetDefaults() {
-        SettingsStore.save(RipSettings())
-        toast("已恢复默认设置", ToastType.Success)
+        persist(RipSettings(), "已恢复默认设置")
     }
 
     /** 供测试/诊断：当前设置的一行摘要。 */

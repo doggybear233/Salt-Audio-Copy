@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""从 preference_config.json 重新生成 options-table.md（v2，对应 0.34.0）。
+"""从 preference_config.json 重新生成 options-table.md（v2，对应 0.37.0）。
 
 v1 的说明文字（取值/默认/作用）按 key 复用，存在 design/options-table-v1.md。
 """
@@ -129,9 +129,9 @@ out.append("- 51 键 = 原 48 + 新增 3（multiDiscFolder / annotateCueCrc / pr
 out.append("")
 # 头部放最后补：键数要等统计完才知道（0.31.0 加了 autoLookupOnInsert）。
 out[0:0] = [
-    "# 盐专辑（Salt Audio Copy）配置界面选项统计表 v2（0.34.0）",
+    "# 盐专辑（Salt Audio Copy）配置界面选项统计表 v2（0.37.0）",
     "",
-    "> 0.34.0 起配置页为 **%d 组 / %d 个设置键 / %d 个按钮**；面板内是同一份数据的 8 页二级导航。"
+    "> 0.37.0 起配置页为 **%d 组 / %d 个设置键 / %d 个按钮**；面板内是同一份数据的 8 页二级导航。"
     % (len(cfg["configs"]), n, btn),
     "> 本表由 `design/options_table.py` 从 `mod/src/main/resources/preference_config.json` 生成，与代码同步。",
     "> 末列「改法（你填）」留空；要改就在那格写（行首加 `#` 表示删掉这一项）。",

@@ -3,7 +3,7 @@ package com.saltrip.rip.encode
 import com.saltrip.rip.Diag
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 /**
  * 外部 FLAC 编码器（与 EAC 同策略：不内嵌编码库，调用 flac.exe）。
@@ -21,43 +21,32 @@ object FlacEncoder {
     )
 
     /** @return 生成的 FLAC 字节数 */
-    fun encode(exe: String, input: Path, output: Path, level: Int, timeoutSec: Long = 600): Long {
+    fun encode(
+        exe: String,
+        input: Path,
+        output: Path,
+        level: Int,
+        timeoutSec: Long = 600,
+        runner: ProcessRunner = runnerOverride ?: SystemProcessRunner
+    ): Long {
         require(Files.exists(input)) { "输入 WAV 不存在: $input" }
         Files.createDirectories(output.parent)
         val cmd = ArrayList<String>()
         cmd += exe
         cmd += buildArgs(input, output, level)
         Diag.log("flac: " + cmd.joinToString(" "))
-        val pb = ProcessBuilder(cmd).redirectErrorStream(true)
-        val proc = try {
-            pb.start()
-        } catch (e: java.io.IOException) {
-            error("无法启动 FLAC 编码器 $exe：${e.message}（请在设置里填写 flac.exe 的绝对路径）")
-        }
-        val out = StringBuilder()
-        val reader = Thread {
-            runCatching {
-                proc.inputStream.bufferedReader(Charsets.UTF_8).use { r ->
-                    var line = r.readLine()
-                    while (line != null) {
-                        if (out.length < 4000) out.append(line).append('\n')
-                        line = r.readLine()
-                    }
-                }
-            }
-        }
-        reader.isDaemon = true
-        reader.start()
-        val ok = proc.waitFor(timeoutSec, TimeUnit.SECONDS)
-        if (!ok) {
-            proc.destroyForcibly()
+        val res = try {
+            runner.run(cmd, timeoutSec)
+        } catch (e: TimeoutException) {
             runCatching { Files.deleteIfExists(output) }
             error("FLAC 编码超时（${timeoutSec}s）：$exe")
-        }
-        reader.join(2000)
-        if (proc.exitValue() != 0) {
+        } catch (e: java.io.IOException) {
             runCatching { Files.deleteIfExists(output) }
-            error("FLAC 编码失败（exit=${proc.exitValue()}）${out.toString().trim().take(400)}")
+            error("无法启动 FLAC 编码器 $exe：${e.message}（请在设置里填写 flac.exe 的绝对路径）")
+        }
+        if (res.exitCode != 0) {
+            runCatching { Files.deleteIfExists(output) }
+            error("FLAC 编码失败（exit=${res.exitCode}）${res.output.take(400)}")
         }
         if (!Files.exists(output) || Files.size(output) == 0L) {
             runCatching { Files.deleteIfExists(output) }
@@ -66,13 +55,20 @@ object FlacEncoder {
         return Files.size(output)
     }
 
-    /** 在 PATH 与给定绝对路径里找编码器，找到返回可用命令。 */
+    /**
+     * 测试缝：非空时所有编码调用都走它（见 [ExternalEncoder.runnerOverride] 的说明）。
+     */
+    @Volatile
+    internal var runnerOverride: ProcessRunner? = null
+
+    /** 在 PATH、给定绝对路径与常见安装位置里找编码器，找到返回可用命令。 */
     fun locate(exe: String): String? {
         val direct = Path.of(exe)
         if (Files.isRegularFile(direct)) return direct.toAbsolutePath().toString()
         val exts = if (exe.lowercase().endsWith(".exe")) listOf("") else listOf(".exe", "")
-        val pathVar = System.getenv("PATH") ?: return null
-        for (dir in pathVar.split(';')) {
+        val pathVar = System.getenv("PATH") ?: ""
+        val dirs = pathVar.split(';') + COMMON_DIRS
+        for (dir in dirs) {
             if (dir.isBlank()) continue
             for (ext in exts) {
                 val cand = Path.of(dir, exe + ext)
@@ -81,4 +77,16 @@ object FlacEncoder {
         }
         return null
     }
+
+    /**
+     * 常见安装位置：用户装了 FLAC 但没加 PATH 时也能用。
+     * EAC 自带的编码器目录按 EAC 版本不同，这里只收「标准安装」的几种。
+     */
+    private val COMMON_DIRS = listOf(
+        "C:\\Program Files\\flac",
+        "C:\\Program Files (x86)\\flac",
+        "C:\\Program Files\\FLAC",
+        "C:\\Program Files (x86)\\FLAC",
+        "C:\\flac"
+    )
 }
