@@ -43,6 +43,9 @@ object Http {
         connectTimeoutMs = connectMs
         readTimeoutMs = readMs
         proxy = parseProxy(proxyUrl)
+        if (proxyUrl.isNotBlank() && proxy == null) {
+            com.saltrip.rip.Diag.log("proxy '$proxyUrl' 无法解析（需要 host:port 或 http://host:port），本次走直连")
+        }
     }
 
     /** 接受 `127.0.0.1:7890`、`http://127.0.0.1:7890`；解析不了就当直连。 */

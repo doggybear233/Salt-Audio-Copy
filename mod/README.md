@@ -3,6 +3,22 @@
 Windows 上把 CD 精确抓成 WAV + CUE + 日志，并把专辑信息（MusicBrainz / gnudb / Cover Art Archive）一起落盘。
 算法与参数来自对 EAC 1.8 的逆向（见 `../architecture.md`、`../features.md`）。
 
+## 0.42.0
+
+清单 I 区（特殊模式）代码审查后的修复，详见 `design/review-special-modes.md`：
+
+- **整盘镜像 + 只抓部分音轨**：CUE 起点原来固定用整盘第 1 轨，第一轨不在选择里时
+  所有 INDEX 整体偏移。改用实际拼进镜像的第一轨。
+- **镜像被跳过时用户能看到**：「间隙模式不是 append」的提示从 notes 升为 warnings，
+  会出现在完成提示里。
+- **Test & Copy 更抗坏道**：测试通道读失败不再终止整次抓轨，只丢该轨的 CRC 参照并提示。
+- **多碟目录空模板兜底**：`multiDiscFolder` 为空时退回 `CD%discnumber%`，
+  不再把两张碟混进同一目录。
+- **跳过已存在的轨现在会明说**（原来只写日志/notes，看起来像丢轨）。
+- **弹托盘失败会提示**；没有任何产出时不弹托盘。
+- **代理填错会记日志说明走直连**。
+- 438 tests / 0 failed（新增 `SpecialModesTest`、`OptionMatrixTest` 多碟用例）。
+
 ## 0.41.2
 
 - **读速改成「每条读句柄都设一次」**：以前只在抓轨开始前用一个临时句柄 SET CD SPEED，

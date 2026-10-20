@@ -111,7 +111,9 @@ object RipPlan {
         TemplateEngine.expandToSegments(settings.folderTemplate, albumVars).forEach { dir = dir.resolve(it) }
         val totalDiscsEff = settings.totalDiscsOverride.takeIf { it > 0 } ?: album?.totalDiscs ?: 1
         if (totalDiscsEff > 1 && !settings.folderTemplate.contains("%discnumber%")) {
-            TemplateEngine.expandToSegments(settings.multiDiscFolder, albumVars).forEach { dir = dir.resolve(it) }
+            // 空模板会让多碟专辑直接把 CD1/CD2 两张混进同一个目录：空就退回默认命名。
+            val md = settings.multiDiscFolder.ifBlank { "CD%discnumber%" }
+            TemplateEngine.expandToSegments(md, albumVars).forEach { dir = dir.resolve(it) }
         }
 
         val warnings = ArrayList<String>()

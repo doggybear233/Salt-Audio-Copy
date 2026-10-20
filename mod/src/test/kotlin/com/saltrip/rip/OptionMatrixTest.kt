@@ -300,4 +300,13 @@ class OptionMatrixTest {
         assertTrue(res.tracks.isNotEmpty(), "override 文件不存在也不能让抓轨失败")
         assertNull(res.album?.tracks?.firstOrNull()?.isrc, "缺省元数据不该凭空出现 ISRC")
     }
+    /** 多碟：`multiDiscFolder` 空着的时候必须退回默认 `CD1/CD2`，不能把两张混进一个目录。 */
+    @Test
+    fun blankMultiDiscFolderFallsBackToDefault() {
+        val toc = FakeTrackSource.disc3Tracks()
+        val s = settings().copy(folderTemplate = "%albumartist%/%albumtitle%", multiDiscFolder = "", totalDiscsOverride = 2, discNumberOverride = 1)
+        val plan = com.saltrip.rip.album.RipPlan.build(toc, s, null)
+        assertTrue(plan.albumDir.endsWith("CD1"), "多碟目录没有退回默认：${plan.albumDir}")
+    }
+
 }

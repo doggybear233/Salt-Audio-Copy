@@ -217,7 +217,10 @@ object AlbumRipper {
                 if (cancel()) { cancelled = true; break }
                 val entry = toc.tracks[i]
                 onStage(Strings.fmt("测试读取第 %s 轨…", entry.track))
-                val r = RipEngine.ripTrack(
+                // 测试通道失败不该毁掉整次抓轨：这一轨只是没有 CRC 参照，
+                // 复制通道仍然照常跑（用户要的是文件，不是「因为测试读不出来就全放弃」）。
+                val r = runCatching {
+                    RipEngine.ripTrack(
                     scan, i, dir.resolve("__test__.tmp"), cancel, { },
                     verify = settings.secureMode,
                     maxRetries = settings.maxRetries,
@@ -234,8 +237,12 @@ object AlbumRipper {
                     },
                     source = source,
                     speedKbps = kbps
-                )
-                testCrc[entry.track] = r.crc32
+                    )
+                }.onFailure {
+                    Diag.log("test read failed track=${entry.track}", it)
+                    warn(Strings.fmt("第 %s 轨测试读取失败，本轨不做 Test&Copy 比对: %s", entry.track, it.message))
+                }.getOrNull()
+                if (r != null) testCrc[entry.track] = r.crc32
             }
             Diag.log("test&copy: 测试通道完成 ${testCrc.size} 轨")
         }
@@ -291,7 +298,9 @@ object AlbumRipper {
                 resumeExpectedBytes = if (settings.resume) expectedData else null
             )
             if (target == null) {
-                notes += Strings.fmt("第 %s 轨目标文件已存在，按设置跳过", entry.track)
+                // 跳过是「用户需要知道」的结果：不写进 warnings 的话，完成提示只说「已抓完 N 轨」，
+                // 用户会以为少的那几轨是抓失败了。
+                warn(Strings.fmt("第 %s 轨目标文件已存在，按设置跳过（该轨没有抓）", entry.track))
                 Diag.log("skip existing track=${entry.track} base=$baseName")
                 // 跳过的轨也计入「已完成」，否则进度条永远到不了 100%、剩余时间越算越离谱
                 doneBase += sectors
@@ -460,10 +469,10 @@ object AlbumRipper {
         var imageRel: String? = null
         val imageAllowed = settings.imageMode && settings.gapMode.lowercase() == "append"
         if (settings.imageMode && !imageAllowed) {
-            notes += Strings.fmt(
-                "间隙处理为 %s 时音轨边界不连续，已跳过整盘镜像",
+            warn(Strings.fmt(
+                "间隙处理为 %s 时音轨边界不连续，已跳过整盘镜像（逐轨文件不受影响）",
                 settings.gapMode
-            )
+            ))
             Diag.log("image mode skipped: gapMode=${settings.gapMode}")
         }
         if (imageAllowed && !cancelled && results.isNotEmpty() && results.size == selected.size) {
@@ -546,8 +555,10 @@ object AlbumRipper {
             val p = dir.resolve("$baseName.cue")
             runCatching {
                 val text = if (imageRel != null) {
+                    // 起点必须取「实际拼进去的第一轨」：只抓部分音轨时 track 1 可能不在里面，
+                    // 用整盘第一轨的 LBA 会让所有 INDEX 整体偏移。
                     CueWriter.buildImage(
-                        album, results, imageRel!!, toc.tracks.first().lba,
+                        album, results, imageRel!!, results.first().startLba,
                         catalog = cdtext?.upc, songwriters = cdtext?.songwriters.orEmpty(),
                         annotateCrc = settings.annotateCueCrc
                     )
@@ -631,10 +642,10 @@ object AlbumRipper {
         }
 
         // 全部落盘之后才弹托盘：中途弹出会让后续轨道直接失败
-        if (settings.ejectAfterRip && !cancelled) {
+        if (settings.ejectAfterRip && !cancelled && results.isNotEmpty()) {
             if (source == null) runCatching { CdDevice(scan.path).use { it.eject() } }
                 .onSuccess { Diag.log("tray ejected") }
-                .onFailure { Diag.log("eject failed", it); notes += Strings.fmt("弹出托盘失败: %s", it.message) }
+                .onFailure { Diag.log("eject failed", it); warn(Strings.fmt("弹出托盘失败（文件都已写好）: %s", it.message)) }
         }
 
         Diag.log(

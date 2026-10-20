@@ -10,5 +10,5 @@ package com.saltrip.rip
  */
 object Version {
     const val NAME = "Salt Audio Copy"
-    const val VALUE = "0.41.2"
+    const val VALUE = "0.42.0"
 }

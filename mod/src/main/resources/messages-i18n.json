@@ -1062,8 +1062,8 @@
       "%s トラック目：再取得後もテストと CRC が一致しません（0x%08X）"
     ],
     "第 %s 轨重抓后与测试通道一致": [
-      "Track %s matches the test pass after re-ripping",
-      "%s トラック目：再取得でテストと一致しました"
+      "Track %s matches the test pass after re-rip",
+      "トラック %s は再取得後にテスト読みと一致しました"
     ],
     "offset 校正失败: %s": [
       "Offset correction failed: %s",
@@ -1304,6 +1304,22 @@
     "每块校验 %s 次": [
       "verifies each block %s×",
       "各ブロックを %s 回検証"
+    ],
+    "弹出托盘失败（文件都已写好）: %s": [
+      "Could not eject the tray (all files were written): %s",
+      "トレイを排出できませんでした（ファイルは書き込み済み）: %s"
+    ],
+    "第 %s 轨目标文件已存在，按设置跳过（该轨没有抓）": [
+      "Track %s already exists, skipped per settings (not ripped)",
+      "トラック %s は同名ファイルがあるため設定どおりスキップ（取得していません）"
+    ],
+    "间隙处理为 %s 时音轨边界不连续，已跳过整盘镜像（逐轨文件不受影响）": [
+      "Gap handling is %s, so track boundaries are not contiguous; image skipped (per-track files unaffected)",
+      "ギャップ処理が %s のためトラック境界が連続せず、イメージ作成をスキップしました（個別ファイルは影響なし）"
+    ],
+    "第 %s 轨测试读取失败，本轨不做 Test&Copy 比对: %s": [
+      "Test read of track %s failed; this track has no Test&Copy reference: %s",
+      "トラック %s のテスト読み込みに失敗。このトラックは Test&Copy 照合をしません: %s"
     ]
   }
 }
