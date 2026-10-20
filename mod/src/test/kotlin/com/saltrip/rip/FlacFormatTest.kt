@@ -148,13 +148,14 @@ class FlacFormatTest {
             FlacEncoder.encode(fakeExe.toString(), wavInput(), dir.resolve("x.flac"), 5)
         }
         assertTrue(e.message!!.contains("无法启动"), "启动失败要给可操作提示：${e.message}")
-        assertTrue(e.message!!.contains("绝对路径"), "提示里要说去设置里填绝对路径：${e.message}")
+        assertTrue(e.message!!.contains("内置编码器"), "提示里要给出内置兜底：${e.message}")
     }
 
     @Test
     fun locateAcceptsExistingFileAndRejectsUnknownName() {
         assertEquals(fakeExe.toAbsolutePath().toString(), FlacEncoder.locate(fakeExe.toString()))
-        assertNull(FlacEncoder.locate("definitely-not-a-real-encoder-xyz"))
+        // 外部找不到就不该硬编一个路径；内置兜底由 locate 单独负责（见 bundledEncoderIsTheFallback）
+        assertNull(FlacEncoder.locateExternal("definitely-not-a-real-encoder-xyz"))
     }
 
     // ---------------- ExternalEncoder ----------------

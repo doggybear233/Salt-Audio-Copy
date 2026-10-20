@@ -1,5 +1,6 @@
 package com.saltrip.rip
 
+import com.saltrip.rip.ui.Strings
 import com.saltrip.rip.scsi.CdDevice
 import com.saltrip.rip.scsi.DiscFingerprint
 import com.saltrip.rip.scsi.ScsiException
@@ -94,14 +95,27 @@ object DiscWatcher {
                     lastFingerprint = fp
                     lastHadDisc = true
                     Diag.log("DiscWatcher: disc $fp")
-                    // 新盘：先清「查过了」的标记，否则上一张盘的「手动填写」按钮状态会串过来。
-                    PanelState.lookupTried = false
-                    PanelState.closeManual()
-                    // 上一张盘的「已抓完 / 重新抓取」也不能留到新盘
-                    PanelState.clearRipped()
-                    // 换盘后自动查元数据：用户不该再点一次按钮。
-                    // 传入这张盘的指纹，查询回来时若已换盘就丢弃（见 autoResultIsFresh）。
-                    runCatching { ConfigActions.refreshMetadataAuto(fp) }
+                    val back = runCatching { DiscMemory.find(fp) }.getOrNull()
+                    if (back != null) {
+                        // 同一张盘放回来了：恢复曲名/候选/封面/「已抓完」，用户可以直接继续
+                        runCatching { PanelState.restoreSnapshot(back, back.ripDone) }
+                        PanelState.set(
+                            Strings.message("同一张盘放回来了"),
+                            "已恢复上次的状态；未抓完的可以直接再点抓取（设置里开着断点续抓）"
+                        )
+                        Diag.log("DiscWatcher: same disc restored, ripDone=${back.ripDone}")
+                        // 已经有候选就不用再联网；没有才补查一次
+                        if (back.candidates.isEmpty()) runCatching { ConfigActions.refreshMetadataAuto(fp) }
+                    } else {
+                        // 换了盘：清掉旧记忆与旧状态，避免 A 盘的曲名贴到 B 盘
+                        runCatching { DiscMemory.forget() }
+                        PanelState.lookupTried = false
+                        PanelState.closeManual()
+                        PanelState.clearRipped()
+                        // 换盘后自动查元数据：用户不该再点一次按钮。
+                        // 传入这张盘的指纹，查询回来时若已换盘就丢弃（见 autoResultIsFresh）。
+                        runCatching { ConfigActions.refreshMetadataAuto(fp) }
+                    }
                 }
                 true
             },
@@ -120,13 +134,11 @@ object DiscWatcher {
 
     private fun showEmpty(reason: String) {
         if (!lastHadDisc && lastFingerprint == null) return
+        // 抽盘前把「这张盘现在是什么状态」记下来：同一张盘放回来要能接着抓（用户反馈 B6）
+        runCatching { DiscMemory.remember(lastFingerprint) }
         lastHadDisc = false
         lastFingerprint = null
-        runCatching {
-            PanelState.showDisc(null)
-            PanelState.showCandidates(emptyList())
-            PanelState.set("光驱里没有盘", reason)
-        }
+        runCatching { PanelState.markEjected(reason) }
         Diag.log("DiscWatcher: no disc ($reason)")
     }
 
@@ -138,7 +150,7 @@ object DiscWatcher {
         if (lastHadDisc) {
             runCatching {
                 PanelState.showDisc(null)
-                PanelState.set("读不到光盘", msg)
+                PanelState.set(Strings.message("读不到光盘"), msg)
             }
         }
     }

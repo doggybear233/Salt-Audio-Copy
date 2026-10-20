@@ -106,7 +106,7 @@
           "type": "list",
           "key": "format",
           "title": "输出格式",
-          "summary": "WAV 无损未压缩（兼容性最好）；FLAC 内置写入标签与封面（需 flac.exe）；外部编码器可自定义任意命令行",
+          "summary": "WAV 无损未压缩（兼容性最好）；FLAC 标签与封面由插件写入，编码器已内置（Xiph 1.4.3），也可指定自己的 flac.exe；外部编码器可自定义任意命令行",
           "default_value": "wav",
           "entries": [
             "WAV（推荐）",
@@ -130,13 +130,13 @@
           "type": "edittext",
           "key": "flacExe",
           "title": "flac.exe 路径",
-          "summary": "默认按 PATH 查找；也可填绝对路径（例如 D:\\Tools\\flac\\flac.exe）",
+          "summary": "留空＝用随插件内置的 FLAC 1.4.3；也可填 PATH 里的名字或绝对路径（例如 D:\\Tools\\flac\\flac.exe）",
           "default_value": "flac"
         },
         {
           "type": "button",
           "title": "选择 flac.exe…",
-          "summary": "从磁盘挑编码器；不填则按 PATH 查找 flac",
+          "summary": "从磁盘挑编码器；留空则用内置的，其次按 PATH 查找 flac",
           "on_click": "com.saltrip.rip.ConfigActions.chooseFlacExe"
         },
         {
@@ -196,7 +196,7 @@
           "type": "switch",
           "key": "writeTags",
           "title": "写入 FLAC 标签",
-          "summary": "标题/艺术家/专辑/轨号/年份/流派/ISRC（需要 metaflac.exe，与 flac.exe 同目录）",
+          "summary": "标题/艺术家/专辑/轨号/年份/流派/ISRC，由插件直接写 Vorbis comment（不需要 metaflac.exe）",
           "default_value": true
         },
         {

@@ -1,0 +1,535 @@
+{
+  "_note": "设置页文案的英文/日文覆盖。键 = preference_config.json 里的 key 或按钮方法名；值为 [标题, 说明]。缺项回落中文。",
+  "en": {
+    "outputRoot": [
+      "Output folder",
+      "Empty = your Music folder. Chinese, Japanese and Korean paths are fine."
+    ],
+    "chooseOutputRoot": [
+      "Choose output folder…",
+      "Opens the system folder picker; the choice is saved right away."
+    ],
+    "overwritePolicy": [
+      "If the file already exists",
+      "suffix = save as (2) (default, never overwrites) / overwrite = overwrite / skip = skip that track"
+    ],
+    "resume": [
+      "Resume a partial rip",
+      "If the target WAV exists, continue after the sectors already written (their CRC is recomputed). An interrupted full-disc rip need not start over."
+    ],
+    "discNumberOverride": [
+      "Disc number (0 = auto)",
+      "For multi-disc sets: which disc this is. 0 = take it from metadata. Used with %discnumber% in the folder template."
+    ],
+    "totalDiscsOverride": [
+      "Total discs (0 = auto)",
+      "Total discs in the set. When > 1 and the folder template has no %discnumber%, a CD1/CD2 subfolder is added automatically."
+    ],
+    "multiDiscFolder": [
+      "Multi-disc subfolder template",
+      "Extra folder level under the album folder; %discnumber% is replaced with the disc number."
+    ],
+    "ejectAfterRip": [
+      "Eject when the rip finishes",
+      "Ejects after a full rip (CUE, log and cover included) so you can swap discs."
+    ],
+    "folderTemplate": [
+      "Album folder template",
+      "Default %albumartist%/%albumtitle%; / makes a level. Variables: %albumartist% %albumtitle% %year% %genre% %discid% %discnumber%"
+    ],
+    "fileTemplate": [
+      "Track file name template",
+      "Default %tracknr2% %title%; variables: %tracknr% %tracknr1% %tracknr2% %tracknr3% %title% %artist% %tracklen%"
+    ],
+    "coverFileName": [
+      "Cover file name",
+      "Without extension; .jpg / .png is added according to the image type."
+    ],
+    "format": [
+      "Output format",
+      "WAV = uncompressed lossless (best compatibility); FLAC = tags and cover written by the plugin, encoder bundled (Xiph 1.4.3); Custom encoder = any command line."
+    ],
+    "imageMode": [
+      "Single-file image + CUE",
+      "Rips every track in secure mode first, then joins them into one WAV with an absolute-time CUE. Closest to a disc backup, but needs twice the temp space."
+    ],
+    "flacExe": [
+      "flac.exe path",
+      "Empty = the bundled FLAC 1.4.3; otherwise a name on PATH or an absolute path (e.g. D:/Tools/flac/flac.exe)."
+    ],
+    "chooseFlacExe": [
+      "Choose flac.exe…",
+      "Pick the encoder from disk; empty uses the bundled one, then PATH."
+    ],
+    "flacLevel": [
+      "FLAC compression level",
+      "0 fastest / 5 default / 8 smallest. Higher is slower to encode; decoding speed is unaffected."
+    ],
+    "keepWav": [
+      "Keep WAV after FLAC encoding",
+      "Off deletes the intermediate WAV once encoding succeeded, saving disk space."
+    ],
+    "encoderExe": [
+      "Custom encoder path",
+      "An executable, or just a name resolved through PATH (flac / opusenc / ffmpeg)."
+    ],
+    "encoderArgs": [
+      "Encoder argument template",
+      "Variables %in% / %out% / %tracknr2% / %title% etc. Quote paths that contain spaces."
+    ],
+    "encoderExt": [
+      "Output extension",
+      "Without the dot, e.g. flac / opus / m4a."
+    ],
+    "writeTags": [
+      "Write FLAC tags",
+      "Title/artist/album/track/year/genre/ISRC, written as Vorbis comments by the plugin (no metaflac.exe needed)."
+    ],
+    "embedCover": [
+      "Embed cover into FLAC",
+      "One front cover per FLAC; off keeps only the cover file in the folder."
+    ],
+    "coverSize": [
+      "Cover size",
+      "Cover Art Archive front-<size>; larger is sharper but slower."
+    ],
+    "writeWavTags": [
+      "Write WAV tags",
+      "Writes RIFF INFO (title/artist/album), visible in Explorer and players."
+    ],
+    "writeCue": [
+      "Write CUE",
+      "UTF-8 with BOM + CRLF, including REM DISCID / CDDBID."
+    ],
+    "annotateCueCrc": [
+      "Add per-track CRC to CUE",
+      "REM lines carry the CRC so it can be compared with an EAC log."
+    ],
+    "writeLog": [
+      "Write rip log",
+      "Per-track CRC32 / retries / duration plus a settings summary."
+    ],
+    "fetchMetadata": [
+      "Look up metadata online",
+      "Off rips offline with Unknown Artist / Unknown Album / Track NN placeholders."
+    ],
+    "autoLookupOnInsert": [
+      "Look up metadata when a disc appears",
+      "After a disc is inserted, read CD-TEXT and query MusicBrainz / gnudb; candidates are listed in the panel. Off means pressing a button."
+    ],
+    "proxyUrl": [
+      "HTTP proxy (optional)",
+      "e.g. 127.0.0.1:7890. CDDB is blocked on some networks; a proxy reaches it directly. Empty = direct."
+    ],
+    "useCdText": [
+      "Read CD-TEXT",
+      "Prefer titles/artists stored on the disc (overrides online data). Most pressed CDs have no CD-TEXT; missing data is skipped silently."
+    ],
+    "preferTrackCount": [
+      "Prefer releases with the same track count",
+      "One DiscID often has several releases (JP / HK / reissue). On: releases matching the disc's track count are preferred, then the candidate index."
+    ],
+    "releaseIndex": [
+      "Candidate index",
+      "0 = first candidate after sorting. The log lists all candidates; if the pick is wrong, change this and rip again."
+    ],
+    "overrideFile": [
+      "Manual metadata file (optional)",
+      "Empty = look for <output root>/<DiscID>.album.json or <output root>/album.json. Fields are described in the README."
+    ],
+    "reuseAlbumJson": [
+      "Reuse metadata from the last rip",
+      "Ripping the same disc again skips the network and reuses album.json (editable by hand)."
+    ],
+    "writeAlbumJson": [
+      "Write album.json into the album folder",
+      "Stores the resolved metadata so the same disc can be ripped offline next time, or hand-corrected and re-ripped."
+    ],
+    "driveLetter": [
+      "Drive",
+      "Auto = the first drive found; with several drives pick one explicitly so the wrong disc is not ripped."
+    ],
+    "driveSpeed": [
+      "Read speed limit",
+      "Default 8x: full speed is louder, re-reads more often and makes the remaining time jumpier."
+    ],
+    "readCommand": [
+      "Audio read command",
+      "For drives that reject standard READ CD; auto falls back mmc → read10 → d8."
+    ],
+    "secureMode": [
+      "Secure re-read verification",
+      "Reads each block twice and compares byte for byte, re-reading on mismatch. Off is about twice as fast but verifies nothing."
+    ],
+    "testAndCopy": [
+      "Test & Copy",
+      "Runs a read-only pass to get per-track CRCs, then rips and compares track by track; mismatches are re-ripped. About twice as long."
+    ],
+    "errorRecovery": [
+      "Error recovery level",
+      "low = read once; medium = 3 identical reads; high = 5 identical reads (up to 82 reads for a bad block)."
+    ],
+    "maxRetries": [
+      "Max re-reads per block",
+      "Default 8; EAC's High level does 5 rounds, up to 82 reads in the worst case."
+    ],
+    "retryDelayMs": [
+      "Re-read delay (ms)",
+      "Default 120; older drives may prefer 300."
+    ],
+    "offsetSamples": [
+      "Sample offset",
+      "Positive = drop that many samples at the start. Matches EAC's read offset; calibrate for your drive."
+    ],
+    "useC2": [
+      "C2 error pointers",
+      "Uses the READ CD C2 bits to verify re-reads; degrades automatically if the drive does not support it and never aborts the rip."
+    ],
+    "defeatCache": [
+      "Defeat drive cache",
+      "Some drives cache what they just read; with this on, a far-away block is read before every re-read so the comparison really checks the disc."
+    ],
+    "guardDisc": [
+      "Abort if the disc changes",
+      "Re-reads the TOC before each track; if the disc changed the rip stops, so two discs never end up in one album."
+    ],
+    "detectGaps": [
+      "Detect INDEX 00 gaps",
+      "Scans subchannel Q up to 1 s before each track and logs the pre-gap (report only; file boundaries are not changed)."
+    ],
+    "gapMethod": [
+      "Gap detection method",
+      "Subchannel Q = trust the indices written on the disc (EAC default); silence = look for actual silence (EAC's Test Gaps On Silence). If Q says 0 but you can hear silence, use silence."
+    ],
+    "gapMode": [
+      "Gap handling",
+      "Decides which track file gets the INDEX 00 gap (EAC's three gap modes). Not available with single-file images except append."
+    ],
+    "analyzeBeforeRip": [
+      "Pre-scan gaps before ripping",
+      "Scans INDEX 00 for the whole disc first, saving repeated Q reads per track; the panel shows the gap table."
+    ],
+    "trackSelection": [
+      "Rip only these tracks",
+      "e.g. 1-5,8; empty = whole disc."
+    ],
+    "scanDrives": [
+      "① Scan drive",
+      "Reads the drive model, track count and DiscID. Re-scan after changing discs."
+    ],
+    "previewPlan": [
+      "①.2 Preview rip plan (no writes)",
+      "Works out which files would be created, whether names collide and whether space is enough, before you commit."
+    ],
+    "analyzeDisc": [
+      "①.5 Gap pre-scan (read only)",
+      "Reads each track's INDEX 00 and shows the result in the panel; writes nothing."
+    ],
+    "probeReadCommands": [
+      "①.3 Probe read commands (read only)",
+      "Reads one sector with each variant to see which ones this drive really accepts."
+    ],
+    "testDisc": [
+      "Test only (no writes)",
+      "Reads the whole disc with the real settings and reports CRC and errors without writing anything."
+    ],
+    "lookupMetadata": [
+      "③ Metadata lookup only",
+      "Queries MusicBrainz and gnudb only; no files. Use it to check whether the DiscID hits."
+    ],
+    "exportAlbumJson": [
+      "③.5 Export metadata template",
+      "Exports the DiscID and track list to <output root>/<DiscID>.album.json; edit it and rip to apply (handy for JP or old discs matched to the wrong release)."
+    ],
+    "ripFirstTrack": [
+      "④ Rip track 1 (smoke test)",
+      "Smallest end-to-end check: writes <output root>/disc-<leadOut>/01.wav"
+    ],
+    "cancelRip": [
+      "Cancel the running rip",
+      "Stops after the current block; files already written are kept."
+    ],
+    "probePath": [
+      "Write test (CJK path)",
+      "Creates and deletes a folder and file with Japanese/Chinese names using the current template, to prove there is no mojibake or permission problem."
+    ],
+    "resetDefaults": [
+      "Reset settings to defaults",
+      "Restores every option above to its built-in default (ripped files are untouched)."
+    ],
+    "openLogFolder": [
+      "Open log folder",
+      "Opens the folder that holds saltrip.log, so you can attach it to a bug report."
+    ],
+    "testNetwork": [
+      "Network self-check (MusicBrainz / CDDB)",
+      "Probes MusicBrainz, Cover Art Archive and the three CDDB mirrors in parallel, so you know whether a miss is 'not in the database' or 'network blocked'."
+    ]
+  },
+  "ja": {
+    "outputRoot": [
+      "出力フォルダ",
+      "空欄＝システムの「ミュージック」。中国語・日本語・韓国語のパスも可。"
+    ],
+    "chooseOutputRoot": [
+      "出力フォルダを選択…",
+      "システムのフォルダ選択画面を開き、選んだ時点で設定に保存します。"
+    ],
+    "overwritePolicy": [
+      "同名ファイルがある場合",
+      "suffix＝(2) を付けて保存（既定・上書きしない）／overwrite＝上書き／skip＝そのトラックを飛ばす"
+    ],
+    "resume": [
+      "途中から再開",
+      "出力先 WAV がある場合、書き込み済みセクターの続きから再開（既存部分の CRC は再計算）。中断したリッピングを最初からやり直さずに済みます。"
+    ],
+    "discNumberOverride": [
+      "ディスク番号（0=自動）",
+      "複数枚組で今のディスクが何枚目か。0 はメタデータの値を使用。フォルダテンプレートの %discnumber% と組み合わせます。"
+    ],
+    "totalDiscsOverride": [
+      "総ディスク数（0=自動）",
+      "セットの総枚数。1 より大きく、フォルダテンプレートに %discnumber% が無い場合は CD1/CD2 サブフォルダを自動で追加します。"
+    ],
+    "multiDiscFolder": [
+      "複数枚組サブフォルダ",
+      "複数枚組のときアルバムフォルダの下にもう一層作ります。%discnumber% はディスク番号に置換。"
+    ],
+    "ejectAfterRip": [
+      "完了後にトレイを開く",
+      "全曲リッピング（CUE・ログ・カバー含む）後にトレイを開き、次のディスクに交換しやすくします。"
+    ],
+    "folderTemplate": [
+      "アルバムフォルダのテンプレート",
+      "既定 %albumartist%/%albumtitle%；/ は階層。変数：%albumartist% %albumtitle% %year% %genre% %discid% %discnumber%"
+    ],
+    "fileTemplate": [
+      "トラックファイル名テンプレート",
+      "既定 %tracknr2% %title%；変数：%tracknr% %tracknr1% %tracknr2% %tracknr3% %title% %artist% %tracklen%"
+    ],
+    "coverFileName": [
+      "カバーファイル名",
+      "拡張子は不要。画像形式に応じて .jpg / .png を付けます。"
+    ],
+    "format": [
+      "出力形式",
+      "WAV は無圧縮ロスレス（互換性優先）；FLAC はタグとカバーをプラグインが書き込み、エンコーダは内蔵（Xiph 1.4.3）；外部エンコーダも可。"
+    ],
+    "imageMode": [
+      "1 ファイルのイメージ + CUE",
+      "各トラックをセキュアモードで読んでから 1 つの WAV に連結し、CUE は絶対時間で出力。原盤バックアップに近いが一時領域が 2 倍必要。"
+    ],
+    "flacExe": [
+      "flac.exe のパス",
+      "空欄＝内蔵の FLAC 1.4.3。PATH の名前か絶対パスも指定可（例 D:/Tools/flac/flac.exe）。"
+    ],
+    "chooseFlacExe": [
+      "flac.exe を選択…",
+      "ディスクからエンコーダを選びます。空欄なら内蔵、次に PATH から検索。"
+    ],
+    "flacLevel": [
+      "FLAC 圧縮レベル",
+      "0 最速 / 5 既定 / 8 最小。高いほどエンコードが遅いだけで、デコード速度は変わりません。"
+    ],
+    "keepWav": [
+      "FLAC 変換後に WAV を残す",
+      "オフにすると変換成功後に中間 WAV を削除し、ディスクを節約します。"
+    ],
+    "encoderExe": [
+      "外部エンコーダのパス",
+      "実行ファイル、または PATH で解決される名前（flac / opusenc / ffmpeg）。"
+    ],
+    "encoderArgs": [
+      "エンコーダ引数テンプレート",
+      "%in% / %out% / %tracknr2% / %title% などの変数。空白を含むパスは引用符で囲んでください。"
+    ],
+    "encoderExt": [
+      "出力の拡張子",
+      "ドット無しで flac / opus / m4a など。"
+    ],
+    "writeTags": [
+      "FLAC タグを書き込む",
+      "タイトル・アーティスト・アルバム・トラック番号・年・ジャンル・ISRC を Vorbis comment として直接書き込みます（metaflac.exe 不要）。"
+    ],
+    "embedCover": [
+      "FLAC にカバーを埋め込む",
+      "各 FLAC に front cover を 1 枚。オフならフォルダ内のカバーファイルのみ。"
+    ],
+    "coverSize": [
+      "カバーサイズ",
+      "Cover Art Archive の front-<size>。大きいほど精細だが遅くなります。"
+    ],
+    "writeWavTags": [
+      "WAV にタグを書く",
+      "RIFF INFO（タイトル・アーティスト・アルバム）を書き込み、エクスプローラーやプレイヤーで見えます。"
+    ],
+    "writeCue": [
+      "CUE を生成",
+      "UTF-8 with BOM + CRLF、REM DISCID / CDDBID を含みます。"
+    ],
+    "annotateCueCrc": [
+      "CUE に各トラックの CRC を付ける",
+      "REM 行に CRC を書き、EAC のログと突き合わせられます。"
+    ],
+    "writeLog": [
+      "リッピングログを生成",
+      "トラックごとの CRC32・再読回数・所要時間と設定の要約。"
+    ],
+    "fetchMetadata": [
+      "ネットでメタデータを取得",
+      "オフならオフラインでリッピングし、未知のアーティスト／未知のアルバム／Track NN のプレースホルダを使います。"
+    ],
+    "autoLookupOnInsert": [
+      "挿入・交換時に自動取得",
+      "ディスクを入れると CD-TEXT を読み、MusicBrainz / gnudb を検索して候補をパネルに表示。オフならボタンで手動検索。"
+    ],
+    "proxyUrl": [
+      "HTTP プロキシ（任意）",
+      "127.0.0.1:7890 の形式。CDDB は一部の回線で遮断されるため、プロキシで直結できます。空欄＝直結。"
+    ],
+    "useCdText": [
+      "CD-TEXT を読む",
+      "ディスクに書かれた曲名・アーティストを優先（ネットのデータより優先）。大半のプレス CD には CD-TEXT が無く、読めなければ黙って飛ばします。"
+    ],
+    "preferTrackCount": [
+      "トラック数が一致するリリースを優先",
+      "同じ DiscID に複数のリリース（日本盤・香港盤・再発）がある場合、トラック数が一致するものを優先し、次に候補番号で選びます。"
+    ],
+    "releaseIndex": [
+      "候補番号",
+      "0＝並べ替え後の先頭。ログに全候補が出るので、違う時はここを変えて取り直せます。"
+    ],
+    "overrideFile": [
+      "手動メタデータファイル（任意）",
+      "空欄なら <出力ルート>/<DiscID>.album.json か <出力ルート>/album.json を探します。項目は README 参照。"
+    ],
+    "reuseAlbumJson": [
+      "前回のメタデータを再利用",
+      "同じディスクを再度リッピングする時はネット検索を省き album.json を再利用（手で編集可）。"
+    ],
+    "writeAlbumJson": [
+      "アルバムフォルダに album.json を書く",
+      "解決したメタデータを保存し、次回はオフラインで再利用、または手修正して再リッピングできます。"
+    ],
+    "driveLetter": [
+      "ドライブ",
+      "自動＝最初に見つかったドライブ。複数ある場合は明示指定して、違うディスクを読まないように。"
+    ],
+    "driveSpeed": [
+      "読み取り速度の上限",
+      "既定 8x：最高速は騒音が大きく再読も増え、残り時間も不安定になります。"
+    ],
+    "readCommand": [
+      "音声読み取りコマンド",
+      "標準の READ CD を受け付けないドライブ向け。auto は mmc → read10 → d8 の順に試します。"
+    ],
+    "secureMode": [
+      "二重読み検証（セキュア）",
+      "各ブロックを 2 回読んでバイト比較し、不一致なら再読。オフで約 2 倍速いが一致性は検証しません。"
+    ],
+    "testAndCopy": [
+      "Test & Copy",
+      "まず書き込み無しで読んで各トラックの CRC を取り、本番リッピングとトラック毎に比較。不一致は自動で再リッピング。所要時間は約 2 倍。"
+    ],
+    "errorRecovery": [
+      "エラー回復レベル",
+      "low＝1 回だけ読む；medium＝3 回一致；high＝5 回一致（最悪 1 ブロック 82 回）。"
+    ],
+    "maxRetries": [
+      "ブロックあたりの最大再読回数",
+      "既定 8。EAC の High は 5 ラウンド、最悪 82 回。"
+    ],
+    "retryDelayMs": [
+      "再読の間隔（ミリ秒）",
+      "既定 120。古いドライブでは 300 が安全。"
+    ],
+    "offsetSamples": [
+      "サンプル単位オフセット",
+      "正の値＝先頭からそのサンプル数を捨てる。EAC の read offset に対応し、ドライブ毎に調整が必要。"
+    ],
+    "useC2": [
+      "C2 エラー検査",
+      "READ CD の C2 ビットで再読を検証。非対応ドライブでは自動で縮退し、リッピングを中断しません。"
+    ],
+    "defeatCache": [
+      "ドライブキャッシュを無効化",
+      "一部のドライブは直前に読んだセクターをキャッシュします。オンにすると再読前に遠い位置を読むため、二重読みが本当にディスクを検証します。"
+    ],
+    "guardDisc": [
+      "途中のディスク交換を防ぐ",
+      "各トラックの前に TOC を読み直し、ディスクが変わったら即中止して 2 枚が 1 アルバムに混ざらないようにします。"
+    ],
+    "detectGaps": [
+      "INDEX 00 ギャップを検出",
+      "サブチャネル Q を最大 1 秒さかのぼり、トラック前のプリギャップを検出してログに記録（報告のみ、ファイル境界は変えません）。"
+    ],
+    "gapMethod": [
+      "ギャップ検出方法",
+      "サブチャネル Q＝ディスクに書かれたインデックスを信頼（EAC 既定）；無音＝実際の無音を見る（EAC の Test Gaps On Silence）。Q が 0 でも明らかに無音なら無音方式に。"
+    ],
+    "gapMode": [
+      "ギャップの扱い",
+      "INDEX 00 ギャップをどのトラックのファイルに入れるか（EAC の 3 方式）。1 ファイルイメージでは「前のトラックに追加」のみ可。"
+    ],
+    "analyzeBeforeRip": [
+      "リッピング前にギャップを事前スキャン",
+      "先にディスク全体の INDEX 00 を走査し、トラック毎の Q 読み取りを省きます。パネルにギャップ表を表示。"
+    ],
+    "trackSelection": [
+      "これらのトラックだけ取り込む",
+      "例 1-5,8；空欄＝全曲。"
+    ],
+    "scanDrives": [
+      "① ドライブをスキャン",
+      "ドライブ名・トラック数・DiscID を読みます。ディスク交換後は再スキャンが必要。"
+    ],
+    "previewPlan": [
+      "①.2 リッピング計画のプレビュー（書き込み無し）",
+      "生成されるファイル、名前の衝突、空き容量を事前に確認できます。"
+    ],
+    "analyzeDisc": [
+      "①.5 ギャップ事前スキャン（読み取りのみ）",
+      "各トラックの INDEX 00 を読み、結果をパネルに表示。ファイルは書きません。"
+    ],
+    "probeReadCommands": [
+      "①.3 読み取りコマンドの調査（読み取りのみ）",
+      "1 セクターずつ読み、このドライブが実際に受け付ける方式を調べます。"
+    ],
+    "testDisc": [
+      "テストのみ（書き込み無し）",
+      "本番と同じ設定で全曲を読み、CRC とエラーだけを報告。ファイルは書きません。"
+    ],
+    "lookupMetadata": [
+      "③ メタデータ検索のみ",
+      "MusicBrainz と gnudb のみ検索し、ファイルは書きません。DiscID がヒットするかの確認用。"
+    ],
+    "exportAlbumJson": [
+      "③.5 メタデータ雛形を書き出す",
+      "現在の DiscID と曲目を <出力ルート>/<DiscID>.album.json に書き出します。編集してからリッピングすれば反映（日本盤・旧盤で別リリースに当たる時に有効）。"
+    ],
+    "ripFirstTrack": [
+      "④ 1 曲目だけ試し取り",
+      "最小構成の確認：<出力ルート>/disc-<leadOut>/01.wav に出力。"
+    ],
+    "cancelRip": [
+      "実行中のリッピングを中止",
+      "現在のブロックを読み終えてから停止。書き込み済みファイルは残します。"
+    ],
+    "probePath": [
+      "書き込みテスト（CJK パス）",
+      "現在のテンプレートで日本語・中国語名のフォルダとファイルを作成して削除し、文字化けや権限の問題が無いか確認。"
+    ],
+    "resetDefaults": [
+      "設定を既定値に戻す",
+      "上記の設定をすべて内蔵の既定値に戻します（リッピング済みファイルはそのまま）。"
+    ],
+    "openLogFolder": [
+      "ログフォルダを開く",
+      "saltrip.log のあるフォルダを開きます（不具合報告に添付する用）。"
+    ],
+    "testNetwork": [
+      "ネットワーク自己診断（MusicBrainz / CDDB）",
+      "MusicBrainz・Cover Art Archive・CDDB ミラー 3 つを同時に調べ、メタデータが無いのか回線が通らないのかを切り分けます。"
+    ]
+  }
+}

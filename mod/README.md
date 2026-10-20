@@ -3,6 +3,30 @@
 Windows 上把 CD 精确抓成 WAV + CUE + 日志，并把专辑信息（MusicBrainz / gnudb / Cover Art Archive）一起落盘。
 算法与参数来自对 EAC 1.8 的逆向（见 `../architecture.md`、`../features.md`）。
 
+## 0.38.0（多语言、抽盘放回、内置 FLAC 编码器、暂停可见）
+
+这一版对着真机反馈里的 A3 / B6 / C1 三条重做，并把用户问的「能不能内置 flac」做了。
+
+- **A3 面板设置与提示都跟着语言走**：新增 `classpath:options-i18n.json`（66 条：51 个设置键 +
+  15 个按钮，每条含 en/ja 的标题与说明）与 `messages-i18n.json`（49 条运行期提示，键是代码里的中文原文）。
+  `OptionText` 先读宿主 `preference_config.json` 的中文，再按当前语言覆盖；`Strings.message(zh)`
+  查不到就原样返回中文（绝不露 key）。宿主配置页本身仍只有中文——那是宿主的渲染，插件改不了。
+- **B6 抽盘 / 换盘（按你说的重做）**：抽出光盘立刻显示「光驱里没有光盘」，卡片与候选收进
+  `DiscMemory`。同一张盘放回来会恢复上次的专辑信息、封面、候选和「已抓完」状态，直接可以接着抓；
+  换一张盘就是新的盘，旧记忆丢弃。`PanelState.markEjected()` / `restoreSnapshot()` 是这两个动作的入口。
+- **C1 暂停与「卡在 21%」**：`pauseRip()` 不再把进度清空（以前清掉后进度条整条消失，看起来像没反应），
+  现在暂停时进度条停在原地变灰、右侧写「已暂停 · 点「继续」接着抓」。另外加了心跳：
+  8 秒没有新进度就显示「正在重读这一块 · 已等 N 秒」，慢盘慢块不再像死机。
+  注意：16:53 那次是 4x 限速下每 5% 约 35 秒，日志里没有死锁，是**感知**问题。
+- **内置 FLAC 编码器（Xiph 1.4.3）**：`libs/native/win64` 里带 `flac.exe` + `libFLAC.dll` + `libFLAC++.dll`
+  （约 945 KB，LGPL/BSD，`FLAC-COPYING.txt` 一起打包）。首次用到时解到
+  `%APPDATA%\Salt Player for Windows\workshop\plugins\…\data\bin\flac-1.4.3`，
+  设置里 `flac.exe` 留空就是内置，填了就优先用你的。**不再需要外部 flac.exe 或 metaflac.exe**。
+- **设置页标题显示版本号**（`v0.38.0`）：宿主允许同一插件多版本共存，用户要能一眼看出跑的是哪个。
+  真机那次「手填不刷新 / 卡 21%」其实跑的是 0.36.3（旧目录还在，宿主装了旧的），先删旧目录再测。
+- 测试：419 个用例（新增 `BundledFlacTest` 4、`DiscMemoryTest` 5、`I18nTest` 5），
+  `clean test plugin --rerun-tasks` 全绿。
+
 ## 0.37.0（发布前自测：403→405 个自动化用例 + 12 项真 bug）
 
 发布前把能自动化验的都验了，并做了一遍代码审查。自动化用例从 399 涨到 405，

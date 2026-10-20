@@ -35,6 +35,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -301,6 +304,14 @@ private fun RunningBlock() {
     val p = PanelState.progress
     val paused = PanelState.paused
     val armed = PanelState.cancelArmed
+    var idleSec by remember { mutableStateOf(0L) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1_000)
+            val beat = PanelState.lastBeatAt
+            idleSec = if (beat == 0L) 0L else (System.currentTimeMillis() - beat) / 1_000
+        }
+    }
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         CoverThumb(48.dp)
@@ -313,14 +324,13 @@ private fun RunningBlock() {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            if (p != null && !paused) {
-                LinearProgressIndicator(
-                    progress = { p.fraction.coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth(),
-                    color = cs.onSurface,
-                    trackColor = cs.onSurface.copy(alpha = 0.14f)
-                )
-            }
+            // 进度条全程保留：暂停时变淡而不是消失（以前整块消失，看起来像卡死）
+            LinearProgressIndicator(
+                progress = { (p?.fraction ?: 0f).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth(),
+                color = if (paused) cs.onSurface.copy(alpha = 0.35f) else cs.onSurface,
+                trackColor = cs.onSurface.copy(alpha = 0.14f)
+            )
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
                     text = buildString {
@@ -337,7 +347,9 @@ private fun RunningBlock() {
                 )
                 Text(
                     text = when {
-                        paused -> Strings.key("pause") + "…"
+                        paused -> "已暂停 · 点「继续」接着抓"
+                        // 8 秒没有任何进度：驱动器在死磕某一块（多半是重读坏道），把等待时间说出来
+                        idleSec >= 8 -> "正在重读这一块 · 已等 ${idleSec} 秒"
                         p != null -> PanelFormat.speed(p.speedX) + " · " + PanelFormat.eta(p.etaSec)
                         else -> ""
                     },

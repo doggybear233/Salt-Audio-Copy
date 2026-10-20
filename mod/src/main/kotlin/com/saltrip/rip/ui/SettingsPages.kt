@@ -93,6 +93,14 @@ internal fun SettingsPanel() {
                     color = cs.onSurface
                 )
                 Spacer(Modifier.weight(1f))
+                // 版本号放这里：宿主同时装了多个版本时，用户能一眼看出跑的是哪个（真机反馈踩过）
+                Text(
+                    text = "v" + com.saltrip.rip.Version.VALUE,
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp,
+                    color = cs.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(end = 6.dp)
+                )
                 Text(
                     text = Strings.key("settings_close"),
                     fontSize = 12.sp,

@@ -1,5 +1,6 @@
 package com.saltrip.rip
 
+import com.saltrip.rip.ui.Strings
 import com.saltrip.rip.album.DriveSelect
 import com.saltrip.rip.meta.DiscId
 import com.saltrip.rip.rip.RipEngine

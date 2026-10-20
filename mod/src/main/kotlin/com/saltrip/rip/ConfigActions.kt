@@ -124,12 +124,12 @@ object ConfigActions {
     fun scanDrives() {
         // 配置页按钮在宿主 UI 线程上被反射调用，任何 SCSI I/O 都必须挪到工作线程，
         // 否则 INQUIRY / READ TOC 期间界面会整段卡死（用户看到的就是"死机"）。
-        toast("正在扫描光驱，请稍候…", ToastType.Success)
+        toast(Strings.message("正在扫描光驱，请稍候…"), ToastType.Success)
         exec.execute {
             try {
                 val drives = CdDevice.scanDrives()
                 if (drives.isEmpty()) {
-                    toast("未发现可用光驱（没有光驱或驱动器内无盘）", ToastType.Warning)
+                    toast(Strings.message("未发现可用光驱（没有光驱或驱动器内无盘）"), ToastType.Warning)
                     Diag.log("scanDrives: none")
                     return@execute
                 }
@@ -226,7 +226,7 @@ object ConfigActions {
     fun exportAlbumJson() {
         val scan = freshScan() ?: return
         if (!scan.toc.isAudioCd) {
-            toast("当前盘不是音频 CD", ToastType.Warning)
+            toast(Strings.message("当前盘不是音频 CD"), ToastType.Warning)
             return
         }
         exec.execute {
@@ -245,7 +245,7 @@ object ConfigActions {
                 val target = root.resolve(name)
                 java.nio.file.Files.writeString(target, AlbumJsonWriter.build(album, toc), Charsets.UTF_8)
                 Diag.log("album.json exported: $target")
-                PanelState.set("已导出元数据模板", target.toString())
+                PanelState.set(Strings.message("已导出元数据模板"), target.toString())
                 toast("已导出：$target\n改完保存，再抓整盘即生效", ToastType.Success)
             } catch (e: Throwable) {
                 Diag.log("exportAlbumJson failed", e)
@@ -279,7 +279,7 @@ object ConfigActions {
     @JvmStatic
     fun showCdText() {
         val scan = ScanResultHolder.get() ?: run {
-            toast("请先点「扫描驱动器」", ToastType.Warning)
+            toast(Strings.message("请先点「扫描驱动器」"), ToastType.Warning)
             return
         }
         exec.execute {
@@ -288,7 +288,7 @@ object ConfigActions {
                 if (info == null || !info.hasText) {
                     Diag.log("cd-text: none")
                     PanelState.set("CD-TEXT：无", "这张盘没有 CD-TEXT")
-                    toast("这张盘没有 CD-TEXT", ToastType.Warning)
+                    toast(Strings.message("这张盘没有 CD-TEXT"), ToastType.Warning)
                     return@execute
                 }
                 val sb = StringBuilder()
@@ -310,7 +310,7 @@ object ConfigActions {
     @JvmStatic
     fun analyzeDisc() {
         val scan = ScanResultHolder.get() ?: run {
-            toast("请先点「扫描驱动器」", ToastType.Warning)
+            toast(Strings.message("请先点「扫描驱动器」"), ToastType.Warning)
             return
         }
         exec.execute {
@@ -320,8 +320,8 @@ object ConfigActions {
                     com.saltrip.rip.album.DiscAnalysis.describe(gaps)
                 }
                 Diag.log("analysis: " + table.replace("\n", " | "))
-                PanelState.set("间隙预扫完成", table)
-                toast("间隙预扫完成", ToastType.Success)
+                PanelState.set(Strings.message("间隙预扫完成"), table)
+                toast(Strings.message("间隙预扫完成"), ToastType.Success)
             } catch (e: Throwable) {
                 Diag.log("analysis failed", e)
                 toast("间隙预扫失败: ${e.message}", ToastType.Error)
@@ -381,14 +381,14 @@ object ConfigActions {
      * 全程只发读命令、不写盘、不改设置；探测完把偏好复位成 auto，避免把探针的结果带进正式抓轨。
      */
     fun probeReadCommands() {
-        toast("正在探测读命令（只读，1 扇区）…", ToastType.Success)
+        toast(Strings.message("正在探测读命令（只读，1 扇区）…"), ToastType.Success)
         exec.execute {
             try {
                 val scan = ScanResultHolder.get() ?: CdDevice.scanDrives().firstOrNull()?.let {
                     com.saltrip.rip.rip.ScanResult(it.first, it.second, CdDevice(it.first).use { d -> d.readToc() })
                 }
                 if (scan == null) {
-                    toast("没有找到光驱", ToastType.Warning)
+                    toast(Strings.message("没有找到光驱"), ToastType.Warning)
                     return@execute
                 }
                 val sb = StringBuilder()
@@ -421,7 +421,7 @@ object ConfigActions {
 
     @JvmStatic
     fun healthCheck() {
-        toast("正在检查驱动器（只读）…", ToastType.Success)
+        toast(Strings.message("正在检查驱动器（只读）…"), ToastType.Success)
         val finished = AtomicBoolean(false)
         val startedAt = System.nanoTime()
         val worker = Thread {
@@ -482,7 +482,7 @@ object ConfigActions {
     @JvmStatic
     fun previewPlan() {
         val scan = freshScan() ?: return
-        toast("正在计算抓轨计划（不写盘）…", ToastType.Success)
+        toast(Strings.message("正在计算抓轨计划（不写盘）…"), ToastType.Success)
         exec.execute {
             try {
                 val settings = SettingsStore.load()
@@ -493,7 +493,7 @@ object ConfigActions {
                 val plan = com.saltrip.rip.album.RipPlan.build(scan.toc, settings, album)
                 val text = plan.describe()
                 Diag.log("rip plan:\n$text")
-                PanelState.set("抓轨计划已生成", "共 ${plan.tracks.size} 轨，约 ${plan.totalBytes / 1024 / 1024} MB")
+                PanelState.set(Strings.message("抓轨计划已生成"), "共 ${plan.tracks.size} 轨，约 ${plan.totalBytes / 1024 / 1024} MB")
                 toast(text.take(900), ToastType.Success)
             } catch (e: Throwable) {
                 Diag.log("previewPlan failed", e)
@@ -541,7 +541,7 @@ object ConfigActions {
     ) {
         val settings = SettingsStore.load()
         if (!settings.fetchMetadata) {
-            if (interactive) toast("「查询元数据」已在设置里关闭", ToastType.Warning)
+            if (interactive) toast(Strings.message("「查询元数据」已在设置里关闭"), ToastType.Warning)
             return
         }
         if (!interactive && !manual && !settings.autoLookupOnInsert) {
@@ -554,7 +554,7 @@ object ConfigActions {
         }
         if (!interactive) {
             PanelState.set(
-                "正在查询元数据…",
+                Strings.message("正在查询元数据…"),
                 "读 CD-TEXT，再连 MusicBrainz / gnudb；换盘会自动重来"
             )
         }
@@ -656,7 +656,7 @@ object ConfigActions {
                 val notes = ArrayList<String>()
                 val album = com.saltrip.rip.meta.MetadataCandidates.materialize(scan.toc, cand, settings, cdtext, notes)
                 if (album == null) {
-                    toast("没能取到该版本的完整信息，请换一个候选", ToastType.Warning)
+                    toast(Strings.message("没能取到该版本的完整信息，请换一个候选"), ToastType.Warning)
                     return@execute
                 }
                 // 选中即落盘成 album.json：下次抓同一张盘直接沿用，不必再选一次。
@@ -698,13 +698,13 @@ object ConfigActions {
     fun openManualMeta() {
         PanelState.manualOpen = true
         PanelState.settingsOpen = false
-        PanelState.set("正在准备手动填写…", "读取曲目数与本机缓存")
+        PanelState.set(Strings.message("正在准备手动填写…"), "读取曲目数与本机缓存")
         exec.execute {
             try {
                 val scan = freshScan() ?: return@execute
                 if (!scan.toc.isAudioCd) {
                     PanelState.manualOpen = false
-                    toast("当前盘不是音频 CD（数据盘不能抓轨）", ToastType.Warning)
+                    toast(Strings.message("当前盘不是音频 CD（数据盘不能抓轨）"), ToastType.Warning)
                     return@execute
                 }
                 val settings = SettingsStore.load()
@@ -792,7 +792,7 @@ object ConfigActions {
     fun saveManualMeta() {
         val draft = PanelState.manual
         if (!draft.hasAnything) {
-            Notify.warn("至少写一个专辑名或歌名再保存")
+            Notify.warn(Strings.message("至少写一个专辑名或歌名再保存"))
             return
         }
 
@@ -812,7 +812,7 @@ object ConfigActions {
             "已保存手动元数据",
             "${album.albumArtist} — ${album.albumTitle}（${album.tracks.size} 轨）"
         )
-        Notify.info("已保存手动元数据，抓轨会用这些名字")
+        Notify.info(Strings.message("已保存手动元数据，抓轨会用这些名字"))
 
         // 2) 落盘（独立线程，不跟自动查询抢队）
         saveExec.execute {
@@ -884,7 +884,7 @@ object ConfigActions {
             val current = PanelState.manualCover.orEmpty()
             val picked = pickFile(current, "选择专辑封面", "图片 (jpg / jpeg / png / webp / bmp)", "jpg", "jpeg", "jpe", "jfif", "png", "webp", "bmp", "gif")
             if (picked == null) {
-                toast("已取消选择", ToastType.Warning)
+                toast(Strings.message("已取消选择"), ToastType.Warning)
                 return@pickerThread
             }
             PanelState.manualCover = picked
@@ -920,7 +920,7 @@ object ConfigActions {
                     )
                 }
                 PanelState.manual = d
-                Notify.info("已用 CD-TEXT 填入可用的字段")
+                Notify.info(Strings.message("已用 CD-TEXT 填入可用的字段"))
             } catch (e: Throwable) {
                 Diag.log("fillManualFromCdText failed", e)
                 toast("读 CD-TEXT 失败：" + com.saltrip.rip.scsi.ScsiMessages.human(e), ToastType.Error)
@@ -971,7 +971,7 @@ object ConfigActions {
     @JvmStatic
     fun ripAlbum() {
         if (busy) {
-            toast("已有抓轨任务在进行", ToastType.Warning)
+            toast(Strings.message("已有抓轨任务在进行"), ToastType.Warning)
             return
         }
         // 这张盘已经抓完一遍：第一次点击只确认，第二次才真的覆盖
@@ -981,12 +981,12 @@ object ConfigActions {
                 "已抓完 · 再点一次「重新抓取」确认",
                 "重新抓取会按当前设置覆盖同名文件（覆盖策略见设置 → 输出位置）"
             )
-            toast("再点一次「重新抓取」才会开始；「取消」或换盘会解除", ToastType.Warning)
+            toast(Strings.message("再点一次「重新抓取」才会开始；「取消」或换盘会解除"), ToastType.Warning)
             return
         }
         val scan = freshScan() ?: return
         if (!scan.toc.isAudioCd) {
-            toast("这张盘不是音频 CD（数据盘不能抓轨）：请换一张音乐 CD", ToastType.Warning)
+            toast(Strings.message("这张盘不是音频 CD（数据盘不能抓轨）：请换一张音乐 CD"), ToastType.Warning)
             return
         }
         val settings = SettingsStore.load(force = true)
@@ -1050,7 +1050,7 @@ object ConfigActions {
                     } else {
                         "文件保留在 ${result.outDir}"
                     }
-                    PanelState.set("已取消", tail)
+                    PanelState.set(Strings.message("已取消"), tail)
                     toast("已取消：完成 ${result.tracks.size}/$count 轨，$tail", ToastType.Warning)
                 } else {
                     val bits = buildList {
@@ -1094,7 +1094,7 @@ object ConfigActions {
                 }
             } catch (e: com.saltrip.rip.scsi.ScsiException) {
                 Diag.log("ripAlbum scsi failure", e)
-                PanelState.set("抓轨失败", com.saltrip.rip.scsi.ScsiMessages.human(e))
+                PanelState.set(Strings.message("抓轨失败"), com.saltrip.rip.scsi.ScsiMessages.human(e))
                 toast("抓轨失败：" + com.saltrip.rip.scsi.ScsiMessages.human(e), ToastType.Error)
             } catch (e: Throwable) {
                 Diag.log("ripAlbum failed", e)
@@ -1111,17 +1111,17 @@ object ConfigActions {
     fun testDisc() {
         val scan = freshScan() ?: return
         if (busy) {
-            toast("已有任务在进行", ToastType.Warning)
+            toast(Strings.message("已有任务在进行"), ToastType.Warning)
             return
         }
         if (!scan.toc.isAudioCd) {
-            toast("这不是音频 CD", ToastType.Warning)
+            toast(Strings.message("这不是音频 CD"), ToastType.Warning)
             return
         }
         busy = true
         cancelFlag.set(false)
         PanelState.begin("只测不写（Test only）")
-        toast("开始测试读取，不会写任何文件…", ToastType.Success)
+        toast(Strings.message("开始测试读取，不会写任何文件…"), ToastType.Success)
         exec.execute {
             try {
                 val settings = SettingsStore.load(true)
@@ -1138,12 +1138,12 @@ object ConfigActions {
                 val text = DiscTest.summary(rows)
                 Diag.log("test-only done: ${rows.size} tracks")
                 rows.forEach { Diag.log("test-only track=${it.track} sectors=${it.sectors} crc32=%08X errors=${it.errors}".format(it.crc32)) }
-                PanelState.set("测试完成（未写盘）", text)
+                PanelState.set(Strings.message("测试完成（未写盘）"), text)
                 toast("测试完成：${rows.size} 轨，未写任何文件", ToastType.Success)
             } catch (e: Throwable) {
                 Diag.log("test-only failed", e)
                 val why = com.saltrip.rip.scsi.ScsiMessages.human(e)
-                PanelState.set("测试失败", why)
+                PanelState.set(Strings.message("测试失败"), why)
                 toast("测试失败：$why", ToastType.Error)
             } finally {
                 busy = false
@@ -1155,12 +1155,12 @@ object ConfigActions {
     fun ripFirstTrack() {
         val scan = freshScan() ?: return
         if (busy) {
-            toast("已有抓轨任务在进行", ToastType.Warning)
+            toast(Strings.message("已有抓轨任务在进行"), ToastType.Warning)
             return
         }
         busy = true
         cancelFlag.set(false)
-        toast("开始抓取第 1 轨…", ToastType.Success)
+        toast(Strings.message("开始抓取第 1 轨…"), ToastType.Success)
         exec.execute {
             try {
                 val settings = SettingsStore.load(true)
@@ -1200,20 +1200,28 @@ object ConfigActions {
         }
     }
 
-    /** 暂停 / 继续。暂停只在当前块结束后生效，进度条会隐藏。 */
+    /**
+     * 暂停 / 继续。
+     *
+     * 暂停在**当前块**结束后生效（一块约 1/25 轨，慢盘上可能一两秒）。以前这里会把
+     * `PanelState.progress` 清空，进度条整块消失、只剩一条会被坞挡住的宿主 toast，
+     * 用户看到的现象就是「点了暂停没反应、再点也没反应」（C1 反馈）。
+     * 现在进度条与百分比全程保留，暂停状态写在坞里，用户能一眼看出停在哪。
+     */
     @JvmStatic
     fun pauseRip() {
         if (!busy) {
-            toast("当前没有抓轨任务", ToastType.Warning)
+            toast(Strings.message("当前没有抓轨任务"), ToastType.Warning)
             return
         }
         paused = !paused
         PanelState.paused = paused
         if (paused) {
-            PanelState.progress = null
-            toast("已暂停（当前块结束后停住），再点一次继续", ToastType.Warning)
+            PanelState.set(Strings.message("已暂停"), "当前块读完后停住；点「继续」接着从这一块往下抓")
+            toast(Strings.message("已暂停（当前块结束后停住），再点一次继续"), ToastType.Warning)
         } else {
-            toast("继续抓轨", ToastType.Success)
+            PanelState.set(PanelState.stage.ifBlank { "正在抓取" }, "已继续")
+            toast(Strings.message("继续抓轨"), ToastType.Success)
         }
     }
 
@@ -1229,14 +1237,14 @@ object ConfigActions {
         // 「取消」也解除「重新抓取」的待确认态
         PanelState.reRipArmed = false
         if (!busy) {
-            toast("当前没有抓轨任务", ToastType.Warning)
+            toast(Strings.message("当前没有抓轨任务"), ToastType.Warning)
             return
         }
         if (!PanelState.cancelArmed) {
             PanelState.cancelArmed = true
             PanelState.paused = false
             paused = false
-            toast("再点一次「取消」将中止并删除本次生成的文件", ToastType.Warning)
+            toast(Strings.message("再点一次「取消」将中止并删除本次生成的文件"), ToastType.Warning)
             return
         }
         PanelState.cancelArmed = false
@@ -1244,7 +1252,7 @@ object ConfigActions {
         PanelState.paused = false
         userCancel = true
         cancelFlag.set(true)
-        toast("正在取消…", ToastType.Warning)
+        toast(Strings.message("正在取消…"), ToastType.Warning)
     }
 
     /** 删除本次新建的文件，返回删掉的个数。失败只记日志。 */
@@ -1270,8 +1278,8 @@ object ConfigActions {
         if (ok) {
             toast(okMessage, ToastType.Success)
         } else {
-            PanelState.set("设置没能写回磁盘", "宿主配置不可用，改动只在本次运行有效；详见日志")
-            toast("设置没能写回磁盘（详见日志）", ToastType.Error)
+            PanelState.set(Strings.message("设置没能写回磁盘"), "宿主配置不可用，改动只在本次运行有效；详见日志")
+            toast(Strings.message("设置没能写回磁盘（详见日志）"), ToastType.Error)
         }
         return ok
     }
@@ -1313,11 +1321,11 @@ object ConfigActions {
         PanelState.testMode = d.testMode
         PanelState.settingsOpen = false
         if (saved) {
-            toast("设置已保存", ToastType.Success)
+            toast(Strings.message("设置已保存"), ToastType.Success)
         } else {
             // 宿主配置写不进去时不能只说「已保存」：用户会以为重启后还在
-            PanelState.set("设置没能写回磁盘", "宿主配置不可用，改动只在本次运行有效；详见日志")
-            toast("设置没能写回磁盘（详见日志）", ToastType.Error)
+            PanelState.set(Strings.message("设置没能写回磁盘"), "宿主配置不可用，改动只在本次运行有效；详见日志")
+            toast(Strings.message("设置没能写回磁盘（详见日志）"), ToastType.Error)
         }
     }
 
@@ -1418,7 +1426,7 @@ object ConfigActions {
      */
     @JvmStatic
     fun testNetwork() {
-        PanelState.set("正在自检网络…", "并发探测 MusicBrainz / Cover Art Archive / 三个 CDDB 镜像")
+        PanelState.set(Strings.message("正在自检网络…"), "并发探测 MusicBrainz / Cover Art Archive / 三个 CDDB 镜像")
         exec.execute {
             val settings = runCatching { SettingsStore.load() }.getOrDefault(RipSettings())
             val items = runCatching { NetCheck.run(settings.proxyUrl) }.getOrElse { e ->
@@ -1430,7 +1438,7 @@ object ConfigActions {
             val detail = items.joinToString("；") {
                 "${it.name} ${if (it.ok) "${it.ms}ms" else "不通（${it.note}）"}"
             }
-            PanelState.set("网络自检完成", detail)
+            PanelState.set(Strings.message("网络自检完成"), detail)
             Diag.log("netcheck: $summary")
             Notify.info(if (settings.proxyUrl.isBlank()) summary else "$summary（代理 ${settings.proxyUrl}）")
         }
@@ -1443,7 +1451,7 @@ object ConfigActions {
             val dir = runCatching { java.nio.file.Path.of(Diag.logPath()).parent }.getOrNull()
             val target = dir ?: runCatching { SettingsStore.load(true).effectiveRoot }.getOrNull()
             if (target == null) {
-                toast("还没有日志文件", ToastType.Warning)
+                toast(Strings.message("还没有日志文件"), ToastType.Warning)
                 return@execute
             }
             runCatching {
@@ -1463,7 +1471,7 @@ object ConfigActions {
             val current = runCatching { SettingsStore.load(true).overrideFile }.getOrDefault("")
             val picked = pickFile(current, "选择元数据覆盖文件", "JSON 元数据 (json)", "json")
             if (picked == null) {
-                toast("已取消选择", ToastType.Warning)
+                toast(Strings.message("已取消选择"), ToastType.Warning)
                 return@pickerThread
             }
             if (PanelState.settingsOpen) {
@@ -1489,7 +1497,7 @@ object ConfigActions {
             val current = runCatching { SettingsStore.load(true).effectiveRoot.toString() }.getOrDefault("")
             val picked = pickFolder(current)
             if (picked == null) {
-                toast("已取消选择", ToastType.Warning)
+                toast(Strings.message("已取消选择"), ToastType.Warning)
                 return@pickerThread
             }
             if (PanelState.settingsOpen) {
@@ -1540,7 +1548,7 @@ object ConfigActions {
             val current = runCatching { SettingsStore.load(true).flacExe }.getOrDefault("flac")
             val picked = pickFile(current, "选择 flac.exe", "FLAC 编码器 (flac.exe)", "exe")
             if (picked == null) {
-                toast("已取消选择", ToastType.Warning)
+                toast(Strings.message("已取消选择"), ToastType.Warning)
                 return@pickerThread
             }
             if (PanelState.settingsOpen) {

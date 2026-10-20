@@ -35,6 +35,15 @@ object PanelState {
     /** 当前盘的摘要；null 表示还没识别出盘。 */
     var disc: DiscInfo? by mutableStateOf(null)
 
+    /**
+     * 最近一次收到抓轨进度的心跳时刻（毫秒时间戳）。
+     *
+     * 用途：驱动器在某一块上死磕（重读坏道）时，进度条几乎不动，
+     * 界面必须说「还在读，只是慢」，而不是让用户以为卡死。
+     */
+    @Volatile
+    var lastBeatAt: Long = 0L
+
     /** 抓轨是否已暂停（只在当前块结束后真正停住）。 */
     var paused: Boolean by mutableStateOf(false)
 
@@ -207,6 +216,36 @@ object PanelState {
         if (info == null) discCover = null
     }
 
+    /**
+     * 光盘被抽出：立刻清掉盘面信息，但**保留** [lastOutDir] 之类「已经做过什么」的记忆。
+     *
+     * 与 [showDisc] 的区别是它会给一句人话，并明确告诉用户「放回同一张盘可以接着抓」，
+     * 而不是丢一个「先点扫描识别光盘」的空状态。
+     */
+    fun markEjected(reason: String) {
+        showDisc(null)
+        candidates = emptyList()
+        selectedCandidate = -1
+        progress = null
+        paused = false
+        busy = false
+        cancelArmed = false
+        stage = ""
+        status = "光驱里没有光盘"
+        detail = "$reason\n放入光盘会自动识别；同一张盘放回来可以接着抓"
+    }
+
+    /** 把 [com.saltrip.rip.DiscMemory.Snapshot] 恢复回面板（同一张盘放回来时用）。 */
+    internal fun restoreSnapshot(s: com.saltrip.rip.DiscMemory.Snapshot, ripDoneKept: Boolean) {
+        disc = s.info
+        discCover = s.cover
+        candidates = s.candidates
+        selectedCandidate = s.selected
+        lookupTried = s.lookupTried
+        ripDone = ripDoneKept
+        lastOutDir = s.outDir ?: lastOutDir
+    }
+
     /** 当前盘是否可以抓（必须是音频 CD）。 */
     val hasAudioDisc: Boolean get() = disc?.audio == true
 
@@ -247,6 +286,7 @@ object PanelState {
 
     fun onProgress(p: Progress) {
         progress = p
+        lastBeatAt = System.currentTimeMillis()
     }
 
     /** 只清进度，保留状态行（用于 finally 收尾）。 */

@@ -1,6 +1,7 @@
 package com.saltrip.rip.ui
 
 import com.saltrip.rip.Diag
+import com.saltrip.rip.meta.Json
 
 /**
  * 面板文案的多语言表（中文 / English / 日本語）。
@@ -34,6 +35,44 @@ object Strings {
      */
     fun keyOr(key: String, fallback: String): String =
         table(lang())[key] ?: table(Lang.ZH)[key] ?: fallback
+
+    /**
+     * 消息翻译：把代码里的中文原文翻成当前语言。
+     *
+     * 消息分散在 `ConfigActions` / `Discs` / `DiscWatcher` / `PanelState` 里，且大量带插值，
+     * 没法像面板那样按 key 组织；所以字典以**中文原文**为键（`/messages-i18n.json`），
+     * 查不到就原样返回中文——新加的消息不会因为漏翻而显示成 `msg_xxx`。
+     */
+    fun message(zh: String): String = messageTable()[lang()]?.get(zh) ?: zh
+
+    /** 测试用：字典里到底收了多少条。 */
+    internal fun messageCount(lang: Lang): Int = messageTable()[lang]?.size ?: 0
+
+    private object MessageTables {
+        val byLang: Map<Lang, Map<String, String>> by lazy { loadMessages() }
+
+        private fun loadMessages(): Map<Lang, Map<String, String>> {
+            val text = runCatching {
+                Strings::class.java.getResourceAsStream("/messages-i18n.json")
+                    ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+            }.getOrNull() ?: return emptyMap()
+            val root = runCatching { Json.parse(text) }.getOrNull() ?: return emptyMap()
+            val entries = Json.obj(Json.path(root, "entries"))
+            val out = HashMap<Lang, Map<String, String>>()
+            for (lang in listOf(Lang.EN, Lang.JA)) {
+                val m = HashMap<String, String>()
+                for ((zh, v) in entries) {
+                    val pair = Json.arr(v)
+                    val translated = Json.str(pair.getOrNull(if (lang == Lang.EN) 0 else 1))
+                    if (!translated.isNullOrBlank()) m[zh] = translated
+                }
+                if (m.isNotEmpty()) out[lang] = m
+            }
+            return out
+        }
+    }
+
+    private fun messageTable(): Map<Lang, Map<String, String>> = MessageTables.byLang
 
     /** 测试用：强制语言 / 复位。 */
     fun override(lang: Lang?) {

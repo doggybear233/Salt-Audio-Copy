@@ -6,7 +6,10 @@ import java.nio.file.Path
 import java.util.concurrent.TimeoutException
 
 /**
- * 外部 FLAC 编码器（与 EAC 同策略：不内嵌编码库，调用 flac.exe）。
+ * FLAC 编码器调用层。
+ *
+ * 优先用用户指定的 `flac.exe`（PATH / 绝对路径 / 常见安装目录），
+ * 都没有时回落到**随插件内置**的 Xiph 1.4.3（见 [BundledFlac]）——用户不必自己装。
  *
  * 设计要点：
  * - 参数顺序固定为 `-f -s -<level> -o <out> <in>`，`-f` 覆盖、`-s` 静默；
@@ -42,7 +45,7 @@ object FlacEncoder {
             error("FLAC 编码超时（${timeoutSec}s）：$exe")
         } catch (e: java.io.IOException) {
             runCatching { Files.deleteIfExists(output) }
-            error("无法启动 FLAC 编码器 $exe：${e.message}（请在设置里填写 flac.exe 的绝对路径）")
+            error("无法启动 FLAC 编码器 $exe：${e.message}（把设置里的 flac.exe 留空可用内置编码器）")
         }
         if (res.exitCode != 0) {
             runCatching { Files.deleteIfExists(output) }
@@ -61,8 +64,18 @@ object FlacEncoder {
     @Volatile
     internal var runnerOverride: ProcessRunner? = null
 
-    /** 在 PATH、给定绝对路径与常见安装位置里找编码器，找到返回可用命令。 */
+    /**
+     * 找编码器：给定路径 → PATH → 常见安装目录 → 内置的 flac.exe。
+     *
+     * 内置兜底永远最后，用户自己的编码器（可能是更快的 1.5 或带自定义补丁）优先。
+     */
     fun locate(exe: String): String? {
+        locateExternal(exe)?.let { return it }
+        return BundledFlac.ensure()?.toString()
+    }
+
+    /** 只找外部编码器；[locate] 里内置兜底之外的逻辑都在这里（便于单测旁路内置件）。 */
+    fun locateExternal(exe: String): String? {
         val direct = Path.of(exe)
         if (Files.isRegularFile(direct)) return direct.toAbsolutePath().toString()
         val exts = if (exe.lowercase().endsWith(".exe")) listOf("") else listOf(".exe", "")
