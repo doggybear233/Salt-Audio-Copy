@@ -58,7 +58,7 @@ object CddbCache {
         val f = file(id) ?: return
         runCatching {
             Files.createDirectories(f.parent)
-            Files.writeString(f, AlbumJsonWriter.build(album, toc), StandardCharsets.UTF_8)
+            writeTextAtomically(f, AlbumJsonWriter.build(album, toc))
         }.onFailure { Diag.log("cddb cache: write failed ${it.message}") }
     }
 

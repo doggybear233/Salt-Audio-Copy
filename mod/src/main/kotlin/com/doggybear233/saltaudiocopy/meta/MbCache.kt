@@ -56,7 +56,7 @@ object MbCache {
         val f = file(discId) ?: return
         runCatching {
             Files.createDirectories(f.parent)
-            Files.writeString(f, text, StandardCharsets.UTF_8)
+            writeTextAtomically(f, text)
         }.onFailure { Diag.log("mb cache: write failed ${it.message}") }
     }
 

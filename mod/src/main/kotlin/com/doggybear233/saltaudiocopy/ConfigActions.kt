@@ -1397,6 +1397,8 @@ object ConfigActions {
         PanelState.paused = false
         userCancel = true
         cancelFlag.set(true)
+        // 元数据查询可能正卡在一次重试退避或 Retry-After 里：不打断它，抓轨取消要等它睡完
+        runCatching { com.doggybear233.saltaudiocopy.meta.Http.abort() }
         toast(Strings.message("正在取消…"), ToastType.Warning)
     }
 

@@ -58,6 +58,8 @@ object MetadataCandidates {
     ): Result {
         // 设置里的代理每次查询前同步一次：用户改完设置不必重启宿主。
         Http.configure(settings.proxyUrl)
+        // 上一次的取消不该影响这一次查询
+        Http.startRequest()
         if (Http.proxyInUse()) Diag.log("http proxy in use: ${settings.proxyUrl}")
         val notes = ArrayList<String>()
         val discId = runCatching { DiscId.musicBrainz(toc) }

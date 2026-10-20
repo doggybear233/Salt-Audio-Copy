@@ -33,6 +33,34 @@ object Http {
     @Volatile
     private var readTimeoutMs = 20_000
 
+    /** 用户取消时置位；所有等待（重试退避、限速、Retry-After）都要能被它打断。 */
+    @Volatile
+    private var aborted = false
+
+    /** 单次 Retry-After 的最大等待：服务器说「24 小时后再来」时不能真睡。 */
+    const val MAX_RETRY_WAIT_MS = 15_000L
+
+    fun startRequest() {
+        aborted = false
+    }
+
+    fun abort() {
+        aborted = true
+    }
+
+    /**
+     * 可中断的等待。每 100ms 检查一次取消标志，避免用户点了取消还要干等退避。
+     */
+    private fun sleepCancellable(ms: Long) {
+        val end = System.currentTimeMillis() + ms
+        while (true) {
+            if (aborted) throw java.io.InterruptedIOException("请求已取消")
+            val left = end - System.currentTimeMillis()
+            if (left <= 0) return
+            Thread.sleep(minOf(100L, left))
+        }
+    }
+
     /**
      * 配置代理与超时。设置改了要重新调；不调就用直连 + 默认超时。
      *
@@ -73,7 +101,7 @@ object Http {
             val now = System.currentTimeMillis()
             val prev = lastCall[host] ?: 0L
             val wait = minGapMs - (now - prev)
-            if (wait > 0) Thread.sleep(wait)
+            if (wait > 0) sleepCancellable(wait)
             lastCall[host] = System.currentTimeMillis()
         }
     }
@@ -84,7 +112,8 @@ object Http {
         retries: Int = 3,
         accept: String = "application/json",
         connectMs: Int = connectTimeoutMs,
-        readMs: Int = readTimeoutMs
+        readMs: Int = readTimeoutMs,
+        maxBytes: Long = Long.MAX_VALUE
     ): HttpResult {
         var attempt = 0
         var backoff = 600L
@@ -104,17 +133,26 @@ object Http {
                 }
                 val code = conn.responseCode
                 if ((code == 503 || code == 429) && attempt <= retries) {
-                    val retryAfter = conn.getHeaderField("Retry-After")?.toLongOrNull()?.times(1000)
-                    Diag.log("http $code from $url, retry $attempt in ${retryAfter ?: backoff}ms")
-                    Thread.sleep(retryAfter ?: backoff)
-                    backoff = (backoff * 2).coerceAtMost(8000)
+                    // Retry-After 可能是「3600」这种离谱值（甚至远超一次查询的耐心），
+                    // 必须夹到上限，否则单线程队列会被一个响应堵死。
+                    val asked = conn.getHeaderField("Retry-After")?.toLongOrNull()?.times(1000)
+                    val wait = (asked ?: backoff).coerceIn(0L, MAX_RETRY_WAIT_MS)
+                    Diag.log("http $code from $url, retry $attempt in ${wait}ms (asked ${asked ?: backoff})")
                     runCatching { conn.disconnect() }
+                    sleepCancellable(wait)
+                    backoff = (backoff * 2).coerceAtMost(8000)
                     continue
                 }
                 val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+                // 先用 Content-Length 挡一次：真到读完再判，几 GB 的响应已经进内存了。
+                val declared = conn.contentLengthLong
+                if (declared > maxBytes) {
+                    runCatching { stream?.close(); conn.disconnect() }
+                    throw java.io.IOException("响应过大: 声明 $declared 字节，上限 $maxBytes 字节")
+                }
                 val bytes = stream?.let { s ->
                     val raw = if (conn.contentEncoding?.contains("gzip", true) == true) GZIPInputStream(s) else s
-                    raw.use { it.readBytes() }
+                    raw.use { readCapped(it, maxBytes) }
                 } ?: ByteArray(0)
                 val ct = conn.contentType
                 runCatching { conn.disconnect() }
@@ -128,7 +166,7 @@ object Http {
                     throw java.io.IOException("网络请求失败: ${e.message}", e)
                 }
                 Diag.log("http attempt $attempt failed: $url -> ${e.message}")
-                Thread.sleep(backoff)
+                sleepCancellable(backoff)
                 backoff = (backoff * 2).coerceAtMost(8000)
             }
         }
@@ -145,12 +183,25 @@ object Http {
         return System.currentTimeMillis() - started
     }
 
-    /** 下载可能较大的二进制（封面），带 Content-Type 与大小上限。 */
-    fun getBytes(url: String, maxBytes: Long = 8L * 1024 * 1024): HttpResult {
-        val r = get(url, retries = 2, accept = "image/*")
-        if (r.body.size > maxBytes) throw java.io.IOException("响应过大: ${r.body.size} 字节")
-        return r
+    /** 边读边计数，超上限立刻放弃（服务器没给 Content-Length 时的兜底）。 */
+    private fun readCapped(stream: java.io.InputStream, maxBytes: Long): ByteArray {
+        val out = ByteArrayOutputStream()
+        val buf = ByteArray(16 * 1024)
+        var total = 0L
+        while (true) {
+            if (aborted) throw java.io.InterruptedIOException("请求已取消")
+            val n = stream.read(buf)
+            if (n < 0) break
+            total += n
+            if (total > maxBytes) throw java.io.IOException("响应过大: 超过上限 $maxBytes 字节")
+            out.write(buf, 0, n)
+        }
+        return out.toByteArray()
     }
+
+    /** 下载可能较大的二进制（封面），带 Content-Type 与大小上限。 */
+    fun getBytes(url: String, maxBytes: Long = 8L * 1024 * 1024): HttpResult =
+        get(url, retries = 2, accept = "image/*", maxBytes = maxBytes)
 
     fun encodeQuery(params: List<Pair<String, String>>): String =
         params.joinToString("&") { (k, v) ->
