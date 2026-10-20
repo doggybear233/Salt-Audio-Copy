@@ -1324,6 +1324,18 @@
     "（逐轨文件只作为拼接中间产物，合成后删除）": [
       "(Per-track files are only intermediates and are removed after splicing)",
       "（トラック別ファイルは結合の中間ファイルで、結合後に削除されます）"
+    ],
+    "取消选中": [
+      "Deselect",
+      "選択を解除"
+    ],
+    "这一项要填整数（负号也可以）": [
+      "Enter a whole number (a minus sign is fine)",
+      "整数を入力してください（マイナスも可）"
+    ],
+    "这些项不是整数，已保留原值：%s": [
+      "Not whole numbers, kept the previous values: %s",
+      "整数ではないため元の値のままです：%s"
     ]
   }
 }

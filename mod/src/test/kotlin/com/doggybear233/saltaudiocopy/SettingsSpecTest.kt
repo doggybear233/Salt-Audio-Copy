@@ -112,7 +112,7 @@ class SettingsSpecTest {
                 }
             }
         }
-        assertEquals(45, SettingsSpec.settingKeys.size, "45 个设置键（0.39.0 移除自带编码器 4 项；0.40.0 移除 2 个标签开关）")
+        assertEquals(46, SettingsSpec.settingKeys.size, "46 个设置键（0.39.0 移除自带编码器 4 项；0.40.0 移除 2 个标签开关；批次 14 补回 testMode 开关）")
         assertEquals(
             SettingsSpec.settingKeys.size,
             SettingsSpec.settingKeys.toSet().size,

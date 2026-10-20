@@ -343,8 +343,9 @@ private fun RunningBlock() {
     LaunchedEffect(Unit) {
         while (true) {
             delay(1_000)
-            val beat = PanelState.lastBeatAt
-            idleSec = if (beat == 0L) 0L else (System.currentTimeMillis() - beat) / 1_000
+            // 没有进度时从「本轮开始」算起；用上一轮的心跳会算出几千秒
+            val since = if (PanelState.lastBeatAt == 0L) PanelState.beginAt else PanelState.lastBeatAt
+            idleSec = if (since == 0L) 0L else (System.currentTimeMillis() - since) / 1_000
         }
     }
 
@@ -383,10 +384,10 @@ private fun RunningBlock() {
                 Text(
                     text = when {
                         paused -> Strings.message("已暂停 · 点「继续」接着抓")
-                        // 8 秒没有任何进度：驱动器在死磕某一块（多半是重读坏道），把等待时间说出来
-                        idleSec >= 8 -> Strings.fmt("正在重读这一块 · 已等 %s 秒", idleSec)
+                        // 有进度就先说进度；只有「一块都还没回来」才谈等待
                         p != null -> PanelFormat.speed(p.speedX) + " · " + PanelFormat.eta(p.etaSec) +
                             if (PanelState.verifyTimes > 1) " · " + Strings.fmt("每块校验 %s 次", PanelState.verifyTimes) else ""
+                        idleSec >= 8 -> Strings.fmt("正在重读这一块 · 已等 %s 秒", idleSec)
                         else -> ""
                     },
                     style = MaterialTheme.typography.labelSmall,
@@ -460,17 +461,7 @@ private fun albumLine(): String {
  * 改过输出根却仍显示旧目录，用户会以为设置没生效；这里的 artist/album 与坞上标题
  * 走同一套解析（盘信息 → 选中候选 → 手动保存的缓存）。
  */
-private fun outputPreview(): String {
-    val settings = runCatching { com.doggybear233.saltaudiocopy.settings.SettingsStore.load() }.getOrNull()
-        ?: return Strings.key("default_root")
-    val names = PanelState.albumNames()
-    return PathPreview.folder(
-        settings = settings,
-        artist = names.first,
-        album = names.second,
-        meta = PanelState.resolvedAlbumMeta(settings)
-    )
-}
+private fun outputPreview(): String = PanelState.previewPath.ifBlank { "…" }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

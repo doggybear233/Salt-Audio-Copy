@@ -44,6 +44,10 @@ object PanelState {
     @Volatile
     var lastBeatAt: Long = 0L
 
+    /** 本轮抓轨开始的时间；没有进度时用它算「已等 N 秒」，而不是用上一轮的心跳。 */
+    @Volatile
+    var beginAt: Long = 0L
+
     /** 每块数据校验读的次数（2 = 读两次比对）；面板用它解释「为什么速度只有盘速的一半」。 */
     var verifyTimes: Int = 1
 
@@ -137,12 +141,16 @@ object PanelState {
         draft = s
         testMode = s.testMode
         editTarget = -1
+        NumericDraft.clearAll()
+        refreshPreview()
     }
 
     fun updateDraft(f: (com.doggybear233.saltaudiocopy.settings.RipSettings) -> com.doggybear233.saltaudiocopy.settings.RipSettings) {
         draft = f(draft)
         // testMode 在草稿里改也要立刻反映到面板（诊断页显隐、动作闸门都读它）
         testMode = draft.testMode
+        // 草稿改动会改路径模板，预览跟着变（纯内存计算，不读盘）
+        refreshPreview()
     }
 
     /** 三个模板的只读视图（预览与变量块用）。 */
@@ -167,8 +175,13 @@ object PanelState {
         }
     }
 
-    /** 清空当前目标字段。 */
-    fun clearTarget() {
+    /** 取消选中模板块编辑目标（「取消选中」chip 用；不动任何模板内容）。 */
+    fun deselectTarget() {
+        editTarget = -1
+    }
+
+    /** 清空当前目标字段。破坏性，只在显式调用时用（UI 不再直接绑定它）。 */
+    fun clearTargetField() {
         when (editTarget) {
             0 -> updateDraft { it.copy(folderTemplate = "") }
             1 -> updateDraft { it.copy(fileTemplate = "") }
@@ -217,6 +230,7 @@ object PanelState {
     fun showDisc(info: DiscInfo?) {
         disc = info
         if (info == null) discCover = null
+        refreshPreview()
     }
 
     /**
@@ -272,6 +286,7 @@ object PanelState {
         if (discId.isBlank()) return
         discMetaId = discId
         discMeta = meta
+        refreshPreview()
     }
 
     internal fun knownMeta(discId: String): com.doggybear233.saltaudiocopy.meta.AlbumMeta? =
@@ -281,10 +296,38 @@ object PanelState {
     internal fun forgetMeta() {
         discMetaId = ""
         discMeta = null
+        refreshPreview()
     }
 
     /** 当前盘是否可以抓（必须是音频 CD）。 */
     val hasAudioDisc: Boolean get() = disc?.audio == true
+
+    /**
+     * 坞上「文件会落到哪」这一行。
+     *
+     * 以前每次重组都现算：读一次宿主配置、再读一次 album.json——输出根在机械盘/OneDrive/网络盘时
+     * 每个动画帧都可能卡几十毫秒到几秒。现在只在盘、元数据、设置变化时算一次，组合期直接读这个值。
+     */
+    var previewPath: String by mutableStateOf("…")
+
+    /** 不走磁盘的预览：设置取快照（或设置页草稿），元数据取内存里记住的那份。 */
+    fun refreshPreview() {
+        val s = if (settingsOpen) draft else com.doggybear233.saltaudiocopy.settings.SettingsStore.peek() ?: settingsSnapshot
+        val names = albumNames()
+        val meta = knownMeta(disc?.discId ?: "")
+        previewPath = runCatching {
+            com.doggybear233.saltaudiocopy.ui.PathPreview.folder(
+                settings = s,
+                artist = names.first,
+                album = names.second,
+                meta = meta
+            )
+        }.getOrElse { "…" }
+    }
+
+    /** 最近一次读到的设置快照（[refreshPreview] 用，避免组合期读盘）。 */
+    internal var settingsSnapshot: com.doggybear233.saltaudiocopy.settings.RipSettings =
+        com.doggybear233.saltaudiocopy.settings.RipSettings()
 
     /**
      * 已解析的专辑艺术家 / 专辑名。
@@ -348,6 +391,9 @@ object PanelState {
         progress = null
         paused = false
         cancelArmed = false
+        // 复位心跳：否则第一块数据到达前，界面会拿上一轮的 lastBeatAt 算出「已等 4000 秒」
+        lastBeatAt = 0L
+        beginAt = System.currentTimeMillis()
     }
 
     fun onProgress(p: Progress) {

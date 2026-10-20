@@ -505,6 +505,13 @@
       "config": "config.json",
       "preferences": [
         {
+          "type": "switch",
+          "key": "testMode",
+          "title": "测试模式（显示只测不写等测试动作）",
+          "summary": "打开后才显示「只测不写」「试抓第 1 轨」这类会真的读盘/写盘的按钮",
+          "default_value": false
+        },
+        {
           "type": "edittext",
           "key": "trackSelection",
           "title": "只抓这些音轨",

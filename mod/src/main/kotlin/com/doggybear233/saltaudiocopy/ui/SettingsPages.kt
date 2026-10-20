@@ -277,11 +277,23 @@ private fun SettingRow(item: SettingItem, s: RipSettings) {
                 )
             }
             Spacer(Modifier.height(4.dp))
+            val numeric = item.key in SettingsSpec.numericKeys
             PlainField(
                 value = SettingsAccess.text(s, item.key),
                 placeholder = item.placeholder,
                 enabled = enabled,
-                onChange = { v -> PanelState.updateDraft { SettingsAccess.withText(it, item.key, v) } }
+                numeric = numeric,
+                onChange = { v ->
+                    if (numeric) {
+                        // 原文留在草稿里：空串与 "-" 都能显示出来，只有能解析时才写进设置
+                        NumericDraft.put(item.key, v)
+                        if (v.trim().toIntOrNull() != null) {
+                            PanelState.updateDraft { SettingsAccess.withText(it, item.key, v) }
+                        }
+                    } else {
+                        PanelState.updateDraft { SettingsAccess.withText(it, item.key, v) }
+                    }
+                }
             )
         }
 
@@ -382,10 +394,23 @@ private fun runAction(name: String) {
         "probePath" -> ConfigActions.probePath()
         "resetDefaults" -> ConfigActions.resetDefaults()
         "openLogFolder" -> ConfigActions.openLogFolder()
+        "testEnvironment" -> ConfigActions.testEnvironment()
         "testNetwork" -> ConfigActions.testNetwork()
         else -> Unit
     }
 }
+
+/**
+ * [runAction] 真正能分派到的动作名。
+ *
+ * [SettingsSpec] 与这里分处两个文件，漏接线时按钮点了毫无反应、也没有任何报错
+ * （「环境自检」就这样死过一版）。[SettingsSpecTest] 用这个集合守住「声明的每个动作都有人处理」。
+ */
+internal val actionTargets: Set<String> = setOf(
+    "scanDrives", "previewPlan", "analyzeDisc", "probeReadCommands", "testDisc",
+    "lookupMetadata", "exportAlbumJson", "ripFirstTrack", "cancelRip", "probePath",
+    "resetDefaults", "openLogFolder", "testEnvironment", "testNetwork"
+)
 
 @Composable
 private fun ListDropdown(
@@ -447,28 +472,43 @@ private fun PlainField(
     value: String,
     placeholder: String,
     enabled: Boolean,
+    numeric: Boolean = false,
     onChange: (String) -> Unit
 ) {
     val cs = MaterialTheme.colorScheme
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        singleLine = true,
-        enabled = enabled,
-        placeholder = {
-            if (placeholder.isNotBlank()) {
-                Text(placeholder, fontSize = 12.sp, color = cs.onSurfaceVariant.copy(alpha = 0.6f))
-            }
-        },
-        textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 18.sp),
-        shape = RoundedCornerShape(8.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = cs.onSurface,
-            unfocusedBorderColor = cs.outlineVariant,
-            cursorColor = cs.onSurface
-        ),
-        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
-    )
+    // 数字项允许「空」「-」这类中间态（原文存在 NumericDraft 里），只有真的不是整数才提示
+    val invalid = numeric && value.isNotBlank() && value.trim().toIntOrNull() == null
+    Column(modifier = Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onChange,
+            singleLine = true,
+            enabled = enabled,
+            placeholder = {
+                if (placeholder.isNotBlank()) {
+                    Text(placeholder, fontSize = 12.sp, color = cs.onSurfaceVariant.copy(alpha = 0.6f))
+                }
+            },
+            textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 18.sp),
+            shape = RoundedCornerShape(8.dp),
+            isError = invalid,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = cs.onSurface,
+                unfocusedBorderColor = if (invalid) cs.error else cs.outlineVariant,
+                cursorColor = cs.onSurface
+            ),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
+        )
+        if (invalid) {
+            Text(
+                text = Strings.message("这一项要填整数（负号也可以）"),
+                fontSize = 11.sp,
+                lineHeight = 14.sp,
+                color = cs.error,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+    }
 }
 
 /**
@@ -552,13 +592,16 @@ private fun TemplateRow(item: SettingItem, label: String, hint: String, value: S
                         )
                     }
                 }
+                // 以前这里写的是「清空」并真的把整段模板抹掉：它和变量块同款式、同排、间距 4dp，
+                // 想「退出块编辑」的用户一点就丢掉了 %albumartist%/%albumtitle% 这类结构。
+                // 现在它只取消选中；要清空模板请手动全选删除。
                 Surface(
                     shape = RoundedCornerShape(999.dp),
                     color = Color.Transparent,
-                    modifier = Modifier.clickable { PanelState.clearTarget() }
+                    modifier = Modifier.clickable { PanelState.deselectTarget() }
                 ) {
                     Text(
-                        text = Strings.key("clear"),
+                        text = Strings.message("取消选中"),
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                         fontSize = 11.sp,
                         lineHeight = 14.sp,

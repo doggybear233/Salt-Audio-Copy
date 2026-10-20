@@ -188,21 +188,23 @@ object SettingsSpec {
         ),
         SettingPage(
             "p9", "诊断", listOf(
+                // 测试模式是真闸门：打开后才出现「只测不写」「试抓第 1 轨」这类会真的读盘/写盘的按钮
+                sw("testMode"),
                 txt("trackSelection", "1-5,8；留空＝全部"),
                 act("scanDrives", "扫描驱动器"),
                 act("previewPlan", "抓轨计划预览（不写盘）"),
                 act("analyzeDisc", "间隙预扫（只读）"),
                 act("probeReadCommands", "探测可用读命令（只读）"),
-                act("testDisc", "只测不写"),
+                act("testDisc", "只测不写").copy(visibleWhen = { it.testMode }),
                 act("lookupMetadata", "仅查询元数据"),
                 act("exportAlbumJson", "导出元数据模板"),
-                act("ripFirstTrack", "试抓第 1 轨"),
+                act("ripFirstTrack", "试抓第 1 轨").copy(visibleWhen = { it.testMode }),
                 act("cancelRip", "取消当前抓轨"),
                 act("probePath", "试写测试（中文路径）"),
                 act("resetDefaults", "恢复默认设置"),
                 act("openLogFolder", "打开日志文件夹"),
-            act("testEnvironment", "环境自检（语言 / 编码 / 路径）", "看清楚系统代码页与中日韩路径能不能写"),
-        act("testNetwork", "网络自检（音乐库 / CDDB）")
+                act("testEnvironment", "环境自检（语言 / 编码 / 路径）", "看清楚系统代码页与中日韩路径能不能写"),
+                act("testNetwork", "网络自检（音乐库 / CDDB）")
             )
         )
     )
@@ -217,6 +219,18 @@ object SettingsSpec {
         p.items.filter { it.kind == SettingKind.ACTION }.map { it.key }
     }
 
+    /**
+     * 数字输入项。
+     *
+     * 这些键在 [SettingsAccess.text] 里是「Int.toString()」，如果直接受控绑定，
+     * 用户退格到空串时会立刻回落旧值、负号也打不进去（offsetSamples 真的需要负数）。
+     * UI 侧用 [NumericDraft] 暂存原文，离开焦点/保存时才校验。
+     */
+    val numericKeys: Set<String> = setOf(
+        "maxRetries", "retryDelayMs", "offsetSamples", "discNumberOverride",
+        "totalDiscsOverride", "releaseIndex", "driveSpeed", "coverSize", "flacLevel"
+    )
+
     fun page(id: String): SettingPage = pages.firstOrNull { it.id == id } ?: pages.first()
 
     fun item(key: String): SettingItem? =
@@ -224,6 +238,34 @@ object SettingsSpec {
 
     /** 面板打开设置时默认停在哪一页。 */
     const val DEFAULT_PAGE: String = "p2"
+}
+
+/**
+ * 数字项的输入草稿。
+ *
+ * 受控输入直接把 `Int` 转成字符串再回读，会出现两个实际毛病：
+ * 退格删到空时值立刻回落旧数字（光标被重置），以及 `-` 根本打不进去（`toIntOrNull()` 为 null）。
+ * 所以 UI 把「正在输入的原文」放这里，[SettingsAccess.text] 优先返回它，[SettingsAccess.withText]
+ * 只在能解析时写进设置；保存/离开焦点时由 UI 负责校验并清掉草稿。
+ */
+internal object NumericDraft {
+
+    private val raw = HashMap<String, String>()
+
+    fun get(key: String): String? = raw[key]
+
+    fun put(key: String, value: String) {
+        raw[key] = value
+    }
+
+    /** 提交或放弃某项：清掉草稿后 [SettingsAccess.text] 回到设置里的真实值。 */
+    fun clear(key: String) {
+        raw.remove(key)
+    }
+
+    fun clearAll() {
+        raw.clear()
+    }
 }
 
 /**
@@ -286,7 +328,9 @@ object SettingsAccess {
         else -> s
     }
 
-    fun text(s: RipSettings, key: String): String = when (key) {
+    fun text(s: RipSettings, key: String): String = NumericDraft.get(key) ?: rawText(s, key)
+
+    private fun rawText(s: RipSettings, key: String): String = when (key) {
         "outputRoot" -> s.outputRoot
         "folderTemplate" -> s.folderTemplate
         "fileTemplate" -> s.fileTemplate
@@ -330,6 +374,7 @@ object SettingsAccess {
         "gapMethod" -> s.copy(gapMethod = v)
         "driveLetter" -> s.copy(driveLetter = v)
         "trackSelection" -> s.copy(trackSelection = v)
+        // 解析不了（空、"-"、乱输）就保持原值：草稿由 NumericDraft 留着，不静默改成默认值
         "maxRetries" -> s.copy(maxRetries = num(v, s.maxRetries))
         "retryDelayMs" -> s.copy(retryDelayMs = num(v, s.retryDelayMs))
         "offsetSamples" -> s.copy(offsetSamples = num(v, s.offsetSamples))

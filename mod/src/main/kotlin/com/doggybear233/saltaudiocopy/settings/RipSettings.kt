@@ -210,6 +210,14 @@ object SettingsStore {
         return def
     }
 
+    /**
+     * 不读盘的快照：还没读过配置时返回 null。
+     *
+     * 面板每帧都要算「文件会落到哪」，绝不能因此在组合期调 [load]（宿主配置是磁盘读，
+     * 输出根在机械盘/网络盘时会掉帧）。需要真值的地方仍应显式 [load]。
+     */
+    fun peek(): RipSettings? = cached
+
     fun load(force: Boolean = false): RipSettings {
         cached?.let { if (!force) return it }
         val h = helper()

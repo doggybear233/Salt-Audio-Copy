@@ -14,6 +14,8 @@ import com.doggybear233.saltaudiocopy.settings.RipSettings
 import com.doggybear233.saltaudiocopy.settings.SettingsStore
 import com.doggybear233.saltaudiocopy.ui.ManualDraft
 import com.doggybear233.saltaudiocopy.ui.Notify
+import com.doggybear233.saltaudiocopy.ui.NumericDraft
+import com.doggybear233.saltaudiocopy.ui.OptionText
 import com.doggybear233.saltaudiocopy.ui.PanelFormat
 import com.doggybear233.saltaudiocopy.ui.PanelState
 import com.doggybear233.saltaudiocopy.ui.SettingsSpec
@@ -246,6 +248,8 @@ object ConfigActions {
      * 最后一台的盘信息会覆盖前面那台音乐 CD。
      */
     private fun publishScanned(r: com.doggybear233.saltaudiocopy.rip.ScanResult) {
+        // 面板预览要用设置算路径：这里存一份内存快照，组合期就不用再读宿主配置
+        runCatching { SettingsStore.load() }.getOrNull()?.let { PanelState.settingsSnapshot = it }
         // 让轮询以这张盘为基准，避免它立刻再判一次「换盘」。
         runCatching { DiscWatcher.seed(r.toc) }
         ScanResultHolder.put(r)
@@ -1444,6 +1448,7 @@ object ConfigActions {
     @JvmStatic
     fun openSettings() {
         val s = SettingsStore.load(true)
+        PanelState.settingsSnapshot = s
         PanelState.loadDraft(s.copy(outputRoot = runCatching { s.effectiveRoot.toString() }.getOrDefault("")))
         PanelState.settingsPage = SettingsSpec.DEFAULT_PAGE
         PanelState.settingsOpen = true
@@ -1464,9 +1469,21 @@ object ConfigActions {
             coverFileName = PanelState.draft.coverFileName.ifBlank { "cover" },
             multiDiscFolder = PanelState.draft.multiDiscFolder.ifBlank { "CD%discnumber%" }
         )
+        // 数字框里留着解析不了的原文（"-"、空串）时不要静默当默认值：说清哪项没生效
+        val badNumeric = SettingsSpec.numericKeys.filter { k ->
+            val raw = NumericDraft.get(k)
+            raw != null && raw.trim().toIntOrNull() == null
+        }
+        if (badNumeric.isNotEmpty()) {
+            val names = badNumeric.joinToString("、") { k -> OptionText.label(k, k) }
+            Notify.warn(Strings.fmt("这些项不是整数，已保留原值：%s", names))
+        }
+        NumericDraft.clearAll()
         val saved = SettingsStore.save(d)
         PanelState.testMode = d.testMode
+        PanelState.settingsSnapshot = d
         PanelState.settingsOpen = false
+        PanelState.refreshPreview()
         if (saved) {
             toast(Strings.message("设置已保存"), ToastType.Success)
         } else {

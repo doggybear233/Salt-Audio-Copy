@@ -53,9 +53,20 @@ class TemplateChipsTest {
     fun clearOnlyAffectsSelectedField() {
         PanelState.loadDraft(RipSettings(folderTemplate = "a", fileTemplate = "b", coverFileName = "c"))
         PanelState.editTarget = 0
-        PanelState.clearTarget()
+        PanelState.clearTargetField()
         assertEquals("", PanelState.editFolder)
         assertEquals("b", PanelState.editFile)
         assertEquals("c", PanelState.editCover)
+    }
+
+    @Test
+    fun deselectKeepsTemplateTextIntact() {
+        // 「取消选中」chip 只是退出块编辑，绝不碰模板内容
+        PanelState.loadDraft(RipSettings(folderTemplate = "%albumartist%/%albumtitle%", fileTemplate = "x"))
+        PanelState.editTarget = 0
+        PanelState.deselectTarget()
+        assertEquals(-1, PanelState.editTarget)
+        assertEquals("%albumartist%/%albumtitle%", PanelState.editFolder)
+        assertEquals("x", PanelState.editFile)
     }
 }
