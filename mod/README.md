@@ -3,6 +3,18 @@
 Windows 上把 CD 精确抓成 WAV + CUE + 日志，并把专辑信息（MusicBrainz / gnudb / Cover Art Archive）一起落盘。
 算法与参数来自对 EAC 1.8 的逆向（见 `../architecture.md`、`../features.md`）。
 
+## 0.39.2
+
+修坞上「输出预览」显示旧目录的问题：
+
+- 以前 `outputPreview()` 直接返回 `PanelState.lastOutDir`（上一次抓轨的目录），改过输出根后仍显示旧路径，
+  看起来像设置没生效。现在按当前设置 + 已解析元数据算（`ui/PathPreview.kt`，与真正抓轨时
+  `RipPlan.build` 用同一套模板/变量），手填保存后立刻跟着变。
+- `PanelState.albumNames()` / `resolvedAlbumMeta()`：标题与预览共用「盘面 → 本地缓存」的顺序解析，
+  不再一个显示「十明 — 変身のレシピ」、另一个显示「未知艺术家 / 未知专辑」。
+- 没有元数据时显示 `D:\音楽\…`，不再假装知道专辑名。
+- 测试：`PathPreviewTest` 5 例（跟着根变化、模板展开、无元数据、多碟子目录）；414 tests / 0 failed。
+
 ## 0.39.1
 
 修用户报的两个「输出根目录」问题：

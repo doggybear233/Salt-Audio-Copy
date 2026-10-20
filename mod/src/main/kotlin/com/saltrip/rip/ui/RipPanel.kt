@@ -430,12 +430,22 @@ private fun albumLine(): String {
     return Strings.key("title")
 }
 
+/**
+ * 「文件会落到哪」：按当前设置 + 已解析的元数据算，不再拿上一次抓轨的目录顶替。
+ *
+ * 改过输出根却仍显示旧目录，用户会以为设置没生效；这里的 artist/album 与坞上标题
+ * 走同一套解析（盘信息 → 选中候选 → 手动保存的缓存）。
+ */
 private fun outputPreview(): String {
-    PanelState.lastOutDir?.let { return it.toString() }
-    val root = PanelState.draft.outputRoot
-    if (root.isBlank()) return Strings.key("default_root")
-    val album = PanelState.disc?.album?.takeIf { it.isNotBlank() && it != "未知专辑" }
-    return if (album != null) root.trimEnd('\\') + "\\" + album else root
+    val settings = runCatching { com.saltrip.rip.settings.SettingsStore.load() }.getOrNull()
+        ?: return Strings.key("default_root")
+    val names = PanelState.albumNames()
+    return PathPreview.folder(
+        settings = settings,
+        artist = names.first,
+        album = names.second,
+        meta = PanelState.resolvedAlbumMeta(settings)
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)

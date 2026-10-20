@@ -250,6 +250,29 @@ object PanelState {
     val hasAudioDisc: Boolean get() = disc?.audio == true
 
     /**
+     * 已解析的专辑艺术家 / 专辑名。
+     *
+     * 顺序与坞上标题一致：盘面信息（含刚保存的手填值）→ 本地 album.json 缓存 → 空。
+     */
+    internal fun albumNames(): Pair<String, String> {
+        val d = disc
+        if (d != null) {
+            val a = d.artist.takeIf { it.isNotBlank() && it != "未知艺术家" }
+            val b = d.album.takeIf { it.isNotBlank() && it != "未知专辑" }
+            if (a != null && b != null) return a to b
+            if (a != null || b != null) return (a ?: "") to (b ?: "")
+        }
+        val meta = resolvedAlbumMeta(com.saltrip.rip.settings.SettingsStore.load())
+        return (meta?.albumArtist ?: "") to (meta?.albumTitle ?: "")
+    }
+
+    /** 本地缓存里的完整元数据（决定 %year%/%genre% 这类变量），没有就 null。 */
+    internal fun resolvedAlbumMeta(settings: com.saltrip.rip.settings.RipSettings): com.saltrip.rip.meta.AlbumMeta? {
+        val id = disc?.discId ?: return null
+        return runCatching { com.saltrip.rip.ConfigActions.readCachedAlbum(settings.effectiveRoot, id) }.getOrNull()
+    }
+
+    /**
      * 会改盘/写盘的动作能不能点；返回 null 表示可以，否则返回一句「为什么不能」。
      *
      * 放在状态层而不是 UI 层：面板与设置页按钮共用同一套判定，避免两处漂移；
