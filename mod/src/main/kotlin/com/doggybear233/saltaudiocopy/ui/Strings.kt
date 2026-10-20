@@ -53,7 +53,15 @@ object Strings {
      */
     fun fmt(zhTemplate: String, vararg args: Any?): String {
         val tpl = message(zhTemplate)
-        return runCatching { String.format(java.util.Locale.ROOT, tpl, *args) }.getOrDefault(tpl)
+        return runCatching { String.format(java.util.Locale.ROOT, tpl, *args) }
+            .onFailure {
+                // 占位符和参数对不上时以前静默返回模板，界面上会露出「%s」。
+                // 至少留一条日志，方便定位是哪条译文的 %s 写错了。
+                com.doggybear233.saltaudiocopy.Diag.log(
+                    "message format failed: tpl='$tpl' args=${args.size}", it
+                )
+            }
+            .getOrDefault(tpl)
     }
 
     /** 测试用：字典里到底收了多少条。 */

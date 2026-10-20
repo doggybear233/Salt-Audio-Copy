@@ -9,6 +9,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class FlacMetaTest {
@@ -149,5 +150,20 @@ class FlacMetaTest {
             return i
         }
         return -1
+    }
+
+    @Test
+    fun oversizedMetadataBlockIsRejected() {
+        // 大于 16 MiB 的块长度写不进 24 位字段：必须明确失败，不能产出长度错位的 FLAC
+        val tooBig = ByteArray(com.doggybear233.saltaudiocopy.encode.FlacMeta.MAX_BLOCK_PAYLOAD + 1)
+        val f = writeFlac("big.flac")
+        val e = assertFailsWith<IllegalArgumentException> {
+            com.doggybear233.saltaudiocopy.encode.FlacMeta.write(
+                f, listOf("TITLE" to "x"), tooBig, "image/jpeg"
+            )
+        }
+        assertTrue(e.message!!.contains("上限"), "错误消息应说明上限：${e.message}")
+        // 原文件不能被半截写坏
+        assertTrue(Files.size(f) > 0)
     }
 }

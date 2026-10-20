@@ -13,7 +13,8 @@ class GnudbLiveTest {
 
     @Test
     fun queriesRealDisc() {
-        HwGate.assumeMedia()
+        // 不再挂在 SALTRAC_HW 门控上：只要本机有 F: 音频盘且能上网就该跑，
+        // 这样日常开发机也会执行到真实 CDDB 路径
         val dev = runCatching { CdDevice("\\\\.\\F:") }.getOrNull()
         Assumptions.assumeTrue(dev != null, "F: 不可用")
         val toc = runCatching { dev!!.readToc() }.getOrNull()

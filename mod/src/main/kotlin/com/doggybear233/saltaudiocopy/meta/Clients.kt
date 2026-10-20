@@ -174,6 +174,21 @@ object GnudbClient {
         "http://freedb.dbpoweramp.com/~cddb/cddb.cgi"
     )
 
+    /**
+     * 测试缝：换成指向本地 HttpServer 的地址，就能在没有外网的情况下验证
+     * 镜像回退、握手换 hello、query/read 解析、缓存命中这些路径。
+     * 以前这些只能在真机 + 真网络上试，CI 里全 skipped。
+     */
+    @Volatile
+    internal var mirrorsOverride: List<String>? = null
+
+    /** 测试用：清掉「连不上」的记忆，否则同一进程里第二个用例会被跳过。 */
+    internal fun resetForTest() {
+        deadMirrors.clear()
+        lastMirror = null
+        mirrorsOverride = null
+    }
+
     private val THROTTLE_MS = 500L
 
     /** 本次运行里已经证明连不上的镜像，别再每次都等一遍超时。 */
@@ -197,7 +212,8 @@ object GnudbClient {
 
     private fun request(cmd: String): HttpResult {
         var lastError: Throwable? = null
-        for (host in MIRRORS) {
+        val mirrors = mirrorsOverride ?: MIRRORS
+        for (host in mirrors) {
             if (host in deadMirrors) continue
             var tried500: HttpResult? = null
             for (hello in HELLOS) {
@@ -229,7 +245,7 @@ object GnudbClient {
             }
         }
         throw java.io.IOException(
-            "CDDB 服务全部连不上（${MIRRORS.size} 个镜像都失败：" +
+            "CDDB 服务全部连不上（${(mirrorsOverride ?: MIRRORS).size} 个镜像都失败：" +
                 (lastError?.message ?: "未知原因") + "）",
             lastError
         )
@@ -244,6 +260,18 @@ object GnudbClient {
         val first = lines[0]
         val entries = ArrayList<Entry>()
         when {
+            // 200 与 210 都是「精确命中一条」。区别在格式：
+            //   200 的状态行只有文案，数据在下一行 <category> <discid> <title>；
+            //   210 有的镜像把数据直接接在状态行后面。
+            // 只认 210 时，返回 200 的镜像会被当成「没找到」——真机表现为有记录却候选为空。
+            // 这是 T-07 的桩测试抓出来的。
+            first.startsWith("200") -> {
+                val line = lines.drop(1).firstOrNull { it.isNotBlank() && !it.startsWith(".") }
+                if (line != null) {
+                    val parts = line.trim().split(Regex("\\s+"))
+                    if (parts.size >= 3) entries += Entry(parts[0], parts[1])
+                }
+            }
             first.startsWith("210") -> {
                 val parts = first.trim().split(Regex("\\s+"))
                 if (parts.size >= 3) entries += Entry(parts[1], parts[2])

@@ -76,4 +76,40 @@ class I18nTest {
         assertTrue(Strings.messageCount(Strings.Lang.EN) >= 45, "英文消息条数偏少：${Strings.messageCount(Strings.Lang.EN)}")
         assertTrue(Strings.messageCount(Strings.Lang.JA) >= 45, "日文消息条数偏少：${Strings.messageCount(Strings.Lang.JA)}")
     }
+
+    /**
+     * 批次 18 · T-08：占位符数量必须一致。
+     *
+     * `%s` 在译文里多一个或少一个时 `String.format` 会抛异常，而生产代码以前静默回落
+     * 成模板，界面上直接露出 `%s`。这里把三语的 `%s` 数量钉死。
+     */
+    @Test
+    fun placeholderCountsMatchAcrossLanguages() {
+        val res = javaClass.getResourceAsStream("/messages-i18n.json")
+            ?: error("找不到 messages-i18n.json")
+        val text = res.use { String(it.readBytes(), Charsets.UTF_8) }
+        val root = com.doggybear233.saltaudiocopy.meta.Json.parse(text)
+        val entries = com.doggybear233.saltaudiocopy.meta.Json.obj(
+            com.doggybear233.saltaudiocopy.meta.Json.path(root, "entries")
+        )
+        assertTrue(entries.isNotEmpty(), "messages-i18n.json 缺少 entries")
+        var checked = 0
+        for ((zh, v) in entries) {
+            val pair = v as? List<*> ?: continue
+            val en = pair.getOrNull(0) as? String ?: continue
+            val ja = pair.getOrNull(1) as? String ?: continue
+            val n = zh.count { it == '%' }
+            assertEquals(n, en.count { it == '%' }, "英文占位符数量不一致：$zh")
+            assertEquals(n, ja.count { it == '%' }, "日文占位符数量不一致：$zh")
+            checked++
+        }
+        assertTrue(checked > 300, "应检查到几百条消息，实际 $checked")
+    }
+
+    @Test
+    fun formatFailureKeepsTemplateInsteadOfThrowing() {
+        // 参数故意少给：不能抛异常，也不能吞掉成空串
+        val out = com.doggybear233.saltaudiocopy.ui.Strings.fmt("第 %s 轨有 %s 个块读不稳（已用最后一次结果，可能有杂音）", "3")
+        assertTrue(out.contains("%s"), "格式化失败时应原样保留模板：$out")
+    }
 }

@@ -24,6 +24,9 @@ object FlacMeta {
     const val TYPE_VORBIS_COMMENT = 4
     const val TYPE_PICTURE = 6
 
+    /** FLAC 元数据块长度字段只有 24 位。 */
+    const val MAX_BLOCK_PAYLOAD = 0xFFFFFF
+
     data class Block(val type: Int, val payload: ByteArray)
 
     data class Parsed(val blocks: List<Block>, val audioOffset: Long)
@@ -170,6 +173,12 @@ object FlacMeta {
                 dst.setLength(0)
                 dst.write("fLaC".toByteArray(Charsets.US_ASCII))
                 blocks.forEachIndexed { idx, b ->
+                    // 块长度只有 24 位：超过 16 MiB 时高位会被静默截掉，
+                    // 写出来的是一个长度错位的 FLAC（播放器要么报损坏、要么跳帧）。
+                    // 宁可在这里失败并说清楚，也不要产出一个坏文件。
+                    require(b.payload.size <= MAX_BLOCK_PAYLOAD) {
+                        "FLAC 元数据块过大：type=${b.type} 长 ${b.payload.size} 字节，上限 $MAX_BLOCK_PAYLOAD（封面图请换小一点的）"
+                    }
                     val last = if (idx == blocks.size - 1) 0x80 else 0x00
                     dst.write(last or b.type)
                     dst.write((b.payload.size ushr 16) and 0xFF)
