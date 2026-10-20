@@ -1249,7 +1249,7 @@ object ConfigActions {
                     return@execute
                 }
                 val settings = SettingsStore.load(true)
-                val rows = DiscTest.run(
+                val report = DiscTest.run(
                     scan, scan.toc, { gate() },
                     { stage -> PanelState.stage = stage; Diag.log("test-only: $stage") },
                     verify = settings.secureMode,
@@ -1262,11 +1262,17 @@ object ConfigActions {
                     gapMode = settings.gapMode,
                     speedKbps = settings.driveSpeed
                 )
+                val rows = report.rows
                 val text = DiscTest.summary(rows)
-                Diag.log("test-only done: ${rows.size} tracks")
+                Diag.log("test-only done: ${rows.size} tracks cancelled=${report.cancelled}")
                 rows.forEach { Diag.log("test-only track=${it.track} sectors=${it.sectors} crc32=%08X errors=${it.errors}".format(it.crc32)) }
-                PanelState.set(Strings.message("测试完成（未写盘）"), text)
-                toast(Strings.fmt("测试完成：%s 轨，未写任何文件", rows.size), ToastType.Success)
+                if (report.cancelled) {
+                    PanelState.set(Strings.message("测试已取消"), text)
+                    toast(Strings.fmt("测试已取消：只测了 %s 轨，未写任何文件", rows.size), ToastType.Warning)
+                } else {
+                    PanelState.set(Strings.message("测试完成（未写盘）"), text)
+                    toast(Strings.fmt("测试完成：%s 轨，未写任何文件", rows.size), ToastType.Success)
+                }
             } catch (e: Throwable) {
                 Diag.log("test-only failed", e)
                 val why = com.doggybear233.saltaudiocopy.scsi.ScsiMessages.human(e)

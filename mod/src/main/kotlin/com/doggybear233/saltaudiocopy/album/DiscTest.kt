@@ -25,6 +25,14 @@ object DiscTest {
         val unstable: Int = 0
     )
 
+    /**
+     * 一次「只测不写」的结果。
+     *
+     * `cancelled` 单独带出来是因为：用户取消后 [rows] 里只有测完的那几轨，
+     * 调用方以前照样提示「测试完成」，等于把半途而废说成做完了。
+     */
+    data class Report(val rows: List<Row>, val cancelled: Boolean)
+
     /** 仅供 RipEngine 使用；`writeFile = false` 时该路径不会被创建。 */
     private val SCRATCH = Paths.get("__test_only__.tmp")
 
@@ -45,10 +53,11 @@ object DiscTest {
         errorRecovery: String = "medium",
         gapMode: String = "append",
         speedKbps: Int = 0
-    ): List<Row> {
+    ): Report {
         val rows = ArrayList<Row>()
+        var cancelled = false
         for (i in tracks) {
-            if (cancel()) break
+            if (cancel()) { cancelled = true; break }
             val entry = toc.tracks[i]
             onStage(Strings.fmt("测试读取第 %s 轨…", entry.track))
             val r = RipEngine.ripTrack(
@@ -65,9 +74,10 @@ object DiscTest {
                 speedKbps = speedKbps,
                 source = source
             )
+            if (r.cancelled) { cancelled = true; break }
             rows += Row(entry.track, r.sectors, r.crc32, r.readErrors, r.elapsedMs, r.unstableChunks)
         }
-        return rows
+        return Report(rows, cancelled)
     }
 
     fun summary(rows: List<Row>): String {

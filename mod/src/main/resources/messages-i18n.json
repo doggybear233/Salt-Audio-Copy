@@ -1284,6 +1284,30 @@
     "第 %s 轨有 %s 个块读不稳（已用最后一次结果，可能有杂音）": [
       "Track %s has %s unstable block(s); the last read was used and may contain noise",
       "第 %s トラックの %s 個のブロックが安定せず（最後の読み取りを使用、ノイズが含まれる可能性）"
+    ],
+    "半截文件已删除（断点续抓没开）": [
+      "the partial file was deleted (resume is off)",
+      "途中のファイルは削除しました（レジュームが無効）"
+    ],
+    "已保留半截文件（%s 字节），开着断点续抓，再抓一次会接着写": [
+      "kept the partial file (%s bytes); with resume on, ripping again continues from there",
+      "途中のファイル（%s バイト）を残しました。レジュームが有効なので、もう一度取り込むと続きから書き込みます"
+    ],
+    "没有留下不完整文件": [
+      "no incomplete file was left behind",
+      "不完全なファイルは残っていません"
+    ],
+    "测试已取消": [
+      "Test cancelled",
+      "テストを中止しました"
+    ],
+    "测试已取消：只测了 %s 轨，未写任何文件": [
+      "Test cancelled: only %s track(s) were read, nothing was written",
+      "テストを中止しました：%s トラックのみ読み取り、ファイルは書き込んでいません"
+    ],
+    "第 %s 轨抓取中断：%s；%s": [
+      "Track %s aborted: %s; %s",
+      "第 %s トラックの取り込みを中断：%s；%s"
     ]
   }
 }

@@ -64,9 +64,31 @@ class AlbumPipelineTest {
 
     private fun scan() = ScanResult("\\\\.\\X:", FakeTrackSource.inquiry(), FakeTrackSource.disc3Tracks(6000))
 
+    /**
+     * offset 校正会改写 PCM：报告里的 CRC 必须是**校正后**文件的 CRC，
+     * 否则日志里的校验值和用户手上的文件对不上。
+     */
     @Test
-    fun ripsWholeAlbumWithPlaceholderNames() {
-        val out = AlbumRipper.rip(
+    fun offsetShiftRecomputesReportedCrc() {
+        val plain = AlbumRipper.rip(
+            scan = scan(), settings = settings().copy(offsetSamples = 0),
+            cancel = { false }, onProgress = {}, onStage = {}, onlyTracks = setOf(1), source = fake()
+        )
+        val shifted = AlbumRipper.rip(
+            scan = scan(), settings = settings().copy(offsetSamples = 37),
+            cancel = { false }, onProgress = {}, onStage = {}, onlyTracks = setOf(1), source = fake()
+        )
+        val plainTrack = plain.tracks.first()
+        val shiftedTrack = shifted.tracks.first()
+        assertTrue(plainTrack.crc32 != shiftedTrack.crc32, "偏移后 CRC 必须变")
+        assertEquals(
+            AlbumRipper.wavStats(shiftedTrack.file).first, shiftedTrack.crc32,
+            "报告的 CRC 必须是文件内容的 CRC"
+        )
+    }
+
+    @Test
+    fun ripsWholeAlbumWithPlaceholderNames() {        val out = AlbumRipper.rip(
             scan = scan(), settings = settings(), cancel = { false },
             onProgress = {}, onlyTracks = null, source = fake()
         )

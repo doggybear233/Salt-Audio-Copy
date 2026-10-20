@@ -250,6 +250,10 @@ object AlbumRipper {
         // Test & Copy：先用「只读不写」的测试通道跑一遍，拿到每轨 CRC 作为对照
         val testCrc = HashMap<Int, Long>()
         if (settings.testAndCopy) {
+            // 测试通道也要有进度：整盘测一遍可能要好几分钟，以前进度条一直停在 0，
+            // 用户以为程序死了。这段进度算在「测试」名下，进入复制后重新从 0 开始。
+            var testDoneBase = 0
+            val testEta = com.doggybear233.saltaudiocopy.rip.EtaEstimator()
             for (i in selected) {
                 if (cancel()) { cancelled = true; break }
                 val entry = toc.tracks[i]
@@ -257,14 +261,28 @@ object AlbumRipper {
                 // 测试通道失败不该毁掉整次抓轨：这一轨只是没有 CRC 参照，
                 // 复制通道仍然照常跑（用户要的是文件，不是「因为测试读不出来就全放弃」）。
                 val r = runCatching {
-                    ripOnce(i, dir.resolve("__test__.tmp"), write = false, resume = false) { }
+                    ripOnce(i, dir.resolve("__test__.tmp"), write = false, resume = false) { p ->
+                        val nowMs = (System.nanoTime() - startedAt) / 1_000_000
+                        val done = testDoneBase + p.sectorsDone
+                        onProgress(
+                            RipProgress(
+                                done, totalAll, 0L, nowMs, p.errors,
+                                testEta.sample(done, totalAll, nowMs)
+                            )
+                        )
+                    }
                 }.onFailure {
                     Diag.log("test read failed track=${entry.track}", it)
                     warn(Strings.fmt("第 %s 轨测试读取失败，本轨不做 Test&Copy 比对: %s", entry.track, it.message))
                 }.getOrNull()
-                if (r != null) testCrc[entry.track] = r.crc32
+                if (r != null) {
+                    testCrc[entry.track] = r.crc32
+                    testDoneBase += r.sectors
+                }
             }
             Diag.log("test&copy: 测试通道完成 ${testCrc.size} 轨")
+            // 复制阶段自己的剩余时间从零估，别带上测试通道的速率
+            eta.reset()
         }
 
         for (i in selected) {
@@ -330,7 +348,8 @@ object AlbumRipper {
             if (rel != baseName + ".wav") Diag.log("overwrite policy renamed '$baseName.wav' -> '$rel'")
             val outFile = target
             onStage(Strings.fmt("抓取第 %s 轨：%s", entry.track, title))
-            var r = ripOnce(i, outFile, write = true, resume = settings.resume) { p ->
+            var r = try {
+                ripOnce(i, outFile, write = true, resume = settings.resume) { p ->
                     // 关键：elapsed 必须是**整盘累计**时间、done 是**整盘累计**扇区，
                     // 否则「本轨已用 / 全盘已完成」两个量纲混用，剩余时间会乱跳甚至变大
                     val nowMs = (System.nanoTime() - startedAt) / 1_000_000
@@ -342,6 +361,24 @@ object AlbumRipper {
                         )
                     )
                 }
+            } catch (e: Throwable) {
+                // 抓轨中途出错时不能只留一个半截文件：说清楚它是「可续抓的半截」还是
+                // 「已删掉的废文件」，否则用户下次看到 0 字节/半长文件完全不知道怎么办。
+                val size = runCatching { Files.size(outFile) }.getOrDefault(0L)
+                val partial = size > 44L
+                val keep = partial && settings.resume
+                if (partial && !keep) runCatching { Files.deleteIfExists(outFile) }
+                val what = when {
+                    !partial -> Strings.message("没有留下不完整文件")
+                    keep -> Strings.fmt("已保留半截文件（%s 字节），开着断点续抓，再抓一次会接着写", size - 44L)
+                    else -> Strings.message("半截文件已删除（断点续抓没开）")
+                }
+                Diag.log("track ${entry.track} aborted: $what", e)
+                throw IllegalStateException(
+                    Strings.fmt("第 %s 轨抓取中断：%s；%s", entry.track, e.message ?: e.javaClass.simpleName, what),
+                    e
+                )
+            }
             if (r.unstableChunks > 0) {
                 warn(
                     Strings.fmt(
@@ -376,6 +413,13 @@ object AlbumRipper {
             }
             if (settings.offsetSamples != 0 && !r.cancelled) {
                 runCatching { PcmOffset.apply(outFile, settings.offsetSamples) }
+                    .onSuccess {
+                        // 偏移把采样整体挪了几十个字节：文件内容变了，CRC 与峰值必须重算，
+                        // 否则日志与封面/目录里的校验值对不上真实音频。
+                        runCatching { wavStats(outFile) }
+                            .onSuccess { (crc, peak) -> r = r.copy(crc32 = crc, peakLevel = peak) }
+                            .onFailure { Diag.log("recompute crc after offset failed", it) }
+                    }
                     .onFailure { Diag.log("offset shift failed on $outFile", it); warn(Strings.fmt("offset 校正失败: %s", it.message)) }
             }
             // WAV 的 LIST/INFO 标签：资源管理器/播放器读它显示标题、艺术家、专辑
@@ -673,5 +717,39 @@ object AlbumRipper {
     private fun mmss(sectors: Int): String {
         val totalSec = sectors / 75
         return "%d:%02d".format(totalSec / 60, totalSec % 60)
+    }
+
+    /**
+     * 按文件实际内容算 CRC32 与峰值（跳过 44 字节头）。
+     *
+     * offset 校正改写的是 PCM 字节，抓轨过程中累计的 CRC 说的是「校正前」的音频；
+     * 日志与播放器看到的是校正后的文件，两者必须一致，所以这里重算一次。
+     */
+    internal fun wavStats(path: java.nio.file.Path): Pair<Long, Double> {
+        val crc = java.util.zip.CRC32()
+        var peak = 0.0
+        // 只算 data 区：抓轨后还会追加 LIST/INFO 与 ID3 标签，
+        // 那些字节不属于音频，混进来会让 CRC 与播放器/日志对不上。
+        val limit = com.doggybear233.saltaudiocopy.rip.WavInfo.read(path)?.dataBytes
+            ?: Long.MAX_VALUE
+        java.nio.file.Files.newInputStream(path).use { ins ->
+            var skip = 44L
+            while (skip > 0) {
+                val n = ins.skip(skip)
+                if (n <= 0) break
+                skip -= n
+            }
+            var left = limit
+            val buf = ByteArray(1 shl 20)
+            while (left > 0) {
+                val want = minOf(buf.size.toLong(), left).toInt()
+                val n = ins.read(buf, 0, want)
+                if (n <= 0) break
+                crc.update(buf, 0, n)
+                peak = maxOf(peak, com.doggybear233.saltaudiocopy.rip.SecureRip.peakLevel(buf, n))
+                left -= n
+            }
+        }
+        return crc.value to peak
     }
 }
