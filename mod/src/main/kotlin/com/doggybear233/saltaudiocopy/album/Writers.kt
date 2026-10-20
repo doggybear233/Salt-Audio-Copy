@@ -89,7 +89,7 @@ object CueWriter {
         album?.albumTitle?.let { line("TITLE \"${q(it)}\"") }
         line()
         tracks.forEachIndexed { i, t ->
-            line("FILE \"${q(relativeNames.getOrElse(i) { t.file.fileName.toString() })}\" WAVE")
+            line("FILE \"${q(relativeNames.getOrElse(i) { t.file.fileName.toString() })}\" ${cueType(t.file.fileName.toString())}")
             line("  TRACK %02d AUDIO".format(t.number))
             line("    TITLE \"${q(t.title)}\"")
             t.artist?.takeIf { it.isNotBlank() }?.let { line("    PERFORMER \"${q(it)}\"") }
@@ -105,6 +105,13 @@ object CueWriter {
         }
         return sb.toString()
     }
+
+    /**
+     * CUE 的 FILE 类型必须与实际文件一致：FLAC 写成 WAVE 会让严格解析器
+     * （cue2tracks、部分播放器）按 PCM 去解释压缩数据，分轨全错。
+     */
+    internal fun cueType(fileName: String): String =
+        if (fileName.lowercase().endsWith(".flac")) "FLAC" else "WAVE"
 
     /**
      * 整盘镜像 CUE：单个 `FILE`，INDEX 为**相对镜像起点的绝对时间**。
@@ -134,7 +141,7 @@ object CueWriter {
         album?.albumArtist?.let { line("PERFORMER \"${q(it)}\"") }
         album?.albumTitle?.let { line("TITLE \"${q(it)}\"") }
         line()
-        line("FILE \"${q(imageName)}\" WAVE")
+        line("FILE \"${q(imageName)}\" ${cueType(imageName)}")
         tracks.forEach { t ->
             val start = (t.startLba - firstLba).coerceAtLeast(0)
             line("  TRACK %02d AUDIO".format(t.number))

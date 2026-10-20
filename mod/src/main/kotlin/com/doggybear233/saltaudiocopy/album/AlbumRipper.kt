@@ -147,7 +147,10 @@ object AlbumRipper {
             .forEach { dir = dir.resolve(it) }
         val totalDiscsEff = settings.totalDiscsOverride.takeIf { it > 0 } ?: album?.totalDiscs ?: 1
         if (totalDiscsEff > 1 && !settings.folderTemplate.contains("%discnumber%")) {
-            TemplateEngine.expandToSegments(settings.multiDiscFolder, albumVars)
+            // 与 RipPlan 用同一个兜底：模板留空时如果原样展开就是空串，
+            // CD1/CD2 会落进同一个目录、互相覆盖。
+            val md = settings.multiDiscFolder.ifBlank { "CD%discnumber%" }
+            TemplateEngine.expandToSegments(md, albumVars)
                 .forEach { dir = dir.resolve(it) }
         }
         // 记录抓轨前专辑目录里已有的文件名：结束时差集就是「本次新建」，

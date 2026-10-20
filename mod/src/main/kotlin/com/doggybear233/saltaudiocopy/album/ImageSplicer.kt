@@ -46,15 +46,20 @@ object ImageSplicer {
             raf.write(header(total))
             val buf = ByteArray(1 shl 20)
             for (p in parts) {
+                // 只搬 data 区，长度取头部声明的值：抓轨后每轨都追加了 LIST/INFO 与 id3 标签，
+                // 按「文件长度 - 44」拷会把标签块当音频拼进镜像中间，整盘镜像从此损坏
+                // （播放到每轨交界处出现爆音，CRC 也对不上）。
+                val declared = WavInfo.read(p)?.dataBytes ?: 0L
                 RandomAccessFile(p.toFile(), "r").use { src ->
                     src.seek(HEADER_SIZE)
-                    var left = src.length() - HEADER_SIZE
+                    var left = declared
                     while (left > 0) {
                         val n = src.read(buf, 0, minOf(buf.size.toLong(), left).toInt())
                         if (n <= 0) break
                         raf.write(buf, 0, n)
                         left -= n
                     }
+                    require(left == 0L) { "读取不足：$p 还差 $left 字节（文件被截断？）" }
                 }
             }
         }

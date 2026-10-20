@@ -98,14 +98,16 @@ class RipSafetyTest {
     }
 
     @Test
-    fun keepingWavOffNeedsMoreHeadroom() {
+    fun flacAndImageModeRaiseThePeak() {
         val sectors = 340_448L
-        val a = FreeSpace.requiredBytes(sectors, 21)
-        // 不保留 WAV 时 WAV 与 FLAC 要同时存在，需求应更大
-        val msgKeep = FreeSpace.check(a + 1, sectors, 21, keepWav = true)
-        val msgDrop = FreeSpace.check(a + 1, sectors, 21, keepWav = false)
-        assertNull(msgKeep)
-        assertNotNull(msgDrop)
+        val wav = FreeSpace.peakBytes(sectors, 21, "wav", imageMode = false)
+        val flac = FreeSpace.peakBytes(sectors, 21, "flac", imageMode = false)
+        val image = FreeSpace.peakBytes(sectors, 21, "wav", imageMode = true)
+        assertTrue(flac > wav, "FLAC 编码期间 WAV 与 FLAC 同时存在，峰值更大")
+        assertTrue(image > wav, "镜像模式还要多一份拼接产物")
+        // 保不保留 WAV 只影响最终占用，不影响峰值
+        assertNull(FreeSpace.check(wav + 1, sectors, 21, keepWav = false))
+        assertNotNull(FreeSpace.check(wav + 1, sectors, 21, keepWav = false, format = "flac"))
     }
 
     // ---------- DiscGuard ----------
