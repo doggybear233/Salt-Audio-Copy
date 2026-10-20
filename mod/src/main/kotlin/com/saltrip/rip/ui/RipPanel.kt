@@ -92,7 +92,7 @@ private fun PanelSurface() {
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             when {
-                PanelState.settingsOpen -> SettingsBlock()
+                PanelState.settingsOpen -> SettingsPanel()
                 PanelState.busy || PanelState.progress != null -> RunningBlock()
                 PanelState.disc == null -> IdleBlock()
                 else -> ReadyBlock()
@@ -317,7 +317,7 @@ private fun albumLine(): String {
 
 private fun outputPreview(): String {
     PanelState.lastOutDir?.let { return it.toString() }
-    val root = PanelState.outputRootText
+    val root = PanelState.draft.outputRoot
     if (root.isBlank()) return Strings.key("default_root")
     val album = PanelState.disc?.album?.takeIf { it.isNotBlank() && it != "未知专辑" }
     return if (album != null) root.trimEnd('\\') + "\\" + album else root
@@ -397,95 +397,6 @@ private fun CandidateRow() {
     }
 }
 
-/* ---------------------------------------------------------------- 设置（原位展开） */
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun SettingsBlock() {
-    val cs = MaterialTheme.colorScheme
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = Strings.key("settings"),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.weight(1f)
-        )
-        TextButton(onClick = { ConfigActions.closeSettings() }) {
-            Text(Strings.key("settings_close"), style = MaterialTheme.typography.labelMedium)
-        }
-    }
-    HorizontalDivider(color = cs.outlineVariant)
-
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = Strings.key("output_root"),
-            style = MaterialTheme.typography.labelMedium,
-            color = cs.onSurfaceVariant,
-            modifier = Modifier.width(80.dp)
-        )
-        Text(
-            text = PanelState.outputRootText.ifBlank { Strings.key("default_root") },
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
-        )
-        TextButton(onClick = { ConfigActions.chooseOutputRoot() }) {
-            Text(Strings.key("choose"), style = MaterialTheme.typography.labelMedium)
-        }
-    }
-
-    TemplateField(Strings.key("tpl_folder"), PanelState.editFolder, 0) { PanelState.editFolder = it }
-    TemplateField(Strings.key("tpl_file"), PanelState.editFile, 1) { PanelState.editFile = it }
-    TemplateField(Strings.key("tpl_cover"), PanelState.editCover, 2) { PanelState.editCover = it }
-
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = if (PanelState.editTarget < 0) Strings.key("pick_target_hint") else Strings.key("add_token_hint"),
-            style = MaterialTheme.typography.labelSmall,
-            color = if (PanelState.editTarget < 0) cs.error else cs.onSurfaceVariant,
-            modifier = Modifier.weight(1f)
-        )
-        if (PanelState.editTarget >= 0) {
-            TextButton(onClick = { PanelState.clearTarget() }) {
-                Text(Strings.key("clear"), style = MaterialTheme.typography.labelSmall)
-            }
-        }
-    }
-
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        for ((token, label) in TemplateChips) {
-            val enabled = PanelState.editTarget >= 0
-            Surface(
-                shape = RoundedCornerShape(999.dp),
-                color = cs.surfaceVariant.copy(alpha = if (enabled) 0.9f else 0.4f),
-                modifier = Modifier.clickable(enabled = enabled) { PanelState.appendToken(token) }
-            ) {
-                Text(
-                    text = label,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (enabled) cs.onSurfaceVariant else cs.onSurfaceVariant.copy(alpha = 0.4f)
-                )
-            }
-        }
-    }
-
-    SwitchRow(Strings.key("secure"), PanelState.secureMode) { PanelState.secureMode = it }
-
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = { ConfigActions.savePanelSettings() }, colors = monoPrimary()) {
-            Text(Strings.key("save"), style = MaterialTheme.typography.labelLarge)
-        }
-        TextButton(onClick = { ConfigActions.closeSettings() }) {
-            Text(Strings.key("cancel"), style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
-        }
-    }
-}
-
 /**
  * 黑白按钮：浅色主题用黑底白字，深色主题用白底黑字——不引入宿主的紫色 primary。
  */
@@ -495,61 +406,4 @@ private fun monoPrimary() = ButtonDefaults.buttonColors(
     contentColor = MaterialTheme.colorScheme.surface,
     disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
     disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-)
-
-@Composable
-private fun TemplateField(label: String, value: String, target: Int, onChange: (String) -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    val active = PanelState.editTarget == target
-    val interaction = remember { MutableInteractionSource() }
-    // 鼠标点进输入框就选中该模板，不要求先敲字。
-    LaunchedEffect(interaction) {
-        interaction.interactions.collect {
-            if (it is PressInteraction.Release) PanelState.editTarget = target
-        }
-    }
-    OutlinedTextField(
-        value = value,
-        onValueChange = { onChange(it); PanelState.editTarget = target },
-        singleLine = true,
-        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-        textStyle = MaterialTheme.typography.bodySmall,
-        interactionSource = interaction,
-        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = cs.onSurface,
-            unfocusedBorderColor = if (active) cs.onSurface else cs.outlineVariant,
-            focusedLabelColor = cs.onSurface,
-            unfocusedLabelColor = if (active) cs.onSurface else cs.onSurfaceVariant,
-            cursorColor = cs.onSurface
-        ),
-        modifier = Modifier.fillMaxWidth().onFocusChanged {
-            if (it.isFocused) PanelState.editTarget = target
-        }
-    )
-}
-
-@Composable
-private fun SwitchRow(label: String, checked: Boolean, onToggle: (Boolean) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(text = label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onToggle)
-    }
-}
-
-/**
- * 变量块：只保留用户自己敲不出来的变量；斜杠、空格、连字符、下划线、括号
- * 用户可以直接键入，不再用块代劳。
- */
-private val TemplateChips = listOf(
-    "%albumartist%" to "专辑艺术家",
-    "%albumtitle%" to "专辑名",
-    "%year%" to "年份",
-    "%genre%" to "流派",
-    "%tracknr2%" to "轨号 01",
-    "%title%" to "曲名",
-    "%artist%" to "曲目艺术家",
-    "%discnumber%" to "碟号",
-    "%totalcds%" to "总碟数",
-    "%cddbid%" to "CDDB",
-    "%discid%" to "DiscID"
 )

@@ -13,6 +13,7 @@ import com.saltrip.rip.settings.RipSettings
 import com.saltrip.rip.settings.SettingsStore
 import com.saltrip.rip.ui.PanelFormat
 import com.saltrip.rip.ui.PanelState
+import com.saltrip.rip.ui.SettingsSpec
 import com.xuncorp.spw.workshop.api.WorkshopApi
 import com.xuncorp.spw.workshop.api.WorkshopApi.Ui.ToastType
 import java.nio.file.Path
@@ -862,18 +863,12 @@ object ConfigActions {
         toast("测试模式：${if (next.testMode) "开" else "关"}", ToastType.Success)
     }
 
-    /** 打开面板内嵌设置区：把当前设置读进 PanelState 的编辑草稿。 */
+    /** 打开设置页：整份设置读进草稿，固定停在「输出位置」。 */
     @JvmStatic
     fun openSettings() {
         val s = SettingsStore.load(true)
-        PanelState.loadSettings(
-            folder = s.folderTemplate,
-            file = s.fileTemplate,
-            cover = s.coverFileName,
-            secure = s.secureMode,
-            test = s.testMode,
-            root = runCatching { s.effectiveRoot.toString() }.getOrDefault("")
-        )
+        PanelState.loadDraft(s.copy(outputRoot = runCatching { s.effectiveRoot.toString() }.getOrDefault("")))
+        PanelState.settingsPage = SettingsSpec.DEFAULT_PAGE
         PanelState.settingsOpen = true
     }
 
@@ -883,19 +878,17 @@ object ConfigActions {
         PanelState.settingsOpen = false
     }
 
-    /** 把设置区草稿写回磁盘（含两个开关）。 */
+    /** 把设置草稿整份写回磁盘。 */
     @JvmStatic
     fun savePanelSettings() {
-        val s = SettingsStore.load(true)
-        SettingsStore.save(
-            s.copy(
-                folderTemplate = PanelState.editFolder.ifBlank { "%albumartist%/%albumtitle%" },
-                fileTemplate = PanelState.editFile.ifBlank { "%tracknr2% %title%" },
-                coverFileName = PanelState.editCover.ifBlank { "cover" },
-                secureMode = PanelState.secureMode,
-                testMode = PanelState.testMode
-            )
+        val d = PanelState.draft.copy(
+            folderTemplate = PanelState.draft.folderTemplate.ifBlank { "%albumartist%/%albumtitle%" },
+            fileTemplate = PanelState.draft.fileTemplate.ifBlank { "%tracknr2% %title%" },
+            coverFileName = PanelState.draft.coverFileName.ifBlank { "cover" },
+            multiDiscFolder = PanelState.draft.multiDiscFolder.ifBlank { "CD%discnumber%" }
         )
+        SettingsStore.save(d)
+        PanelState.testMode = d.testMode
         PanelState.settingsOpen = false
         toast("设置已保存", ToastType.Success)
     }
@@ -993,6 +986,46 @@ object ConfigActions {
         toast("日志: ${Diag.logPath()}", ToastType.Success)
     }
 
+    /** 打开日志所在的文件夹（诊断页用；找不到就退回输出根目录）。 */
+    @JvmStatic
+    fun openLogFolder() {
+        exec.execute {
+            val dir = runCatching { java.nio.file.Path.of(Diag.logPath()).parent }.getOrNull()
+            val target = dir ?: runCatching { SettingsStore.load(true).effectiveRoot }.getOrNull()
+            if (target == null) {
+                toast("还没有日志文件", ToastType.Warning)
+                return@execute
+            }
+            runCatching {
+                java.nio.file.Files.createDirectories(target)
+                java.awt.Desktop.getDesktop().open(target.toFile())
+            }.onFailure {
+                Diag.log("open log folder failed", it)
+                toast("无法打开目录: $target", ToastType.Warning)
+            }
+        }
+    }
+
+    /** 选手工元数据覆盖文件（album.json / 自定义 JSON）。 */
+    @JvmStatic
+    fun chooseOverrideFile() {
+        exec.execute {
+            val current = runCatching { SettingsStore.load(true).overrideFile }.getOrDefault("")
+            val picked = pickFile(current, "选择元数据覆盖文件", "JSON 元数据 (json)", "json")
+            if (picked == null) {
+                toast("已取消选择", ToastType.Warning)
+                return@execute
+            }
+            if (PanelState.settingsOpen) {
+                PanelState.updateDraft { it.copy(overrideFile = picked) }
+            } else {
+                val s = SettingsStore.load(true)
+                SettingsStore.save(s.copy(overrideFile = picked))
+            }
+            toast("覆盖文件：$picked", ToastType.Success)
+        }
+    }
+
     /**
      * 选输出目录。
      *
@@ -1009,8 +1042,12 @@ object ConfigActions {
                 toast("已取消选择", ToastType.Warning)
                 return@execute
             }
-            val s = SettingsStore.load(true)
-            SettingsStore.save(s.copy(outputRoot = picked))
+            if (PanelState.settingsOpen) {
+                PanelState.updateDraft { it.copy(outputRoot = picked) }
+            } else {
+                val s = SettingsStore.load(true)
+                SettingsStore.save(s.copy(outputRoot = picked))
+            }
             toast("输出目录：$picked", ToastType.Success)
             Diag.log("outputRoot set to $picked")
         }
@@ -1056,8 +1093,12 @@ object ConfigActions {
                 toast("已取消选择", ToastType.Warning)
                 return@execute
             }
-            val s = SettingsStore.load(true)
-            SettingsStore.save(s.copy(flacExe = picked))
+            if (PanelState.settingsOpen) {
+                PanelState.updateDraft { it.copy(flacExe = picked) }
+            } else {
+                val s = SettingsStore.load(true)
+                SettingsStore.save(s.copy(flacExe = picked))
+            }
             toast("FLAC 编码器：$picked", ToastType.Success)
         }
     }

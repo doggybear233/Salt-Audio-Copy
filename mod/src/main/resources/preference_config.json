@@ -1,7 +1,328 @@
 {
   "configs": [
     {
-      "title": "抓轨",
+      "title": "1 · 抓轨范围",
+      "config": "config.json",
+      "preferences": [
+        {
+          "type": "edittext",
+          "key": "trackSelection",
+          "title": "只抓这些音轨",
+          "summary": "如 1-5,8；留空＝整盘",
+          "default_value": ""
+        }
+      ]
+    },
+    {
+      "title": "2 · 输出位置",
+      "config": "config.json",
+      "preferences": [
+        {
+          "type": "edittext",
+          "key": "outputRoot",
+          "title": "输出根目录",
+          "summary": "留空＝系统「音乐」文件夹。支持中文/日文/韩文路径。",
+          "default_value": ""
+        },
+        {
+          "type": "button",
+          "title": "选择输出目录…",
+          "summary": "打开系统文件夹选择框，选完立即写入设置",
+          "on_click": "com.saltrip.rip.ConfigActions.chooseOutputRoot"
+        },
+        {
+          "type": "list",
+          "key": "overwritePolicy",
+          "title": "同名文件已存在时",
+          "summary": "suffix＝加 (2) 另存（默认，永不覆盖）／overwrite＝覆盖／skip＝跳过该轨",
+          "default_value": "suffix",
+          "entries": [
+            "加 (2) 另存",
+            "覆盖",
+            "跳过"
+          ],
+          "entry_values": [
+            "suffix",
+            "overwrite",
+            "skip"
+          ]
+        },
+        {
+          "type": "switch",
+          "key": "resume",
+          "title": "断点续抓",
+          "summary": "目标 WAV 已存在时从已有扇区之后继续（已写部分的 CRC 会重算），中断的整盘抓取不必从头再来。",
+          "default_value": true
+        },
+        {
+          "type": "edittext",
+          "key": "discNumberOverride",
+          "title": "碟号（0=自动）",
+          "summary": "多碟套装手工指定当前是第几碟；0 表示用元数据里的值。配合文件夹模板里的 %discnumber% 使用。",
+          "default_value": "0"
+        },
+        {
+          "type": "edittext",
+          "key": "totalDiscsOverride",
+          "title": "总碟数（0=自动）",
+          "summary": "多碟套装的总碟数；大于 1 时若文件夹模板没写 %discnumber%，会自动加 CD1/CD2 子目录。",
+          "default_value": "0"
+        },
+        {
+          "type": "edittext",
+          "key": "multiDiscFolder",
+          "title": "多碟子目录模板",
+          "summary": "多碟套装时在专辑目录下再建一层；%discnumber% 会替换成碟号",
+          "default_value": "CD%discnumber%"
+        },
+        {
+          "type": "switch",
+          "key": "ejectAfterRip",
+          "title": "抓完弹出托盘",
+          "summary": "整盘抓完（含 CUE/日志/封面）后弹出，方便换下一张",
+          "default_value": false
+        }
+      ]
+    },
+    {
+      "title": "3 · 命名模板",
+      "config": "config.json",
+      "preferences": [
+        {
+          "type": "edittext",
+          "key": "folderTemplate",
+          "title": "专辑目录模板",
+          "summary": "默认 %albumartist%/%albumtitle%；/ 表示一级目录。变量：%albumartist% %albumtitle% %year% %genre% %discid% %discnumber%",
+          "default_value": "%albumartist%/%albumtitle%"
+        },
+        {
+          "type": "edittext",
+          "key": "fileTemplate",
+          "title": "音轨文件名模板",
+          "summary": "默认 %tracknr2% %title%；变量：%tracknr% %tracknr1% %tracknr2% %tracknr3% %title% %artist% %tracklen%",
+          "default_value": "%tracknr2% %title%"
+        },
+        {
+          "type": "edittext",
+          "key": "coverFileName",
+          "title": "封面文件名",
+          "summary": "不含扩展名，按图片类型补 .jpg / .png",
+          "default_value": "cover"
+        }
+      ]
+    },
+    {
+      "title": "4 · 音频格式",
+      "config": "config.json",
+      "preferences": [
+        {
+          "type": "list",
+          "key": "format",
+          "title": "输出格式",
+          "summary": "WAV 无损未压缩（兼容性最好）；FLAC 内置写入标签与封面（需 flac.exe）；外部编码器可自定义任意命令行",
+          "default_value": "wav",
+          "entries": [
+            "WAV（推荐）",
+            "FLAC",
+            "外部编码器（自定义命令行）"
+          ],
+          "entry_values": [
+            "wav",
+            "flac",
+            "external"
+          ]
+        },
+        {
+          "type": "switch",
+          "key": "imageMode",
+          "title": "整盘镜像（单文件 + CUE）",
+          "summary": "先把每轨按安全模式抓好再拼接成一个 WAV，CUE 用绝对时间；更接近原盘备份，但占用两倍临时空间",
+          "default_value": false
+        },
+        {
+          "type": "edittext",
+          "key": "flacExe",
+          "title": "flac.exe 路径",
+          "summary": "默认按 PATH 查找；也可填绝对路径（例如 D:\\Tools\\flac\\flac.exe）",
+          "default_value": "flac"
+        },
+        {
+          "type": "button",
+          "title": "选择 flac.exe…",
+          "summary": "从磁盘挑编码器；不填则按 PATH 查找 flac",
+          "on_click": "com.saltrip.rip.ConfigActions.chooseFlacExe"
+        },
+        {
+          "type": "list",
+          "key": "flacLevel",
+          "title": "FLAC 压缩等级",
+          "summary": "0 最快 / 5 默认 / 8 最小；等级越高编码越慢，解码速度不受影响",
+          "default_value": "5",
+          "entries": [
+            "0 最快",
+            "3",
+            "5 默认",
+            "8 最小"
+          ],
+          "entry_values": [
+            "0",
+            "3",
+            "5",
+            "8"
+          ]
+        },
+        {
+          "type": "switch",
+          "key": "keepWav",
+          "title": "FLAC 编码后保留 WAV",
+          "summary": "关掉会在编码成功后删除中间 WAV，节省磁盘",
+          "default_value": true
+        },
+        {
+          "type": "edittext",
+          "key": "encoderExe",
+          "title": "外部编码器路径",
+          "summary": "可执行文件，或只写名字走 PATH（如 flac / opusenc / ffmpeg）",
+          "default_value": "flac"
+        },
+        {
+          "type": "edittext",
+          "key": "encoderArgs",
+          "title": "编码器参数模板",
+          "summary": "用 %in% / %out% / %tracknr2% / %title% 等变量；含空格的路径请加引号",
+          "default_value": "-f -s -5 -o \"%out%\" \"%in%\""
+        },
+        {
+          "type": "edittext",
+          "key": "encoderExt",
+          "title": "产物扩展名",
+          "summary": "不含点，如 flac / opus / m4a",
+          "default_value": "flac"
+        }
+      ]
+    },
+    {
+      "title": "5 · 标签与附属文件",
+      "config": "config.json",
+      "preferences": [
+        {
+          "type": "switch",
+          "key": "writeTags",
+          "title": "写入 FLAC 标签",
+          "summary": "标题/艺术家/专辑/轨号/年份/流派/ISRC（需要 metaflac.exe，与 flac.exe 同目录）",
+          "default_value": true
+        },
+        {
+          "type": "switch",
+          "key": "embedCover",
+          "title": "把封面内嵌进 FLAC",
+          "summary": "每个 FLAC 内嵌一张 front cover；关闭则只保留同目录的封面文件",
+          "default_value": true
+        },
+        {
+          "type": "list",
+          "key": "coverSize",
+          "title": "封面尺寸",
+          "summary": "Cover Art Archive 的 front-<size>，越大越清晰也越慢",
+          "default_value": "0",
+          "entries": [
+            "原图（推荐）",
+            "500 px",
+            "1200 px"
+          ],
+          "entry_values": [
+            "0",
+            "500",
+            "1200"
+          ]
+        },
+        {
+          "type": "switch",
+          "key": "writeWavTags",
+          "title": "给 WAV 写标签",
+          "summary": "写入 RIFF INFO（标题/艺术家/专辑），资源管理器与播放器可见",
+          "default_value": true
+        },
+        {
+          "type": "switch",
+          "key": "writeCue",
+          "title": "生成 CUE",
+          "summary": "UTF-8 with BOM + CRLF，含 REM DISCID / CDDBID",
+          "default_value": true
+        },
+        {
+          "type": "switch",
+          "key": "annotateCueCrc",
+          "title": "在 CUE 里附上每轨 CRC",
+          "summary": "REM 行写入 CRC，方便和 EAC 日志对账",
+          "default_value": true
+        },
+        {
+          "type": "switch",
+          "key": "writeLog",
+          "title": "生成抓轨日志",
+          "summary": "每轨 CRC32 / 重试次数 / 用时 + 设置摘要",
+          "default_value": true
+        }
+      ]
+    },
+    {
+      "title": "6 · 元数据",
+      "config": "config.json",
+      "preferences": [
+        {
+          "type": "switch",
+          "key": "fetchMetadata",
+          "title": "联网获取元数据",
+          "summary": "关闭后离线抓轨，使用「未知艺术家 / 未知专辑 / Track NN」占位",
+          "default_value": true
+        },
+        {
+          "type": "switch",
+          "key": "useCdText",
+          "title": "读取 CD-TEXT",
+          "summary": "优先用盘片自带的曲名/艺术家（压过网络数据）。绝大多数压制 CD 没有 CD-TEXT，读不到会静默跳过。",
+          "default_value": true
+        },
+        {
+          "type": "switch",
+          "key": "preferTrackCount",
+          "title": "优先选轨数一致的发行版",
+          "summary": "同一 DiscID 常有多个发行版（日版/港版/再版）。开启后先挑轨数与光盘一致的，再按「候选序号」取。",
+          "default_value": true
+        },
+        {
+          "type": "edittext",
+          "key": "releaseIndex",
+          "title": "候选序号",
+          "summary": "0＝排序后的第一个候选。日志里会列出全部候选，挑错了改这里再抓一次即可。",
+          "default_value": "0"
+        },
+        {
+          "type": "edittext",
+          "key": "overrideFile",
+          "title": "手工元数据文件（可选）",
+          "summary": "留空则自动找 <输出根>\\<DiscID>.album.json 或 <输出根>\\album.json；字段见 README。",
+          "default_value": ""
+        },
+        {
+          "type": "switch",
+          "key": "reuseAlbumJson",
+          "title": "抓过的盘优先用上次的元数据",
+          "summary": "同一张盘再抓时跳过联网，直接复用 album.json（可手改）",
+          "default_value": true
+        },
+        {
+          "type": "switch",
+          "key": "writeAlbumJson",
+          "title": "在专辑目录写入 album.json",
+          "summary": "把解析到的元数据存一份，下次同盘可离线复用，也可手工修正后重抓",
+          "default_value": false
+        }
+      ]
+    },
+    {
+      "title": "7 · 光驱与校验",
       "config": "config.json",
       "preferences": [
         {
@@ -104,279 +425,35 @@
           "default_value": "auto"
         },
         {
-          "type": "edittext",
-          "key": "trackSelection",
-          "title": "只抓这些音轨",
-          "summary": "如 1-5,8；留空＝整盘",
-          "default_value": ""
-        },
-        {
-          "type": "button",
-          "title": "② 抓取整张专辑",
-          "summary": "取元数据 → 按模板命名 → 逐轨抓取 → 封面 / CUE / 日志",
-          "on_click": "com.saltrip.rip.ConfigActions.ripAlbum"
-        },
-        {
-          "type": "switch",
-          "key": "ejectAfterRip",
-          "title": "抓完弹出托盘",
-          "summary": "整盘抓完（含 CUE/日志/封面）后弹出，方便换下一张",
-          "default_value": false
-        },
-        {
-          "type": "button",
-          "title": "暂停 / 继续",
-          "summary": "抓轨中途暂停，再点继续；暂停只影响写盘节奏",
-          "on_click": "com.saltrip.rip.ConfigActions.pauseRip"
-        }
-      ]
-    },
-    {
-      "title": "输出与命名",
-      "config": "config.json",
-      "preferences": [
-        {
-          "type": "list",
-          "key": "overwritePolicy",
-          "title": "同名文件已存在时",
-          "summary": "suffix＝加 (2) 另存（默认，永不覆盖）／overwrite＝覆盖／skip＝跳过该轨",
-          "default_value": "suffix",
-          "entries": [
-            "加 (2) 另存",
-            "覆盖",
-            "跳过"
-          ],
-          "entry_values": [
-            "suffix",
-            "overwrite",
-            "skip"
-          ]
-        },
-        {
-          "type": "edittext",
-          "key": "outputRoot",
-          "title": "输出根目录",
-          "summary": "留空＝系统「音乐」文件夹。支持中文/日文/韩文路径。",
-          "default_value": ""
-        },
-        {
-          "type": "button",
-          "title": "选择输出目录…",
-          "summary": "打开系统文件夹选择框，选完立即写入设置",
-          "on_click": "com.saltrip.rip.ConfigActions.chooseOutputRoot"
-        },
-        {
-          "type": "edittext",
-          "key": "folderTemplate",
-          "title": "专辑目录模板",
-          "summary": "默认 %albumartist%/%albumtitle%；/ 表示一级目录。变量：%albumartist% %albumtitle% %year% %genre% %discid% %discnumber%",
-          "default_value": "%albumartist%/%albumtitle%"
-        },
-        {
-          "type": "edittext",
-          "key": "fileTemplate",
-          "title": "音轨文件名模板",
-          "summary": "默认 %tracknr2% %title%；变量：%tracknr% %tracknr1% %tracknr2% %tracknr3% %title% %artist% %tracklen%",
-          "default_value": "%tracknr2% %title%"
-        },
-        {
-          "type": "edittext",
-          "key": "coverFileName",
-          "title": "封面文件名",
-          "summary": "不含扩展名，按图片类型补 .jpg / .png",
-          "default_value": "cover"
-        },
-        {
-          "type": "list",
-          "key": "coverSize",
-          "title": "封面尺寸",
-          "summary": "Cover Art Archive 的 front-<size>，越大越清晰也越慢",
-          "default_value": "0",
-          "entries": [
-            "原图（推荐）",
-            "500 px",
-            "1200 px"
-          ],
-          "entry_values": [
-            "0",
-            "500",
-            "1200"
-          ]
-        },
-        {
-          "type": "switch",
-          "key": "writeCue",
-          "title": "生成 CUE",
-          "summary": "UTF-8 with BOM + CRLF，含 REM DISCID / CDDBID",
-          "default_value": true
-        },
-        {
-          "type": "switch",
-          "key": "writeLog",
-          "title": "生成抓轨日志",
-          "summary": "每轨 CRC32 / 重试次数 / 用时 + 设置摘要",
-          "default_value": true
-        },
-        {
-          "type": "switch",
-          "key": "writeAlbumJson",
-          "title": "在专辑目录写入 album.json",
-          "summary": "把解析到的元数据存一份，下次同盘可离线复用，也可手工修正后重抓",
-          "default_value": false
-        },
-        {
-          "type": "switch",
-          "key": "reuseAlbumJson",
-          "title": "抓过的盘优先用上次的元数据",
-          "summary": "同一张盘再抓时跳过联网，直接复用 album.json（可手改）",
-          "default_value": true
-        },
-        {
-          "type": "switch",
-          "key": "analyzeBeforeRip",
-          "title": "抓轨前预扫间隙",
-          "summary": "先整盘扫一遍 INDEX 00 再开抓，省掉每轨重复的 Q 子通道读取；抓轨面板会显示间隙表",
-          "default_value": false
-        },
-        {
-          "type": "switch",
-          "key": "writeTags",
-          "title": "写入 FLAC 标签",
-          "summary": "标题/艺术家/专辑/轨号/年份/流派/ISRC（需要 metaflac.exe，与 flac.exe 同目录）",
-          "default_value": true
-        },
-        {
-          "type": "switch",
-          "key": "embedCover",
-          "title": "把封面内嵌进 FLAC",
-          "summary": "每个 FLAC 内嵌一张 front cover；关闭则只保留同目录的封面文件",
-          "default_value": true
-        },
-        {
-          "type": "switch",
-          "key": "writeWavTags",
-          "title": "给 WAV 写标签",
-          "summary": "写入 RIFF INFO（标题/艺术家/专辑），资源管理器与播放器可见",
-          "default_value": true
-        },
-        {
-          "type": "switch",
-          "key": "imageMode",
-          "title": "整盘镜像（单文件 + CUE）",
-          "summary": "先把每轨按安全模式抓好再拼接成一个 WAV，CUE 用绝对时间；更接近原盘备份，但占用两倍临时空间",
-          "default_value": false
-        },
-        {
-          "type": "list",
-          "key": "format",
-          "title": "输出格式",
-          "summary": "WAV 无损未压缩（兼容性最好）；FLAC 内置写入标签与封面（需 flac.exe）；外部编码器可自定义任意命令行",
-          "default_value": "wav",
-          "entries": [
-            "WAV（推荐）",
-            "FLAC",
-            "外部编码器（自定义命令行）"
-          ],
-          "entry_values": [
-            "wav",
-            "flac",
-            "external"
-          ]
-        },
-        {
-          "type": "edittext",
-          "key": "encoderExe",
-          "title": "外部编码器路径",
-          "summary": "可执行文件，或只写名字走 PATH（如 flac / opusenc / ffmpeg）",
-          "default_value": "flac"
-        },
-        {
-          "type": "edittext",
-          "key": "encoderArgs",
-          "title": "编码器参数模板",
-          "summary": "用 %in% / %out% / %tracknr2% / %title% 等变量；含空格的路径请加引号",
-          "default_value": "-f -s -5 -o \"%out%\" \"%in%\""
-        },
-        {
-          "type": "edittext",
-          "key": "encoderExt",
-          "title": "产物扩展名",
-          "summary": "不含点，如 flac / opus / m4a",
-          "default_value": "flac"
-        },
-        {
-          "type": "edittext",
-          "key": "flacExe",
-          "title": "flac.exe 路径",
-          "summary": "默认按 PATH 查找；也可填绝对路径（例如 D:\\Tools\\flac\\flac.exe）",
-          "default_value": "flac"
-        },
-        {
-          "type": "list",
-          "key": "flacLevel",
-          "title": "FLAC 压缩等级",
-          "summary": "0 最快 / 5 默认 / 8 最小；等级越高编码越慢，解码速度不受影响",
-          "default_value": "5",
-          "entries": [
-            "0 最快",
-            "3",
-            "5 默认",
-            "8 最小"
-          ],
-          "entry_values": [
-            "0",
-            "3",
-            "5",
-            "8"
-          ]
-        },
-        {
-          "type": "switch",
-          "key": "keepWav",
-          "title": "FLAC 编码后保留 WAV",
-          "summary": "关掉会在编码成功后删除中间 WAV，节省磁盘",
-          "default_value": true
-        },
-        {
-          "type": "switch",
-          "key": "resume",
-          "title": "断点续抓",
-          "summary": "目标 WAV 已存在时从已有扇区之后继续（已写部分的 CRC 会重算），中断的整盘抓取不必从头再来。",
-          "default_value": true
-        },
-        {
-          "type": "edittext",
-          "key": "discNumberOverride",
-          "title": "碟号（0=自动）",
-          "summary": "多碟套装手工指定当前是第几碟；0 表示用元数据里的值。配合文件夹模板里的 %discnumber% 使用。",
-          "default_value": "0"
-        },
-        {
-          "type": "edittext",
-          "key": "totalDiscsOverride",
-          "title": "总碟数（0=自动）",
-          "summary": "多碟套装的总碟数；大于 1 时若文件夹模板没写 %discnumber%，会自动加 CD1/CD2 子目录。",
-          "default_value": "0"
-        }
-      ]
-    },
-    {
-      "title": "校验与元数据",
-      "config": "config.json",
-      "preferences": [
-        {
-          "type": "switch",
-          "key": "guardDisc",
-          "title": "防止中途换碟",
-          "summary": "每轨开始前重读 TOC；盘片变了立即中止，避免两张盘混在一个专辑里",
-          "default_value": true
-        },
-        {
           "type": "switch",
           "key": "secureMode",
           "title": "双读校验（secure）",
           "summary": "每块读两遍逐字节比对，不一致重读。关掉约快一倍，但不再验证一致性。",
           "default_value": true
+        },
+        {
+          "type": "switch",
+          "key": "testAndCopy",
+          "title": "Test & Copy",
+          "summary": "先「只读不写」跑一遍拿每轨 CRC，再正式抓取并逐轨比对；不一致自动重抓。耗时约翻倍。",
+          "default_value": false
+        },
+        {
+          "type": "list",
+          "key": "errorRecovery",
+          "title": "出错恢复质量",
+          "summary": "low = 只读一次；medium = 连续 3 次一致；high = 连续 5 次一致（最坏单块读 82 次）",
+          "default_value": "medium",
+          "entries": [
+            "低（快速）",
+            "中（推荐）",
+            "高（苛刻）"
+          ],
+          "entry_values": [
+            "low",
+            "medium",
+            "high"
+          ]
         },
         {
           "type": "edittext",
@@ -415,6 +492,19 @@
         },
         {
           "type": "switch",
+          "key": "guardDisc",
+          "title": "防止中途换碟",
+          "summary": "每轨开始前重读 TOC；盘片变了立即中止，避免两张盘混在一个专辑里",
+          "default_value": true
+        }
+      ]
+    },
+    {
+      "title": "8 · 间隙",
+      "config": "config.json",
+      "preferences": [
+        {
+          "type": "switch",
           "key": "detectGaps",
           "title": "探测 INDEX 00 间隙",
           "summary": "用子通道 Q 往前扫最多 1 秒，检测音轨前的预间隙并写入日志（只报告，不改文件边界）。",
@@ -422,19 +512,17 @@
         },
         {
           "type": "list",
-          "key": "errorRecovery",
-          "title": "出错恢复质量",
-          "summary": "low = 只读一次；medium = 连续 3 次一致；high = 连续 5 次一致（最坏单块读 82 次）",
-          "default_value": "medium",
+          "key": "gapMethod",
+          "title": "间隙探测方法",
+          "summary": "子通道 Q 看盘上写的索引（EAC 默认）；波形静音看实际有没有声音（EAC 的 Test Gaps On Silence）。Q 法得到 0 而波形上明显有静音时，换静音法",
+          "default_value": "q",
           "entries": [
-            "低（快速）",
-            "中（推荐）",
-            "高（苛刻）"
+            "子通道 Q（EAC 默认）",
+            "波形静音（Test Gaps On Silence）"
           ],
           "entry_values": [
-            "low",
-            "medium",
-            "high"
+            "q",
+            "silence"
           ]
         },
         {
@@ -455,73 +543,23 @@
           "default_value": "append"
         },
         {
-          "type": "list",
-          "key": "gapMethod",
-          "title": "间隙探测方法",
-          "summary": "子通道 Q 看盘上写的索引（EAC 默认）；波形静音看实际有没有声音（EAC 的 Test Gaps On Silence）。Q 法得到 0 而波形上明显有静音时，换静音法",
-          "default_value": "q",
-          "entries": [
-            "子通道 Q（EAC 默认）",
-            "波形静音（Test Gaps On Silence）"
-          ],
-          "entry_values": [
-            "q",
-            "silence"
-          ]
-        },
-        {
           "type": "switch",
-          "key": "testAndCopy",
-          "title": "Test & Copy",
-          "summary": "先「只读不写」跑一遍拿每轨 CRC，再正式抓取并逐轨比对；不一致自动重抓。耗时约翻倍。",
+          "key": "analyzeBeforeRip",
+          "title": "抓轨前预扫间隙",
+          "summary": "先整盘扫一遍 INDEX 00 再开抓，省掉每轨重复的 Q 子通道读取；抓轨面板会显示间隙表",
           "default_value": false
-        },
-        {
-          "type": "switch",
-          "key": "preferTrackCount",
-          "title": "优先选轨数一致的发行版",
-          "summary": "同一 DiscID 常有多个发行版（日版/港版/再版）。开启后先挑轨数与光盘一致的，再按「候选序号」取。",
-          "default_value": true
-        },
-        {
-          "type": "edittext",
-          "key": "releaseIndex",
-          "title": "候选序号",
-          "summary": "0＝排序后的第一个候选。日志里会列出全部候选，挑错了改这里再抓一次即可。",
-          "default_value": "0"
-        },
-        {
-          "type": "edittext",
-          "key": "overrideFile",
-          "title": "手工元数据文件（可选）",
-          "summary": "留空则自动找 <输出根>\\<DiscID>.album.json 或 <输出根>\\album.json；字段见 README。",
-          "default_value": ""
-        },
-        {
-          "type": "switch",
-          "key": "fetchMetadata",
-          "title": "联网获取元数据",
-          "summary": "关闭后离线抓轨，使用「未知艺术家 / 未知专辑 / Track NN」占位",
-          "default_value": true
-        },
-        {
-          "type": "switch",
-          "key": "useCdText",
-          "title": "读取 CD-TEXT",
-          "summary": "优先用盘片自带的曲名/艺术家（压过网络数据）。绝大多数压制 CD 没有 CD-TEXT，读不到会静默跳过。",
-          "default_value": true
         }
       ]
     },
     {
-      "title": "测试与诊断",
+      "title": "9 · 诊断",
       "config": "config.json",
       "preferences": [
         {
           "type": "switch",
           "key": "testMode",
-          "title": "测试模式",
-          "summary": "开启后下面的真机测试动作才有意义；普通使用保持关闭",
+          "title": "显示诊断工具",
+          "summary": "打开后，面板里才出现扫描/试写/预扫等真机诊断按钮",
           "default_value": false
         },
         {
@@ -580,12 +618,6 @@
         },
         {
           "type": "button",
-          "title": "选择 flac.exe…",
-          "summary": "从磁盘挑编码器；不填则按 PATH 查找 flac",
-          "on_click": "com.saltrip.rip.ConfigActions.chooseFlacExe"
-        },
-        {
-          "type": "button",
           "title": "试写测试（中文路径）",
           "summary": "按当前模板创建一次含日文/中文名的目录与文件再删除，确认无乱码、无权限问题",
           "on_click": "com.saltrip.rip.ConfigActions.probePath"
@@ -595,6 +627,11 @@
           "title": "恢复默认设置",
           "summary": "把上述设置恢复为内置默认值（不动已抓好的文件）",
           "on_click": "com.saltrip.rip.ConfigActions.resetDefaults"
+        },
+        {
+          "type": "button",
+          "on_click": "com.saltrip.rip.ConfigActions.openLogFolder",
+          "title": "打开日志文件夹"
         }
       ]
     }

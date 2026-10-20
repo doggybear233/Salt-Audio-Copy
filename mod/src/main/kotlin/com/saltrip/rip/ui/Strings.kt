@@ -26,6 +26,15 @@ object Strings {
 
     fun key(key: String): String = table(lang())[key] ?: table(Lang.ZH)[key] ?: key
 
+    /**
+     * 取词条，查不到就用 [fallback]。
+     *
+     * 设置页的 50 个条目文案主要在 `SettingsSpec` 里（中文为源），
+     * 只有确实翻译过的才在表里加 `opt_<key>`；这里避免「没翻译就显示 opt_xxx」。
+     */
+    fun keyOr(key: String, fallback: String): String =
+        table(lang())[key] ?: table(Lang.ZH)[key] ?: fallback
+
     /** 测试用：强制语言 / 复位。 */
     fun override(lang: Lang?) {
         cached = lang

@@ -61,14 +61,28 @@ object PanelState {
     /** 最近一次抓轨的输出目录；「打开目录」优先打开它。 */
     var lastOutDir: java.nio.file.Path? by mutableStateOf(null)
 
-    /** 设置区里的模板编辑草稿（点「设置」时从磁盘读入，保存时写回）。 */
-    var editFolder: String by mutableStateOf("")
-    var editFile: String by mutableStateOf("")
-    var editCover: String by mutableStateOf("")
-    var secureMode: Boolean by mutableStateOf(true)
-    var outputRootText: String by mutableStateOf("")
-    /** 外观：auto / light / dark（面板自带中性主题用，不依赖宿主配色）。 */
-    var appearance: String by mutableStateOf("auto")
+    /** 设置页草稿：点「设置」时从磁盘读一份，改完点「保存」才落盘。 */
+    var draft: com.saltrip.rip.settings.RipSettings by mutableStateOf(com.saltrip.rip.settings.RipSettings())
+
+    /** 设置页当前停在哪个二级页（见 [SettingsSpec.pages] 的 id）。 */
+    var settingsPage: String by mutableStateOf(SettingsSpec.DEFAULT_PAGE)
+
+    fun loadDraft(s: com.saltrip.rip.settings.RipSettings) {
+        draft = s
+        testMode = s.testMode
+        editTarget = -1
+    }
+
+    fun updateDraft(f: (com.saltrip.rip.settings.RipSettings) -> com.saltrip.rip.settings.RipSettings) {
+        draft = f(draft)
+        // testMode 在草稿里改也要立刻反映到面板（诊断页显隐、动作闸门都读它）
+        testMode = draft.testMode
+    }
+
+    /** 三个模板的只读视图（预览与变量块用）。 */
+    val editFolder: String get() = draft.folderTemplate
+    val editFile: String get() = draft.fileTemplate
+    val editCover: String get() = draft.coverFileName
 
     /**
      * 模板块编辑器当前写入的目标：0=专辑目录模板，1=文件名模板，2=封面名，-1=未选中。
@@ -80,9 +94,9 @@ object PanelState {
     /** 把一段标签追加到当前目标字段末尾（块编辑器的「点一下加进去」）。 */
     fun appendToken(token: String) {
         when (editTarget) {
-            0 -> editFolder += token
-            1 -> editFile += token
-            2 -> editCover += token
+            0 -> updateDraft { it.copy(folderTemplate = it.folderTemplate + token) }
+            1 -> updateDraft { it.copy(fileTemplate = it.fileTemplate + token) }
+            2 -> updateDraft { it.copy(coverFileName = it.coverFileName + token) }
             else -> Unit // 未选中目标：什么都不写，由 UI 给出提示
         }
     }
@@ -90,30 +104,11 @@ object PanelState {
     /** 清空当前目标字段。 */
     fun clearTarget() {
         when (editTarget) {
-            0 -> editFolder = ""
-            1 -> editFile = ""
-            2 -> editCover = ""
+            0 -> updateDraft { it.copy(folderTemplate = "") }
+            1 -> updateDraft { it.copy(fileTemplate = "") }
+            2 -> updateDraft { it.copy(coverFileName = "") }
             else -> Unit
         }
-    }
-
-    /** 载入设置到编辑草稿。 */
-    fun loadSettings(
-        folder: String,
-        file: String,
-        cover: String,
-        secure: Boolean,
-        test: Boolean,
-        root: String,
-        appearance: String = "auto"
-    ) {
-        editFolder = folder
-        editFile = file
-        editCover = cover
-        secureMode = secure
-        testMode = test
-        outputRootText = root
-        this.appearance = appearance
     }
 
     /** 元数据候选列表（查到多个发行版时让用户自选）；空表示没有候选。 */
