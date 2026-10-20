@@ -3,6 +3,14 @@
 Windows 上把 CD 精确抓成 WAV + CUE + 日志，并把专辑信息（MusicBrainz / gnudb / Cover Art Archive）一起落盘。
 算法与参数来自对 EAC 1.8 的逆向（见 `../architecture.md`、`../features.md`）。
 
+## 0.41.2
+
+- **读速改成「每条读句柄都设一次」**：以前只在抓轨开始前用一个临时句柄 SET CD SPEED，
+  句柄一关很多驱动器就复位到默认速度，于是 8x / 16x / 4x 的选择经常等于没设。
+  现在 `TrackSource.setSpeed` 在每轨真正开读时重新下发。
+- 新增回归 `ReadSpeedTest.everyReadHandleGetsTheSpeedLimit`（假驱动器记录每次请求）。
+- 435 tests / 0 failed。
+
 ## 0.41.1
 
 - **「不限速」之前根本没下发命令**：`AlbumRipper` 外层还留着 `if (driveSpeed > 0)`，`0` 直接跳过

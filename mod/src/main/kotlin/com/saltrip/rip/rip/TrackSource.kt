@@ -17,6 +17,15 @@ interface TrackSource : AutoCloseable {
     fun readAudioSectorsInto(lba: Int, count: Int, buf: MemorySegment): Int
     fun readAudioSectorsC2(lba: Int, count: Int): ByteArray
     fun readQ(lba: Int): Subchannel.Q
+
+    /**
+     * 在这条「真正用来读数据」的句柄上设置读速上限（KB/s）。
+     *
+     * 必须每开一次句柄就设一次：很多驱动器在句柄关闭/重新打开后会把速度复位到默认值，
+     * 之前只在抓轨开始前用临时句柄设一次，8x / 16x 的选择常常等于没生效。
+     */
+    fun setSpeed(kbps: Int) {}
+
     override fun close() {}
 }
 
@@ -29,5 +38,6 @@ class CdTrackSource(private val dev: CdDevice) : TrackSource {
         dev.readAudioSectorsInto(lba, count, buf)
     override fun readAudioSectorsC2(lba: Int, count: Int) = dev.readAudioSectorsC2(lba, count)
     override fun readQ(lba: Int) = dev.readQ(lba)
+    override fun setSpeed(kbps: Int) = dev.setSpeed(kbps)
     override fun close() = dev.close()
 }

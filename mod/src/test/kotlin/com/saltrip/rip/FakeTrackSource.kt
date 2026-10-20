@@ -38,6 +38,9 @@ class FakeTrackSource(
     var closed = false
         private set
 
+    /** 记录每次设置读速的请求（KB/s），用来断言「每条读句柄都会重设一次」。 */
+    val speedRequests = mutableListOf<Int>()
+
     /** 第 n 个扇区的内容：可预测，便于独立重算 CRC。 */
     fun sector(lba: Int): ByteArray {
         val b = ByteArray(2352)
@@ -80,6 +83,10 @@ class FakeTrackSource(
             }
         }
         return out
+    }
+
+    override fun setSpeed(kbps: Int) {
+        speedRequests += kbps
     }
 
     override fun readQ(lba: Int): Subchannel.Q =

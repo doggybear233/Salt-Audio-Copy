@@ -144,6 +144,8 @@ object RipEngine {
         /** 下一轨前置间隙扇区数；leaveout 需要它来裁掉尾部间隙 */
         nextGapSectors: Int? = null,
         resume: Boolean = false,
+        /** 读速上限（KB/s）；每条读句柄打开后都会重新下发一次，0 = 不下发。 */
+        speedKbps: Int = 0,
         source: TrackSource? = null,
         /** 外部预扫得到的 INDEX 00 扇区数；给了就不再重复扫 Q 子通道。 */
         knownGapSectors: Int? = null,
@@ -173,6 +175,11 @@ object RipEngine {
         var detectedGap = 0
         val ownSource = source == null
         val dev: TrackSource = source ?: CdTrackSource(CdDevice(scan.path))
+        // 每次开新句柄都重设一次读速：驱动器在句柄关闭后往往恢复默认速度。
+        if (speedKbps > 0) {
+            runCatching { dev.setSpeed(speedKbps) }
+                .onFailure { Diag.log("set speed on read handle failed track=$trackNo", it) }
+        }
         // 缓存击破的「远端扇区」：离当前块足够远，能把刚读过的扇区挤出驱动器缓存。
         val span = toc.leadOutLba.coerceAtLeast(1)
         val flush: (() -> Unit)? = if (defeatCache && verify) {

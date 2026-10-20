@@ -232,7 +232,8 @@ object AlbumRipper {
                         val nextIdx = toc.tracks.indexOfFirst { it.track == entry.track + 1 }
                         if (nextIdx >= 0) preScanned[toc.tracks[nextIdx].track] else null
                     },
-                    source = source
+                    source = source,
+                    speedKbps = kbps
                 )
                 testCrc[entry.track] = r.crc32
             }
@@ -326,7 +327,8 @@ object AlbumRipper {
                 gapMode = settings.gapMode,
                 nextGapSectors = if (gapAfter > 0) gapAfter else null,
                 resume = settings.resume,
-                source = source
+                source = source,
+                speedKbps = kbps
             )
             if (settings.testAndCopy && !r.cancelled) {
                 val expected = testCrc[entry.track]
@@ -348,7 +350,8 @@ object AlbumRipper {
                         retryDelayMs = settings.retryDelayMs,
                         useC2 = settings.useC2,
                         resume = false,
-                        source = source
+                        source = source,
+                        speedKbps = kbps
                     )
                     if (again.crc32 != expected) {
                         warn(Strings.fmt("第 %s 轨重抓后仍与测试通道不一致（0x%08X）", entry.track, again.crc32))
