@@ -4,6 +4,18 @@ import com.doggybear233.saltaudiocopy.Diag
 import com.doggybear233.saltaudiocopy.scsi.DiscToc
 
 /**
+ * MusicBrainz 查询结果：候选列表 + **本次**查询自己的失败说明。
+ *
+ * 以前失败原因放在 `MusicBrainzClient.lastFailure` 字段里，下一次成功查询不会清空它，
+ * 于是「先失败一次、再查一张确实没收录的盘」会把旧故障当作本次结论显示给用户。
+ */
+data class MbLookup(
+    val releases: List<AlbumMeta> = emptyList(),
+    /** null = 正常（含「库里没有这张盘」的 404）；非 null = 服务/网络问题，要显示给用户。 */
+    val failure: String? = null
+)
+
+/**
  * MusicBrainz discid 查询。一次请求带回 release 及其 media/tracks（`inc=recordings`），
  * 因此不需要对每个候选二次请求曲目。
  *
@@ -15,50 +27,50 @@ object MusicBrainzClient {
 
     private val MB_THROTTLE_MS = 1100L
 
-    /**
-     * 上一次查询的「非 404 失败」原因（服务不可用、响应坏）。
-     *
-     * 只用于给用户一句能区分「库里没有」与「网/服务有问题」的说明；
-     * 404 与查到了都不置这个字段。
-     */
-    @Volatile
-    var lastFailure: String? = null
-        private set
-
-    fun lookup(toc: DiscToc, discId: String = DiscId.musicBrainz(toc)): List<AlbumMeta> {
+    fun lookup(toc: DiscToc, discId: String = DiscId.musicBrainz(toc)): MbLookup {
         // 先看七天内的缓存：MB 限速 1 req/s，重抓/改设置时没必要再打一次
         MbCache.read(discId)?.let { cached ->
             val hit = runCatching {
                 parseDiscidResponse(Json.parse(cached), toc, discId, DiscId.cddb(toc))
             }.getOrDefault(emptyList())
-            if (hit.isNotEmpty()) return hit
+            if (hit.isNotEmpty()) return MbLookup(hit)
         }
         val url = "$BASE/discid/$discId?fmt=json&inc=artists+recordings+release-groups+labels+isrcs&cdstubs=no"
         Http.throttle("musicbrainz.org", MB_THROTTLE_MS)
         val r = Http.get(url)
-        lastFailure = null
-        if (r.status == 404) {
+        return interpret(r.status, r.text, toc, discId, DiscId.cddb(toc))
+    }
+
+    /**
+     * 把一次 HTTP 响应解释成 [MbLookup]；抽出来便于离线验证「404 不算故障、5xx 才算」，
+     * 也保证失败说明只跟着**这一次**响应走，不会像以前的 `lastFailure` 字段那样残留到下一次查询。
+     */
+    internal fun interpret(
+        status: Int,
+        body: String,
+        toc: DiscToc,
+        discId: String,
+        cddb: String
+    ): MbLookup {
+        if (status == 404) {
             Diag.log("mb: discid $discId not found (404)")
-            lastFailure = null // 库里确实没有，不算故障
-            return emptyList()
+            return MbLookup() // 库里确实没有，不算故障
         }
-        if (r.status != 200) {
+        if (status != 200) {
             // 5xx / 429 / 403 是「服务有问题」，和「库里没有这张盘」是两件事：
             // 以前统一返回空列表，用户只会看到「没有可用元数据」，完全无从判断。
-            Diag.log("mb: discid $discId -> HTTP ${r.status}: ${r.text.take(200)}")
-            lastFailure = "MusicBrainz 返回 HTTP ${r.status}（不是没有记录，是服务暂时不可用）"
-            return emptyList()
+            Diag.log("mb: discid $discId -> HTTP $status: ${body.take(200)}")
+            return MbLookup(failure = "MusicBrainz 返回 HTTP $status（不是没有记录，是服务暂时不可用）")
         }
-        val root = runCatching { Json.parse(r.text) }.getOrElse {
+        val root = runCatching { Json.parse(body) }.getOrElse {
             Diag.log("mb: discid $discId -> 响应不是合法 JSON", it)
-            lastFailure = "MusicBrainz 的响应不是合法 JSON"
-            return emptyList()
+            return MbLookup(failure = "MusicBrainz 的响应不是合法 JSON")
         }
-        val out = parseDiscidResponse(root, toc, discId, DiscId.cddb(toc))
+        val out = parseDiscidResponse(root, toc, discId, cddb)
         // 解析成功才写缓存：以前先写后解析，一次坏响应会把「七天缓存」污染成空结果。
-        if (out.isNotEmpty()) runCatching { MbCache.write(discId, r.text) }
+        if (out.isNotEmpty()) runCatching { MbCache.write(discId, body) }
         Diag.log("mb: discid $discId -> ${out.size} release(s)")
-        return out
+        return MbLookup(out)
     }
 
     /** 解析 `/ws/2/discid/<id>` 的 JSON；抽出来便于用固定样本做单测。 */
@@ -73,10 +85,16 @@ object MusicBrainzClient {
             val date = Json.str(o["date"])
             val media = Json.arr(o["media"])
             val trackCount = toc.tracks.size
-            // 优先选择轨数与光盘一致的 medium
-            val medium = media.map { Json.obj(it) }
-                .firstOrNull { (Json.long(Json.obj(it)["track-count"]) ?: -1L).toInt() == trackCount }
-                ?: media.firstOrNull()?.let { Json.obj(it) }
+            val mediaNodes = media.map { Json.obj(it) }
+            // 多碟套装里两张碟轨数相同很常见（比如各 12 轨），只按 track-count 选会把
+            // 「第 2 张」的曲目贴到「第 1 张」上，discNumber 也随之错。
+            // 正解是先用查询用的 discid 精确匹配 media[].discs[].id，再退回轨数，最后退回第一张。
+            val byDiscId = mediaNodes.firstOrNull { m ->
+                Json.arr(m["discs"]).any { Json.str(Json.obj(it)["id"]) == discId }
+            }
+            val medium = byDiscId
+                ?: mediaNodes.firstOrNull { (Json.long(it["track-count"]) ?: -1L).toInt() == trackCount }
+                ?: mediaNodes.firstOrNull()
             val tracks = ArrayList<TrackMeta>()
             if (medium != null) {
                 for (t in Json.arr(medium["tracks"])) {

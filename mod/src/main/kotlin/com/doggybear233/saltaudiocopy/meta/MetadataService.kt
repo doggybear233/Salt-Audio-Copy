@@ -39,7 +39,7 @@ object MetadataService {
 
         // ---- MusicBrainz ----
         if (discId != null) {
-            val releases = runCatching { MusicBrainzClient.lookup(toc, discId) }
+            val releases = runCatching { MusicBrainzClient.lookup(toc, discId).releases }
                 .onFailure {
                     Diag.log("mb lookup failed", it)
                     notes += Strings.fmt("MusicBrainz 查询失败: %s", it.message)

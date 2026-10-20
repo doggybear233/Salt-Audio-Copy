@@ -69,21 +69,24 @@ object MetadataCandidates {
         val out = ArrayList<Candidate>()
 
         if (discId.isNotBlank()) {
-            val releases = runCatching { MusicBrainzClient.lookup(toc, discId) }
+            var mbError: Throwable? = null
+            val mb = runCatching { MusicBrainzClient.lookup(toc, discId) }
                 .onFailure {
+                    mbError = it
                     Diag.log("mb lookup failed", it)
-                    notes += Strings.fmt(
-                    "MusicBrainz 查询失败：%s", it.message ?: it.javaClass.simpleName
-                )
                 }
-                .getOrDefault(emptyList())
+                .getOrNull()
             // runCatching 会把取消也吞成「查询失败」，所以每条通道后都要显式放行取消。
             if (scope.cancelled) throw RequestCancelled()
+            val releases = mb?.releases ?: emptyList()
             val ranked = MetadataService.rank(releases, toc.tracks.size, settings.preferTrackCount)
             if (releases.isEmpty()) {
                 // 区分「库里确实没有」与「服务暂时不可用」：后者要说出来，
-                // 否则用户以为这张盘真的没收录。
-                notes += MusicBrainzClient.lastFailure
+                // 否则用户以为这张盘真的没收录。失败说明只取本次查询的（F-288）。
+                notes += mb?.failure
+                    ?: mbError?.let {
+                        Strings.fmt("MusicBrainz 查询失败：%s", it.message ?: it.javaClass.simpleName)
+                    }
                     ?: Strings.message("MusicBrainz 没有这张盘的记录")
             }
             val top = ranked.take(12)
@@ -248,7 +251,8 @@ object MetadataCandidates {
                 }
             }
             else -> {
-                val releases = runCatching { MusicBrainzClient.lookup(toc, discId) }.getOrDefault(emptyList())
+                val releases = runCatching { MusicBrainzClient.lookup(toc, discId).releases }
+                    .getOrDefault(emptyList())
                 MetadataService.rank(releases, toc.tracks.size, settings.preferTrackCount)
                     .firstOrNull { it.releaseId != null && it.releaseId == c.releaseId }
                     ?: releases.firstOrNull { it.releaseId == c.releaseId }
