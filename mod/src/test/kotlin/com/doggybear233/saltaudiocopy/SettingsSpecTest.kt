@@ -112,12 +112,24 @@ class SettingsSpecTest {
                 }
             }
         }
-        assertEquals(46, SettingsSpec.settingKeys.size, "46 个设置键（0.39.0 移除自带编码器 4 项；0.40.0 移除 2 个标签开关；批次 14 补回 testMode 开关）")
         assertEquals(
             SettingsSpec.settingKeys.size,
             SettingsSpec.settingKeys.toSet().size,
             "设置键不能重复"
         )
+        // 规模不写死：字段集与面板键集必须互相覆盖，新增/删除字段时这里会自己变红
+        val fields = RipSettings::class.java.declaredFields
+            .filter { !java.lang.reflect.Modifier.isStatic(it.modifiers) }
+            .map { it.name }
+            .toSet()
+        // effectiveRoot 是计算属性；appearance 自 0.29.7 起不再提供界面选项（跟随宿主主题），
+        // 键仍保留以兼容旧配置，因此不要求它出现在面板上。
+        val exempt = setOf("effectiveRoot", "appearance")
+        val specKeys = SettingsSpec.settingKeys.toSet()
+        val missingInSpec = fields - exempt - specKeys
+        val extraInSpec = specKeys - fields
+        assertTrue(missingInSpec.isEmpty(), "这些设置字段没有出现在面板上：$missingInSpec")
+        assertTrue(extraInSpec.isEmpty(), "面板上出现了不存在的设置字段：$extraInSpec")
     }
 
     @Test

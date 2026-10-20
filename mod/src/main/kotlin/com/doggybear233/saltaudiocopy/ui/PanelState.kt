@@ -353,7 +353,10 @@ object PanelState {
     /**
      * 已解析的专辑艺术家 / 专辑名。
      *
-     * 顺序与坞上标题一致：盘面信息（含刚保存的手填值）→ 本地 album.json 缓存 → 空。
+     * 顺序与坞上标题一致：盘面信息（含刚保存的手填值）→ **内存里记住的** album.json。
+     * 这里**不读盘**：它被 [refreshPreview] 从每次按键的路径上调用，读盘会让「设置页敲字」
+     * 按文件系统延迟卡顿（输出根在 OneDrive/网络盘时尤其明显）。
+     * 磁盘缓存只在 `showDisc` / `rememberMeta` / 保存设置这些显式入口读一次。
      */
     internal fun albumNames(): Pair<String, String> {
         val d = disc
@@ -363,19 +366,8 @@ object PanelState {
             if (a != null && b != null) return a to b
             if (a != null || b != null) return (a ?: "") to (b ?: "")
         }
-        val meta = resolvedAlbumMeta(com.doggybear233.saltaudiocopy.settings.SettingsStore.load())
+        val meta = d?.discId?.let { knownMeta(it) }
         return (meta?.albumArtist ?: "") to (meta?.albumTitle ?: "")
-    }
-
-    /** 本地缓存里的完整元数据（决定 %year%/%genre% 这类变量），没有就 null。 */
-    internal fun resolvedAlbumMeta(settings: com.doggybear233.saltaudiocopy.settings.RipSettings): com.doggybear233.saltaudiocopy.meta.AlbumMeta? {
-        val id = disc?.discId ?: return null
-        knownMeta(id)?.let { return it }
-        val fromDisk = runCatching {
-            com.doggybear233.saltaudiocopy.ConfigActions.readCachedAlbum(settings.effectiveRoot, id)
-        }.getOrNull()
-        if (fromDisk != null) rememberMeta(id, fromDisk)
-        return fromDisk
     }
 
     /**

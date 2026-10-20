@@ -102,7 +102,7 @@ class PreferenceConfigTest {
             "detectGaps", "resume", "errorRecovery", "gapMode", "gapMethod",
             "flacLevel", "keepWav",
             "releaseIndex", "preferTrackCount", "overrideFile", "useCdText", "discNumberOverride", "totalDiscsOverride",
-            "imageMode", "analyzeBeforeRip", "writeTags", "embedCover", "testMode", "writeWavTags"
+            "imageMode", "analyzeBeforeRip", "embedCover", "testMode"
         )
         val configs = Json.arr(Json.path(load(), "configs"))
         val keys = configs.flatMap { Json.arr(Json.obj(it)["preferences"]) }
