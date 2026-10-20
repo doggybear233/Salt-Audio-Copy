@@ -41,11 +41,16 @@ dependencies {
     testImplementation("org.jetbrains.compose.material3:material3:1.12.0-alpha03")
 }
 
-// R3：把根目录的 LICENSE 打进 spmod（宿主插件目录里也能看到授权）。
-// 发布渠道目录另行放一份，两者内容相同。
+// R3 / R2-01：把根目录的 LICENSE 与 THIRD-PARTY-NOTICES 打进 spmod。
+// 插件内含 GPL-2.0-or-later 的 flac.exe，第三方位声明必须随包分发（不只是放仓库里）。
+// 发布渠道目录另行各放一份，内容相同。
 tasks.named<ProcessResources>("processResources") {
     from(rootProject.layout.projectDirectory.file("../LICENSE")) {
         rename { "LICENSE" }
+        into("META-INF")
+    }
+    from(rootProject.layout.projectDirectory.file("../THIRD-PARTY-NOTICES.md")) {
+        rename { "THIRD-PARTY-NOTICES.md" }
         into("META-INF")
     }
 }

@@ -3,6 +3,72 @@
 Windows 上把 CD 精确抓成 WAV + CUE + 日志，并把专辑信息（MusicBrainz / gnudb / Cover Art Archive）一起落盘。
 算法与参数来自对 EAC 1.8 的逆向（见 `../architecture.md`、`../features.md`）。
 
+## 构建
+
+需要 JDK 25（`kotlin { jvmToolchain(25) }`）。不用额外装 Gradle，仓库自带 wrapper：
+
+```powershell
+cd mod
+.\gradlew.bat clean test plugin
+# → build\libs\plugin-com.doggybear233.saltaudiocopy-<版本>.spmod
+```
+
+`dev-env.ps1` 只是可选的便捷脚本（设置 `JAVA_HOME` / `GRADLE_HOME` 并检查 JDK 是否存在），
+仓库不再依赖 PATH 上的 `gradle`。
+
+安装：Salt Player →「模组管理」→ 导入 `.spmod` → 启用 → 权限里勾上 **class-transform**（面板挂载需要）。
+装好后「CD 工具箱」页底部出现抓轨坞，坞上「设置」进入面板设置页；宿主「模组管理」里还有一份扁平的同名配置页
+（宿主只支持 `list / edittext / switch / button` 四种控件，做不了二级导航）。
+
+## 面板与设置页的样子
+
+- 坞：封面 + 专辑行（`歌手 — 专辑`、`N 轨 · 时长 · CD-DA`、输出路径）+ 主按钮（抓整盘 / 重新抓取）+ 刷新元数据 /
+  打开目录 / 设置；抓轨中同一位置换成进度、速度、剩余时间与暂停/取消。
+- 设置页：左侧 8 个分类（输出位置 / 命名模板 / 音频格式 / 标签与附属文件 / 元数据 / 光驱与校验 / 间隙 / 诊断），
+  右侧滚动条目，标题栏右上角显示版本号（便于判断装的是哪一版）。
+- 条目按类型渲染：开关、下拉、文本框、路径（带「选择…」与「当前：绝对路径」）、模板框（可插入变量块）、动作按钮。
+  不适用的项按条件隐藏或置灰（例如 FLAC 等级只在选 FLAC 时出现，重试次数只在开安全模式时出现）。
+
+## 目录结构
+
+```
+mod/                     插件模块（Kotlin/JVM + Compose 桌面）
+  src/main/kotlin/com/doggybear233/saltaudiocopy/
+    scsi/                 SPTI / SCSI 传输、TOC、子通道 Q、CD-TEXT、C2
+    rip/                  逐轨读取引擎、安全重读与多数表决、WAV 写入、ETA
+    album/                整盘流程、命名计划、CUE / 日志 / 封面 / 镜像拼接、空间预检
+    encode/               内置 FLAC 1.4.3 解包与调用、WAV/FLAC 标签
+    meta/                 MusicBrainz、gnudb CDDB、Cover Art Archive、HTTP、缓存
+    naming/               模板引擎与音轨选择
+    settings/             设置模型与持久化
+    ui/                   面板、设置页、状态、文案（中 / 英 / 日）
+  src/main/resources/     preference_config.json、三语 JSON、native/win64/（FLAC 及其许可）
+  src/test/kotlin/        单元与（可选）真机用例
+```
+
+## 自测
+
+```powershell
+cd mod
+.\gradlew.bat test --rerun-tasks        # 518 个用例；真机与联网用例默认 skip
+$env:SALTAC_HW=1; .\gradlew.bat test    # 带上真机用例（需要 F: 有音频 CD）
+```
+
+- 纯单元：DiscID / CDDB 算法（期望值由独立 Python 实现生成）、模板引擎、JSON、CUE / 日志 / WAV 头、offset、
+  FLAC 标签、路径与 Unicode、设置往返、条件显隐、文案覆盖率。
+- `PreferenceConfigTest` 校验 `preference_config.json` 与 `SettingsSpec` 一一对应，并用反射确认每个
+  `on_click` 都能解析到 `ConfigActions` 的静态方法（防按钮拼错）。
+- 真机：INQUIRY / TOC、单扇区、多扇区块、双读校验、整盘落盘、元数据与封面；无盘或 `SALTAC_HW` 未设时 skip。
+
+## 已知限制
+
+- 无 AccurateRip 校验（EAC 的 AccurateRip 需要其数据库，插件不联网校验别人的抓轨结果）。
+- 间隙只做「并入上一轨 / 修正 / 留空」三种处理，不做按 gap 切分成多个文件。
+- C2 实现为「重读校验」而非指针纠错（与 EAC 同策略）：`READ CD` 带 C2 位读 2352+294，C2 区非零即整块重读。
+- 元数据依赖 MusicBrainz / gnudb 的收录；两者都没有这张盘时用「手动填写元数据…」，并可导入本地封面。
+- Windows 专用（直接调用 SPTI）。
+
+
 ## 1.0.0
 
 首个正式版。功能与 0.43.1 一致，变化在发布层面：
@@ -638,175 +704,9 @@ CDB 布局（12 字节，大端）：
   现在下界改为「上一轨 INDEX 01」，与预扫口径一致。
 
 
-## 构建
-
-```powershell
-. ..\dev-env.ps1              # JAVA_HOME=D:\dev\jdk-25, GRADLE_HOME=D:\dev\gradle
-.\gradlew.bat plugin          # → build\libs\plugin-com.doggybear233.saltaudiocopy-<ver>.spmod
-```
-
-安装：Salt Player → 设置 → 模组 → 从本地导入 `.spmod`（或用 Steam 创意工坊包）。
-首次启用需勾选权限（0.3.0 起声明 `class-transform`，用于把面板挂到宿主 CD 页；拒绝授权时功能仍可从配置页使用）。
-
-## 使用（配置页分组）
-
-宿主的配置页按 `preference_config.json` 分组渲染，共四组：
-
-### 抓轨
-
-| 按钮 | 作用 |
-| --- | --- |
-| ① 扫描驱动器 | 枚举光驱、读 TOC、算 DiscID / CDDB ID，日志输出摘要 |
-| ② 抓取整张专辑 | 元数据 → 命名 → 逐轨抓取 → 封面 → CUE → 日志 |
-| ③ 仅查询元数据 | 只走 MusicBrainz/gnudb，不写文件（用来确认候选对不对） |
-| ④ 试抓第 1 轨 | 最小验证路径，输出到 `<输出根>\disc-<leadOut>\01.wav` |
-| 取消当前抓轨 | 请求取消，当前读块结束后生效 |
-
-### 输出与命名
-
-`输出根目录`（edittext，空＝系统「音乐」）、`专辑目录模板`、`音轨文件名模板`、`封面文件名`、
-`封面尺寸`（list：500 / 1200 / 原图）、`生成 CUE`、`生成抓轨日志`、`整盘镜像`、
-`写入 FLAC 标签`、`把封面内嵌进 FLAC`（switch），
-以及 **试写测试**：用假元数据（宇多田ヒカル / Fantôme / 道）按当前模板建目录、写文件、读回、删除，
-确认中日韩路径与文件名不乱码。
-
-### 校验与元数据
-
-`双读校验`（switch）、`Test & Copy`（switch）、`C2 错误检查`（switch）、`单块最大重读次数`、`重读间隔`、`采样级 offset`、`联网获取元数据`、`抓轨前预扫间隙`（switch）、
-**恢复默认设置**。数值项以 edittext 暴露，读回时同时接受字符串与数字两种形态。
-
-`Test & Copy` 与 EAC 的同名模式一致：先用「只读不写」的测试通道把整盘读一遍、记下每轨 CRC，
-再正式抓取并逐轨比对；不一致会自动重抓该轨，结果写进日志备注。
-
-### 诊断
-
-打开输出目录、查看日志路径。
-
-所有耗时的 SCSI I/O 都在 `saltac-worker` 单线程执行器上跑，不阻塞宿主 UI 线程。
-
-
-## 默认输出结构
-
-```
-音乐\
-└─ %albumartist%\%albumtitle%\          ← 目录模板，可在设置里改
-   ├─ 01 少年少女 TV ver.wav            ← 文件模板 %tracknr2% %title%
-   ├─ cover.jpg                          ← Cover Art Archive front-500
-   ├─ Various Artists - … .cue           ← UTF-8 with BOM + CRLF
-   └─ Various Artists - … .log
-```
-
-多碟（`totalDiscs > 1` 且目录模板不含 `%discnumber%`）时自动加 `CD1`/`CD2` 子目录。
-
-样例见 `../samples/sample.cue`、`../samples/sample.log`。
-
-## 命名变量
-
-目录模板与文件模板共用：`%albumartist% %albuminterpret% %albumtitle% %album% %year% %date%
-%genre% %discid% %cddbid% %discnumber% %totaldiscs%`，
-曲目级：`%tracknr% %tracknr1% %tracknr2% %tracknr3% %title% %artist% %tracklen% %tracklength%`。
-未知变量原样保留；路径片段会做 NFC + 非法字符清洗 + 保留名转义，中日韩字符不经代码页转换。
-
-## 设置项（`config.json` 键）
-
-`outputRoot / folderTemplate / fileTemplate / coverFileName / multiDiscFolder / secureMode /
-maxRetries / retryDelayMs / fetchMetadata / coverSize / writeCue / writeLog / format / offsetSamples / annotateCueCrc / useC2 / testAndCopy`
-
-## 实现要点
-
-- **传输**：`java.lang.foreign` 直接调 `DeviceIoControl` + `SCSI_PASS_THROUGH_DIRECT`（宿主已开 `--enable-native-access`）。
-  句柄需 `GENERIC_READ|GENERIC_WRITE`；每次传输最多 **16 扇区**（17 扇区起 `err=87`）。
-- **读命令**：`READ CD (0xBE)`，CDB `BE 04 [LBA BE24] 00 00 [n] F8 00`；`F8` 含 user data + C2 + 子通道（本机验证可用）。
-- **校验**：`secureMode` 时同块读两遍逐字节比对，不一致重读，最多 `maxRetries` 次，保留最后一次结果并计数。
-- **元数据**：`discid` 走 MusicBrainz（1 req/s），封面走 Cover Art Archive `front-<size>`；
-  gnudb（CDDB 协议）作为回退，`hello` 需「已注册客户端名 版本 邮箱」。
-- **CRC32**：对每轨 PCM 数据（不含 44 字节 WAV 头）计算，日志给出单轨与合并指纹，用于与 EAC 对账。
-
-### 0.21.0 日志补 TOC 表与 CD-TEXT 状态
-
-日志开头现在有两块新信息：
-
-- **`TOC` 段**：每轨的起始 LBA 与时长（`mm:ss:ff`，帧为 75 分之一秒）。抓轨出错时，
-  看这一段就能判断「文件长度不对」是 TOC 读错还是读取越界，不必再回插盘复现。
-- **`CD-TEXT : 有/无/未检测`**：明确写出这张盘有没有 CD-TEXT。以前只能从「曲名像不像
-  CD-TEXT 来的」猜；现在日志自身就给出答案，也方便判断「驱动不导出」还是「盘上没有」。
-
-
-### 0.22.0 只测不写（Test only）+ 真机验证修掉一个静默错误
-
-新增按钮「只测不写（Test only）」：按正式抓轨的参数把整盘读一遍，只报告每轨 CRC 与错误，
-**不写任何文件**。用途是先确认这张盘能不能顺利读出来、坏轨在哪，再决定是否真正抓取。
-面板与日志会给出每轨扇区数、CRC32、重试次数、用时，末尾一行汇总「全部读通 / N 轨有错误」。
-
-同时，真机联调抓到并修掉一个**静默数据错误**：
-
-- READ CD(0xBE) 的 LBA 字段是 `CDB[2..5]` 四字节大端。自 0.14.0 引入「读命令可切换」起，
-  代码把它写成了三字节（`CDB[2..4]`），于是 `lba=16` 实际请求的是 `0x1000=4096`。
-  在 lead-out 之前驱动不报错、只是**读回错误的扇区**，越过 lead-out 后报 `ASC=0x21`
-  （LBA out of range），再触发读命令回退链，最终以「0xD8 不被支持」这种误导性错误失败。
-- 影响面：0.14.0–0.21.0 的所有真机抓轨。单轨第 1 轨（lba 0）恰好正确，跨轨/整盘必错。
-- 修法与守护：`ReadCommands.kt` 改用 `be32(cdb, 2, lba)`；新增回归用例
-  `nonZeroLbaKeepsItsLowByteInCdb5`（lba=16 必须落在 `CDB[5]`），并把原有 CDB 布局用例
-  的期望值一并改成四字节——它此前**把错误固化成了断言**，所以离线测试一直是绿的。
-
-
-### 0.22.1 面板挂载可诊断 + 宿主版本漂移离线检测
-
-- 面板挂不上时不再只写日志：弹一次 toast 说明「宿主版本可能已更新，功能仍可在设置页使用」，
-  诊断组新增按钮「检查面板挂载」显示目标类名/调用点与失败原因。
-- 新增离线用例 `HostPanelTargetTest`：直接读宿主 `ffmpeg-x64.dll`（zip 尾部）校验 CD 页类、
-  方法描述符与调用点仍在。宿主升级导致混淆名变化时这条先红，不必等装上才发现面板消失。
-- 踩坑：类文件内字符串是 modified UTF-8，目标标识符含非 ASCII（`ݩ` / `Ϳ` / `ঘ`），
-  必须按字节比对；decode 成 String 再 contains 永远不匹配。
-
-
-### 0.22.2 面板配色随主题自适应 + 对比度断言
-
-- 之前面板把「中性深色」写死，在浅色主题的宿主里就是一块突兀的黑卡片。现在抽出
-  `ui/PanelStyle.kt`：深/浅两套调色板（背景、描边、三级文字、强调色、幽灵按钮、禁用态），
-  按 `isSystemInDarkTheme()` 选择；排版参数（圆角 14dp / 胶囊 / 4dp 栅格）也集中成令牌。
-- 新增 `PanelStyleTest`：用 WCAG 2.1 相对亮度算对比度，断言两套主题下标题 ≥7:1、
-  正文 ≥4.5:1、最弱文字 ≥3:1、主按钮文字在强调色上 ≥4.5:1，并要求禁用态「弱但可辨」。
-  改颜色把可读性改坏了会直接红 —— 我看不到用户屏幕，只能把「字看不清」变成断言。
-- 主按钮仍是实底强调色，次级按钮改为描边幽灵样式，层级比原来两个灰块更清楚。
-- 踩坑：KDoc 里写 `com/moriafly/salt/ui/**` 会因 Kotlin 块注释可嵌套而报
-  `Unclosed comment`（`/**` 被当成嵌套注释开头）。
-
-
-### 0.22.3 动作闸门：点不了就说清原因
-
-- 面板按钮不再「点了才报错」：没扫描过 → 提示「先点『扫描』识别光盘」；
-  插的是数据盘 → 「当前盘不是音频 CD」；正在执行 → 「等当前操作结束」。
-  判定放在 `PanelState.actionGate()`，面板与设置页共用，避免两处漂移。
-- 新增 `PanelGateTest` 5 例锁住判定（无盘/数据盘/音频盘/忙碌优先/重复扫描覆盖）。
-- 新增 `projects/Salt-Audio-Copy/manual-test-checklist.md`：把必须真机验证的 10 项写成验收步骤，
-  每项都标明「通过的样子」和「失败时要提供什么」。
-
-
-## 自测
-
-```powershell
-.\gradlew.bat test --no-daemon --no-watch-fs      # 69 个用例（真机用例默认 skip）
-$env:SALTAC_HW=1; .\gradlew.bat test --no-daemon --no-watch-fs   # 带真机用例
-```
-
-- 纯单元：DiscID/CDDB 算法（期望值由 Python 独立实现生成）、模板引擎、JSON、CUE/日志/WAV 头、offset、
-  以及 `PreferenceConfigTest`——校验 `preference_config.json` 的 schema 与宿主解析器一致，并用反射确认每个
-  `on_click` 都能解析到 `ConfigActions` 的 public static 方法（防按钮拼错）。
-- 真机（F: 有音频 CD 时才跑，否则 skip）：INQUIRY/TOC、单扇区、16 扇区块、双读校验、整盘落盘、联网元数据 + 封面。
-
-## 已知限制 / 下一步
-
-- 无 AccurateRip 校验；gap 检测只报告/可选并入音轨，尚未做按 gap 切分多文件。
-- FLAC 依赖外部 `flac.exe`（本插件不打包 GPL 二进制）：默认按 PATH 查找，可在设置里填绝对路径。
-- C2 已实现为「重读校验」（不做 C2 指针纠错，与 EAC 同策略）：`READ CD` 带 C2 位读 2352+294，
-  C2 区有非零即整块重读。真机验证：干净盘 C2 全零，且 C2 缓冲取出的 PCM 与普通读取逐字节一致。
-- 面板 UI 还没做：当前入口是宿主配置页（分组、可直接编辑模板与开关，风格由宿主渲染）。
-  下一步做宿主 CD 页内的常驻面板（Compose Hook），需要先锁定混淆类名与 Compose 版本契约。
-
 ## 0.2.1 新增：EAC 式读取策略、间隙写盘、峰值电平
 
-- **出错恢复质量**（设置页 list errorRecovery）：low 只读一次；medium 要求连续 3 次一致；high 要求连续 5 次一致，单块最坏读 82 次（EAC 同口径）。实现见 
+- **出错恢复质量**（设置页 list errorRecovery）：low 只读一次；medium 要求连续 2 次一致（读两次逐字节比对）；high 要求连续 5 次一致，单块最坏读 82 次（EAC 同口径）。实现见 
 ip/SecureRip.kt，与 I/O 解耦，可单测。
 - **INDEX 00 间隙**：detectGaps 探测后，includeGaps 打开则音轨文件包含前间隙，CUE 写 INDEX 00 00:00:00 + INDEX 01 mm:ss:ff。
 - **峰值电平**：每轨抓完算 16-bit 峰值，日志记 peak=-0.12dBFS。
@@ -827,7 +727,7 @@ ip/SecureRip.kt，与 I/O 解耦，可单测。
 
 ## 0.2.3 新增：FLAC 输出（外部编码器，与 EAC 同策略）
 
-- 设置页新增：`format`（WAV / FLAC）、`flacExe`（默认按 PATH 找 `flac`）、`flacLevel`（0/3/5/8）、`keepWav`。
+- 设置页新增：`format`（WAV / FLAC）、`flacLevel`（0/3/5/8）、`keepWav`。（编码器自 0.39.0 起改为内置 FLAC 1.4.3，`flacExe` 选项已删除）
 - 编码调用：`flac -f -s -<level> -o <out.flac> <in.wav>`，用 `ProcessBuilder` 传参数数组**不经 shell**，
   所以 `宇多田ヒカル/Fantôme` 这类路径不会被代码页破坏；失败/超时会删掉半成品 `.flac` 并在日志与
   `.errors.txt` 里留一条「已保留 WAV」的备注，抓轨本身不因此失败。

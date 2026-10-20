@@ -1,6 +1,7 @@
-﻿# Build / toolchain
+# Build / toolchain
 build/
 .gradle/
+.kotlin/
 out/
 __pycache__/
 *.pyc
