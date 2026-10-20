@@ -801,6 +801,11 @@ object ConfigActions {
         val before = PanelState.disc
         PanelState.showDisc(optimisticDisc(draft, before))
         PanelState.showCandidates(emptyList())
+        // 手导的封面也立刻显示（落盘要等后台线程，不能让用户以为没生效）
+        PanelState.manualCover?.let { p ->
+            runCatching { java.nio.file.Files.readAllBytes(java.nio.file.Path.of(p)) }
+                .getOrNull()?.let { PanelState.discCover = it }
+        }
         PanelState.lookupTried = true
         PanelState.closeManual()
         PanelState.set(

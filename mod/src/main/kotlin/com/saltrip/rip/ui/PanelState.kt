@@ -66,6 +66,14 @@ object PanelState {
     var manualCover: String? by mutableStateOf(null)
 
     /**
+     * 当前这张盘的封面字节（本地 album.json / 手导封面 / 缓存）。
+     *
+     * 坞上的缩略图优先用候选发行的封面，候选为空时退回这里——
+     * 否则「手填了封面」在面板上看不到任何变化。
+     */
+    var discCover: ByteArray? by mutableStateOf(null)
+
+    /**
      * 这一张盘是否已经查过一轮元数据。
      *
      * 「刷新元数据」按钮据此决定要不要变成「手动填写元数据…」：没查过就变，
@@ -196,6 +204,7 @@ object PanelState {
 
     fun showDisc(info: DiscInfo?) {
         disc = info
+        if (info == null) discCover = null
     }
 
     /** 当前盘是否可以抓（必须是音频 CD）。 */

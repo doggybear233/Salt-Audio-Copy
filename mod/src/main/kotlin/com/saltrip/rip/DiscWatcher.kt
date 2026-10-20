@@ -86,7 +86,7 @@ object DiscWatcher {
             return true
         }
 
-        return runCatching { Discs.sync(preferred) }.fold(
+        return runCatching { Discs.sync(preferred, quiet = true) }.fold(
             onSuccess = { scan ->
                 lastError = null
                 val fp = DiscFingerprint.of(scan.toc)

@@ -71,11 +71,19 @@ data class RipResult(
  */
 object RipEngine {
 
-    fun scan(devicePath: String): ScanResult {
+    /**
+     * 读一次盘。
+     *
+     * [log] 只在「真的需要记录」时开：换盘监视每 2 秒调一次，
+     * 每次都写一行会把日志刷成扫描流水（上次排查元数据问题时 13 KB 里九成是这个）。
+     */
+    fun scan(devicePath: String, log: Boolean = false): ScanResult {
         CdDevice(devicePath).use { dev ->
             val inq = dev.inquiry()
             val toc = dev.readToc()
-            Diag.log("scan: $devicePath -> $inq, ${toc.tracks.size} tracks, leadOut=${toc.leadOutLba}, audioCd=${toc.isAudioCd}")
+            if (log) {
+                Diag.log("scan: $devicePath -> $inq, ${toc.tracks.size} tracks, leadOut=${toc.leadOutLba}, audioCd=${toc.isAudioCd}")
+            }
             return ScanResult(devicePath, inq, toc)
         }
     }

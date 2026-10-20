@@ -373,7 +373,9 @@ private fun RunningBlock() {
 @Composable
 private fun CoverThumb(sizeDp: Dp) {
     val cs = MaterialTheme.colorScheme
+    // 候选里的封面优先；没有候选（比如手填元数据、网络查不到）就用本地缓存的封面
     val img = PanelState.candidates.getOrNull(PanelState.selectedCandidate)?.cover
+        ?: PanelState.discCover
     val bmp = CoverImages.decode(img)
     if (bmp != null) {
         Image(
