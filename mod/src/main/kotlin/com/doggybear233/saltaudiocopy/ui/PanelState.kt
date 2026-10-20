@@ -205,7 +205,15 @@ object PanelState {
         val source: String,
         val cover: ByteArray? = null,
         /** MusicBrainz release MBID；CD-TEXT / gnudb 候选为 null。 */
-        val releaseId: String? = null
+        val releaseId: String? = null,
+        /**
+         * 结构化的艺术家/专辑名。
+         *
+         * 以前是从 [label] 里 substringBefore(" · ") 反解：名字里带「 · 」或全角「（」就会截错，
+         * 而错的名字会被写进 album.json 长期复用。label 只负责显示。
+         */
+        val albumArtist: String = "",
+        val albumTitle: String = ""
     )
 
     fun showCandidates(list: List<Candidate>, selected: Int = 0) {
@@ -214,6 +222,16 @@ object PanelState {
     }
 
     fun selectCandidate(index: Int) {
+        if (index in candidates.indices) selectedCandidate = index
+    }
+
+    /**
+     * 取数据成功后才移动高亮。
+     *
+     * 先亮再取会让「面板说选了 A、引擎仍用 B」——抓轨结果与显示不一致，
+     * 而且失败时高亮不回滚，用户根本不知道没生效。
+     */
+    fun commitSelection(index: Int) {
         if (index in candidates.indices) selectedCandidate = index
     }
 
@@ -249,7 +267,7 @@ object PanelState {
         cancelArmed = false
         stage = ""
         status = Strings.message("光驱里没有光盘")
-        detail = "$reason\n放入光盘会自动识别；同一张盘放回来可以接着抓"
+        detail = reason + "\n" + Strings.message("放入光盘会自动识别；同一张盘放回来可以接着抓")
     }
 
     /** 把 [com.doggybear233.saltaudiocopy.DiscMemory.Snapshot] 恢复回面板（同一张盘放回来时用）。 */

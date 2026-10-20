@@ -412,6 +412,17 @@ internal val actionTargets: Set<String> = setOf(
     "resetDefaults", "openLogFolder", "testEnvironment", "testNetwork"
 )
 
+/**
+ * 下拉框当前值的展示文案。
+ *
+ * 值不在选项表里（手改配置、旧版本遗留、探测写入）时显示原文 +「（非预设）」，
+ * 绝不拿第一项冒充：否则「8x」背后可能真的是全速，排查会被彻底带偏。
+ */
+internal fun optionLabel(item: SettingItem, value: String): String {
+    val known = item.options.firstOrNull { it.value == value } ?: return Strings.fmt("%s（非预设）", value)
+    return Strings.message(known.label)
+}
+
 @Composable
 private fun ListDropdown(
     item: SettingItem,
@@ -421,9 +432,7 @@ private fun ListDropdown(
 ) {
     val cs = MaterialTheme.colorScheme
     var open by remember { mutableStateOf(false) }
-    val current = item.options.firstOrNull { it.value == value }?.label?.let { Strings.message(it) }
-        ?: item.options.firstOrNull()?.label?.let { Strings.message(it) }
-        ?: value
+    val current = optionLabel(item, value)
     Box {
         Row(
             modifier = Modifier

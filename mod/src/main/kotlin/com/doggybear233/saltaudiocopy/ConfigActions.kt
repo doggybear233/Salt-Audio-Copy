@@ -667,7 +667,15 @@ object ConfigActions {
                 )
                 PanelState.showCandidates(
                     result.candidates.map {
-                        PanelState.Candidate(it.index, it.label(), it.source, it.cover, it.releaseId)
+                        PanelState.Candidate(
+                            index = it.index,
+                            label = it.label(),
+                            source = it.source,
+                            cover = it.cover,
+                            releaseId = it.releaseId,
+                            albumArtist = it.albumArtist,
+                            albumTitle = it.albumTitle
+                        )
                     }
                 )
 
@@ -716,9 +724,28 @@ object ConfigActions {
      * 并写成 album.json 缓存，后续抓轨、以及再次插入同一张盘都用它。
      */
     @JvmStatic
+    /**
+     * 把面板候选转成查询用的候选。
+     *
+     * 只搬结构化字段，**不解析 [PanelState.Candidate.label]**：名字里带「 · 」或全角「（」
+     * 时切分会截错，而错的名字会被写进 album.json 长期复用。
+     */
+    internal fun candidateFor(picked: PanelState.Candidate) =
+        com.doggybear233.saltaudiocopy.meta.MetadataCandidates.Candidate(
+            index = picked.index,
+            albumArtist = picked.albumArtist,
+            albumTitle = picked.albumTitle,
+            year = null,
+            trackCount = 0,
+            releaseId = picked.releaseId,
+            source = picked.source
+        )
+
     fun selectCandidate(index: Int) {
-        PanelState.selectCandidate(index)
+        // 先不动高亮：取数据失败时不能让人以为已经换版本了
         val picked = PanelState.candidates.getOrNull(index) ?: return
+        val previous = PanelState.selectedCandidate
+        PanelState.set(Strings.fmt("正在获取「%s」…", picked.label), Strings.message("取到后才会切换到这个版本"))
         toast(Strings.fmt("正在获取「%s」…", picked.label), ToastType.Success)
         exec.execute {
             try {
@@ -727,18 +754,16 @@ object ConfigActions {
                 val cdtext = runCatching {
                     com.doggybear233.saltaudiocopy.scsi.CdDevice(scan.path).use { it.readCdText() }
                 }.getOrNull()
-                val cand = com.doggybear233.saltaudiocopy.meta.MetadataCandidates.Candidate(
-                    index = picked.index,
-                    albumArtist = picked.label.substringBefore(" · "),
-                    albumTitle = picked.label.substringAfter(" · ").substringBefore("（"),
-                    year = null,
-                    trackCount = 0,
-                    releaseId = picked.releaseId,
-                    source = picked.source
-                )
+                val cand = candidateFor(picked)
                 val notes = ArrayList<String>()
                 val album = com.doggybear233.saltaudiocopy.meta.MetadataCandidates.materialize(scan.toc, cand, settings, cdtext, notes)
                 if (album == null) {
+                    // 失败：高亮保持原样，并在坞内说明（toast 4 秒就没了）
+                    PanelState.commitSelection(previous)
+                    PanelState.set(
+                        Strings.message("没能取到该版本的完整信息，仍用原来选中的版本"),
+                        Strings.message("换一个候选，或直接手动填写元数据")
+                    )
                     toast(Strings.message("没能取到该版本的完整信息，请换一个候选"), ToastType.Warning)
                     return@execute
                 }
@@ -760,10 +785,16 @@ object ConfigActions {
                         audio = scan.toc.isAudioCd
                     )
                 )
+                PanelState.commitSelection(index)
                 PanelState.set(Strings.fmt("已选用：%s - %s", album.albumArtist, album.albumTitle), notes.takeLast(1).joinToString())
                 toast(Strings.fmt("已选用「%s - %s」", album.albumArtist, album.albumTitle), ToastType.Success)
             } catch (e: Throwable) {
                 Diag.log("selectCandidate failed", e)
+                PanelState.commitSelection(previous)
+                PanelState.set(
+                    Strings.message("没能取到该版本的完整信息，仍用原来选中的版本"),
+                    com.doggybear233.saltaudiocopy.scsi.ScsiMessages.human(e)
+                )
                 toast(Strings.message("获取失败：") + com.doggybear233.saltaudiocopy.scsi.ScsiMessages.human(e), ToastType.Error)
             }
         }
@@ -1077,6 +1108,7 @@ object ConfigActions {
             toast(Strings.message("已有抓轨任务在进行"), ToastType.Warning)
             return
         }
+        PanelState.settingsOpen = false
         // 这张盘已经抓完一遍：第一次点击只确认，第二次才真的覆盖
         if (PanelState.ripDone && !PanelState.reRipArmed) {
             PanelState.reRipArmed = true
@@ -1253,6 +1285,8 @@ object ConfigActions {
             toast(Strings.message("已有任务在进行"), ToastType.Warning)
             return
         }
+        // 从设置页发起：立刻回到坞视图，否则进度/取消都被设置页盖住
+        PanelState.settingsOpen = false
         busy = true
         cancelFlag.set(false)
         PanelState.begin("只测不写（Test only）")
@@ -1306,6 +1340,7 @@ object ConfigActions {
             toast(Strings.message("已有抓轨任务在进行"), ToastType.Warning)
             return
         }
+        PanelState.settingsOpen = false
         busy = true
         cancelFlag.set(false)
         toast(Strings.message("开始抓取第 1 轨…"), ToastType.Success)
@@ -1463,6 +1498,12 @@ object ConfigActions {
     /** 把设置草稿整份写回磁盘。 */
     @JvmStatic
     fun savePanelSettings() {
+        if (busy) {
+            // 抓轨用的是启动那一刻的设置快照，改了也不会影响本次，说清楚比让它「看起来生效」好
+            PanelState.set(Strings.message("抓轨进行中，暂时不能改设置"), Strings.message("等这次抓轨结束再保存；本次仍用开始时的设置"))
+            toast(Strings.message("抓轨进行中，暂时不能改设置"), ToastType.Warning)
+            return
+        }
         val d = PanelState.draft.copy(
             folderTemplate = PanelState.draft.folderTemplate.ifBlank { "%albumartist%/%albumtitle%" },
             fileTemplate = PanelState.draft.fileTemplate.ifBlank { "%tracknr2% %title%" },

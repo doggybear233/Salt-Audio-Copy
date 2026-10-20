@@ -7,6 +7,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -33,6 +34,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -107,7 +111,12 @@ private fun PanelSurface() {
             NoticeBar()
             when {
                 PanelState.manualOpen -> ManualMetaPanel()
-                PanelState.settingsOpen -> SettingsPanel()
+                // 设置页开着也在抓轨时，进度/暂停/取消必须仍然可见：
+                // 以前整页被设置盖住，光驱在响但界面既没进度也没取消入口。
+                PanelState.settingsOpen -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (PanelState.busy || PanelState.progress != null) StatusStrip()
+                    SettingsPanel()
+                }
                 PanelState.busy || PanelState.progress != null -> RunningBlock()
                 PanelState.disc == null -> IdleBlock()
                 else -> ReadyBlock()
@@ -331,6 +340,55 @@ private fun ReadyBlock() {
     }
 }
 
+/* ---------------------------------------------------------------- 精简进度条 */
+
+/**
+ * 设置页展开时的「还在干什么」一行：进度条 + 状态 + 取消。
+ *
+ * 只保留最小信息，避免把设置挤走；完整信息仍在 [RunningBlock]。
+ */
+@Composable
+private fun StatusStrip() {
+    val cs = MaterialTheme.colorScheme
+    val p = PanelState.progress
+    val armed = PanelState.cancelArmed
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        LinearProgressIndicator(
+            progress = { (p?.fraction ?: 0f).coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth(),
+            color = if (PanelState.paused) cs.onSurface.copy(alpha = 0.35f) else cs.onSurface,
+            trackColor = cs.onSurface.copy(alpha = 0.14f)
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = buildString {
+                    append(PanelState.status)
+                    if (p != null) {
+                        append(" · ")
+                        append(PanelFormat.trackLine(p.trackNo, p.trackTotal, p.fraction))
+                    }
+                },
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+                color = cs.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = { ConfigActions.pauseRip() }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                Text(Strings.key(if (PanelState.paused) "resume" else "pause"), fontSize = 11.sp, color = cs.onSurface)
+            }
+            TextButton(onClick = { ConfigActions.cancelRip() }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                Text(
+                    Strings.key(if (armed) "cancel_confirm" else "cancel"),
+                    fontSize = 11.sp,
+                    color = if (armed) cs.error else cs.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
 /* ---------------------------------------------------------------- 运行中 */
 
 @Composable
@@ -425,7 +483,12 @@ private fun CoverThumb(sizeDp: Dp) {
     // 候选里的封面优先；没有候选（比如手填元数据、网络查不到）就用本地缓存的封面
     val img = PanelState.candidates.getOrNull(PanelState.selectedCandidate)?.cover
         ?: PanelState.discCover
-    val bmp = CoverImages.decode(img)
+    // 解码是 CPU 活：放到 IO 线程，组合里只读结果（以前在组合线程同步解码，切候选会卡）
+    val bmpState = produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, img) {
+        value = if (img == null) null
+        else withContext(Dispatchers.IO) { CoverImages.decode(img) }
+    }
+    val bmp = bmpState.value
     if (bmp != null) {
         Image(
             bitmap = bmp,
@@ -516,7 +579,11 @@ private fun CandidateRow() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
-                    val thumb = CoverImages.decode(c.cover)
+                    val thumbState = produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, c.cover) {
+                        value = if (c.cover == null) null
+                        else withContext(Dispatchers.IO) { CoverImages.decode(c.cover) }
+                    }
+                    val thumb = thumbState.value
                     if (thumb != null) {
                         Image(
                             bitmap = thumb,

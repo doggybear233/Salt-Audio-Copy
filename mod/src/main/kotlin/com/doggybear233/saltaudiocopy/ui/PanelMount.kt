@@ -49,12 +49,12 @@ object PanelMount {
             if (tryMount(registrar, hook, HostTargets.PAGE_CLASS, HostTargets.PAGE_METHOD,
                     HostTargets.PAGE_CALLER, types)) {
                 Diag.log("panel mounted on CD page (types=$types)")
-                PanelState.detail = "面板已挂载；点「扫描」读取当前光盘"
+                PanelState.detail = Strings.message("面板已挂载；点「扫描」读取当前光盘")
                 return
             }
         }
 
-        lastError = "宿主 CD 页类名未解析到（宿主版本可能已变化）"
+        lastError = Strings.message("宿主 CD 页类名未解析到（宿主版本可能已变化）")
         Diag.log("panel mount gave up：宿主类名可能已变化，功能仍可通过插件设置页使用")
         warnUserOnce()
     }
@@ -89,7 +89,7 @@ object PanelMount {
         warned = true
         runCatching {
             com.xuncorp.spw.workshop.api.WorkshopApi.ui.toast(
-                "抓轨面板未能挂载（宿主版本可能已更新）。功能仍可在插件设置页使用。",
+                Strings.message("抓轨面板未能挂载（宿主版本可能已更新）。功能仍可在插件设置页使用。"),
                 com.xuncorp.spw.workshop.api.WorkshopApi.Ui.ToastType.Warning
             )
         }.onFailure { Diag.log("panel mount warn toast failed", it) }
@@ -103,11 +103,18 @@ object PanelMount {
     /** 供设置页按钮/诊断使用。 */
     val mounted: Boolean get() = handle != null
 
-    /** 一行人能读懂的状态，给「检查面板挂载」按钮用。 */
-    fun status(): String = if (mounted) {
-        "面板已挂载为「底部坞」（整页 hook，贴底并避让播放条）。"
-    } else {
-        "面板未挂载。${lastError ?: "尚未尝试"}。\n" +
-            "目标：${HostTargets.PAGE_CLASS}.${HostTargets.PAGE_METHOD}（调用点 ${HostTargets.PAGE_CALLER}）。"
+    /**
+     * 一行人能读懂的状态，给「检查面板挂载」按钮用。
+     *
+     * 宿主类名是混淆名（`androidx.compose.ui.…`），写进用户可见文案只会让人以为是崩溃；
+     * 详细目标只进日志，界面只说「挂上了没有、为什么没挂上」。
+     */
+    fun status(): String {
+        Diag.log("panel status: mounted=$mounted target=${HostTargets.PAGE_CLASS}.${HostTargets.PAGE_METHOD} caller=${HostTargets.PAGE_CALLER}")
+        return if (mounted) {
+            Strings.message("面板已挂载为底部坞（贴底显示，并避让播放条）。")
+        } else {
+            Strings.fmt("面板未挂载：%s", lastError ?: Strings.message("尚未尝试"))
+        }
     }
 }

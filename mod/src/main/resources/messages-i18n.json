@@ -1330,12 +1330,64 @@
       "選択を解除"
     ],
     "这一项要填整数（负号也可以）": [
-      "Enter a whole number (a minus sign is fine)",
-      "整数を入力してください（マイナスも可）"
+      "Enter a whole number (a leading minus is allowed)",
+      "整数を入力してください（先頭のマイナスも可）"
     ],
     "这些项不是整数，已保留原值：%s": [
-      "Not whole numbers, kept the previous values: %s",
-      "整数ではないため元の値のままです：%s"
+      "These entries are not whole numbers; the previous values were kept: %s",
+      "整数ではない項目があります。元の値を保持しました：%s"
+    ],
+    "面板已挂载；点「扫描」读取当前光盘": [
+      "Panel is ready — click “Scan” to read the disc",
+      "パネルを表示しました。「スキャン」でディスクを読み取ります"
+    ],
+    "宿主 CD 页类名未解析到（宿主版本可能已变化）": [
+      "Could not resolve the host’s CD page class (the host version may have changed)",
+      "ホストの CD ページクラスを特定できませんでした（ホストのバージョンが変わった可能性があります）"
+    ],
+    "抓轨面板未能挂载（宿主版本可能已更新）。功能仍可在插件设置页使用。": [
+      "The rip panel could not be attached (the host may have been updated). Everything is still available from the plug-in settings page.",
+      "取り込みパネルを表示できませんでした（ホストが更新された可能性があります）。プラグイン設定ページからは引き続き利用できます。"
+    ],
+    "面板已挂载为底部坞（贴底显示，并避让播放条）。": [
+      "Panel attached as a bottom dock (pinned to the bottom, clear of the player bar).",
+      "パネルを下部ドックとして表示しています（下端に固定し、再生バーを避けます）。"
+    ],
+    "面板未挂载：%s": [
+      "Panel not attached: %s",
+      "パネル未表示：%s"
+    ],
+    "尚未尝试": [
+      "not attempted yet",
+      "まだ試行していません"
+    ],
+    "放入光盘会自动识别；同一张盘放回来可以接着抓": [
+      "Inserting a disc is detected automatically; put the same disc back to continue ripping",
+      "ディスクを入れると自動で認識します。同じディスクを戻せば続きから取り込めます"
+    ],
+    "取到后才会切换到这个版本": [
+      "The version only switches after the data arrives",
+      "データを取得できてから切り替えます"
+    ],
+    "没能取到该版本的完整信息，仍用原来选中的版本": [
+      "Could not get the full data for that release — still using the previously selected one",
+      "このリリースの情報を取得できませんでした。以前に選択したものを使用します"
+    ],
+    "换一个候选，或直接手动填写元数据": [
+      "Pick another candidate, or enter the metadata manually",
+      "別の候補を選ぶか、メタデータを手入力してください"
+    ],
+    "抓轨进行中，暂时不能改设置": [
+      "Ripping in progress — settings cannot be changed right now",
+      "取り込み中は設定を変更できません"
+    ],
+    "等这次抓轨结束再保存；本次仍用开始时的设置": [
+      "Save after this rip finishes; this run keeps the settings it started with",
+      "この取り込みが終わってから保存してください。今回の取り込みは開始時の設定で続行します"
+    ],
+    "%s（非预设）": [
+      "%s (custom)",
+      "%s（プリセット外）"
     ]
   }
 }
