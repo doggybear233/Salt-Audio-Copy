@@ -140,4 +140,29 @@ class RipPlanTest {
         val plan = RipPlan.build(scan().toc, cfg, twoDiscs)
         assertEquals("CD2", plan.albumDir.fileName.toString())
     }
+
+    @Test
+    fun flacModePreviewsFlacFileNames() {
+        val cfg = settings().copy(format = "flac")
+        val plan = RipPlan.build(scan().toc, cfg, album())
+        assertEquals("01 道.flac", plan.tracks[0].fileName)
+        assertTrue(plan.describe().contains(".flac"))
+    }
+
+    @Test
+    fun imageModePreviewsTheSplicedFile() {
+        val cfg = settings().copy(imageMode = true)
+        val plan = RipPlan.build(scan().toc, cfg, album())
+        assertEquals("宇多田ヒカル - Fantôme.wav", plan.imageName)
+        val text = plan.describe()
+        assertTrue(text.contains("整盘镜像："), "预览要写出镜像文件名")
+        assertTrue(text.contains("合成后删除"), "预览要说明逐轨文件是中间产物")
+    }
+
+    @Test
+    fun imageModeIsNotPreviewedWhenGapsCannotBeSpliced() {
+        val cfg = settings().copy(imageMode = true, gapMode = "prepend")
+        val plan = RipPlan.build(scan().toc, cfg, album())
+        assertEquals(null, plan.imageName, "间隙会前移时无法连续拼接，预览不该承诺镜像")
+    }
 }

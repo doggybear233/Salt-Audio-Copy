@@ -1308,6 +1308,22 @@
     "第 %s 轨抓取中断：%s；%s": [
       "Track %s aborted: %s; %s",
       "第 %s トラックの取り込みを中断：%s；%s"
+    ],
+    "已保留抓完的 %s 轨，清理了 %s 个半成品": [
+      "Kept %s finished track(s) and removed %s partial file(s)",
+      "完了した %s トラックを残し、未完成ファイル %s 個を削除しました"
+    ],
+    "已保留抓完的 %s 轨（文件在 %s）": [
+      "Kept %s finished track(s) (files in %s)",
+      "完了した %s トラックを残しました（ファイル: %s）"
+    ],
+    "整盘镜像：%s": [
+      "Full-disc image: %s",
+      "ディスク全体のイメージ: %s"
+    ],
+    "（逐轨文件只作为拼接中间产物，合成后删除）": [
+      "(Per-track files are only intermediates and are removed after splicing)",
+      "（トラック別ファイルは結合の中間ファイルで、結合後に削除されます）"
     ]
   }
 }

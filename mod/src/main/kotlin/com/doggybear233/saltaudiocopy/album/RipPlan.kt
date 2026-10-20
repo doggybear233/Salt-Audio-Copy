@@ -44,7 +44,9 @@ object RipPlan {
         val warnings: List<String>,
         val cueName: String?,
         val logName: String?,
-        val coverName: String?
+        val coverName: String?,
+        /** 整盘镜像文件名（imageMode 且间隙可拼接时）；逐轨文件只是中间产物。 */
+        val imageName: String? = null
     ) {
         fun describe(): String {
             val sb = StringBuilder()
@@ -71,6 +73,11 @@ object RipPlan {
                         t.fileName.take(38), t.action
                     )
                 )
+            }
+            imageName?.let {
+                sb.appendLine()
+                sb.appendLine(Strings.fmt("整盘镜像：%s", it))
+                sb.appendLine(Strings.message("（逐轨文件只作为拼接中间产物，合成后删除）"))
             }
             val extras = listOfNotNull(
                 cueName?.let { Strings.fmt("CUE：%s", it) },
@@ -122,6 +129,10 @@ object RipPlan {
             warnings += "文件名模板既没有轨号也没有标题，所有音轨会撞名"
         }
 
+        // 预览里的扩展名必须与抓轨最终落盘的一致：FLAC 模式写完 WAV 会转成 .flac
+        //（keepWav=false 时 WAV 还会被删掉），所以这里统一按 format 取扩展名。
+        val ext = if (settings.format.equals("flac", true)) ".flac" else ".wav"
+
         val tracks = ArrayList<TrackPlan>(selected.size)
         var total = 0L
         for (i in selected) {
@@ -153,15 +164,15 @@ object RipPlan {
                 else -> sectors
             }
             val bytes = expectedSectors.toLong() * 2352L
-            val resolved = Overwrite.resolve(dir, baseName, ".wav", settings.overwritePolicy)
-            val exists = Files.exists(dir.resolve(baseName + ".wav"))
+            val resolved = Overwrite.resolve(dir, baseName, ext, settings.overwritePolicy)
+            val exists = Files.exists(dir.resolve(baseName + ext))
             val action = when {
                 resolved == null -> "跳过（已存在）"
-                resolved.fileName.toString() != baseName + ".wav" -> "另存为 ${resolved.fileName}"
+                resolved.fileName.toString() != baseName + ext -> "另存为 ${resolved.fileName}"
                 exists -> "覆盖"
                 else -> "写入"
             }
-            val fileName = resolved?.fileName?.toString() ?: (baseName + ".wav")
+            val fileName = resolved?.fileName?.toString() ?: (baseName + ext)
             if (resolved != null) total += bytes
             tracks += TrackPlan(
                 entry.track, title, startLba, sectors, gapBefore, gapAfter,
@@ -184,11 +195,21 @@ object RipPlan {
             totalBytes = total,
             freeBytes = free,
             warnings = warnings,
-            cueName = if (settings.writeCue) "$albumArtist - $albumTitle.cue" else null,
-            logName = if (settings.writeLog) "$albumArtist - $albumTitle.log" else null,
-            coverName = if (settings.fetchMetadata) "${settings.coverFileName}.jpg" else null
+            // 名字必须与 AlbumRipper 实际写出的文件一致：CUE/日志用同一个 baseName 清洗规则，
+            // 封面按 coverFileName 清洗（扩展名由图片 MIME 决定，预览按最常见的 .jpg 显示）。
+            cueName = if (settings.writeCue) cueBase(albumArtist, albumTitle) + ".cue" else null,
+            logName = if (settings.writeLog) cueBase(albumArtist, albumTitle) + ".log" else null,
+            coverName = if (settings.fetchMetadata) {
+                TemplateEngine.sanitizeSegment(settings.coverFileName, 150) + ".jpg"
+            } else null,
+            imageName = if (settings.imageMode && settings.gapMode.lowercase() == "append") {
+                TemplateEngine.sanitizeSegment("$albumArtist - $albumTitle", 120) + ext
+            } else null
         )
     }
+
+    private fun cueBase(artist: String, title: String): String =
+        TemplateEngine.sanitizeSegment("$artist - $title", 120)
 
     internal fun albumVars(
         album: AlbumMeta?,

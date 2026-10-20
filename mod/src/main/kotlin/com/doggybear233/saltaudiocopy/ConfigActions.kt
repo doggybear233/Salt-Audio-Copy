@@ -1145,9 +1145,18 @@ object ConfigActions {
                     }
                 )
                 if (result.cancelled) {
-                    removedFiles = deleteCreated(result.createdFiles)
+                    // 取消时只清理「没抓完的那一轨」与半成品（CUE/日志），
+                    // 已经完整抓好的音轨是有效成果，不能连坐删掉。
+                    val finished = result.tracks.filter { !it.skipped }
+                        .map { it.file.toAbsolutePath().normalize() }.toSet()
+                    val removable = if (finished.isEmpty()) {
+                        result.createdFiles
+                    } else {
+                        result.createdFiles.filter { it.toAbsolutePath().normalize() !in finished }
+                    }
+                    removedFiles = deleteCreated(removable)
                     if (removedFiles > 0) {
-                        Diag.log("cancelled: removed $removedFiles files from ${result.outDir}")
+                        Diag.log("cancelled: removed $removedFiles files from ${result.outDir} (kept ${finished.size} tracks)")
                     }
                 }
                 PanelState.lastOutDir = result.outDir
@@ -1159,10 +1168,13 @@ object ConfigActions {
                 }
                 Diag.log("album result:\n$detail\nnotes:\n" + result.notes.joinToString("\n"))
                 if (result.cancelled) {
-                    val tail = if (removedFiles > 0) {
-                        Strings.fmt("已删除本次生成的 %s 个文件", removedFiles)
-                    } else {
-                        Strings.fmt("文件保留在 %s", result.outDir)
+                    val doneCount = result.tracks.count { !it.skipped }
+                    val tail = when {
+                        doneCount > 0 && removedFiles > 0 ->
+                            Strings.fmt("已保留抓完的 %s 轨，清理了 %s 个半成品", doneCount, removedFiles)
+                        doneCount > 0 -> Strings.fmt("已保留抓完的 %s 轨（文件在 %s）", doneCount, result.outDir)
+                        removedFiles > 0 -> Strings.fmt("已删除本次生成的 %s 个文件", removedFiles)
+                        else -> Strings.fmt("文件保留在 %s", result.outDir)
                     }
                     PanelState.set(Strings.message("已取消"), tail)
                     toast(Strings.fmt("已取消：完成 %s/%s 轨，%s", result.tracks.size, count, tail), ToastType.Warning)
