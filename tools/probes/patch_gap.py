@@ -1,12 +1,12 @@
 import io
 
-base = r'D:\deepseek\workspace\projects\salt-rip\mod\src\main\kotlin\com\saltrip\rip'
+base = r'D:\deepseek\workspace\projects\salt-rip\mod\src\main\kotlin\com\saltaudiocopy\rip'
 
 # 1) RipResult 增加 gapSectors
 p = base + r'\rip\RipEngine.kt'
 s = io.open(p, encoding='utf-8').read()
-s = s.replace("import com.saltrip.rip.scsi.CdDevice",
-              "import com.saltrip.rip.scsi.CdDevice\nimport com.saltrip.rip.scsi.GapDetector")
+s = s.replace("import com.doggybear233.saltaudiocopy.scsi.CdDevice",
+              "import com.doggybear233.saltaudiocopy.scsi.CdDevice\nimport com.doggybear233.saltaudiocopy.scsi.GapDetector")
 s = s.replace("""        useC2: Boolean = false,
         writeFile: Boolean = true
     ): RipResult {""",

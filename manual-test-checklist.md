@@ -6,7 +6,7 @@
 **日志**：面板 → 设置 → 8 · 诊断 → 「查看日志路径」（会 toast 出完整路径），或者直接找
 
 ```
-%APPDATA%\Salt Player for Windows\workshop\plugins\plugin-com.saltrip.saltaudiocopy-1.0.0\logs\saltrip.log
+%APPDATA%\Salt Player for Windows\workshop\plugins\plugin-com.doggybear233.saltaudiocopy-1.0.0\logs\saltaudiocopy.log
 ```
 
 **回报格式**：条目编号 + 通过/失败 + （失败时）截图或日志尾部 30 行。日志里以 `[SaltAudioCopy]` 开头。
@@ -16,9 +16,9 @@
 ## 0. 装包
 
 1. **先删掉旧版本**：关掉宿主 → 打开
-   `%APPDATA%\Salt Player for Windows\workshop\plugins`，把 `plugin-com.saltrip.saltaudiocopy-*` 里
+   `%APPDATA%\Salt Player for Windows\workshop\plugins`，把 `plugin-com.doggybear233.saltaudiocopy-*` 里
    **不是** 1.0.0 的目录全删掉（上一次「手填不刷新 / 卡 21%」其实是宿主还在跑 0.36.3）。
-2. 宿主「模组管理」导入 `plugin-com.saltrip.saltaudiocopy-1.0.0.spmod` → 启用。
+2. 宿主「模组管理」导入 `plugin-com.doggybear233.saltaudiocopy-1.0.0.spmod` → 启用。
 3. 权限勾选里需要 **class-transform**（面板挂载用），缺失时面板不会出现。
 4. 通过：启用后无报错；「CD 工具箱」页出现坞（封面 + 标题 + 状态 + 按钮行）；
    面板 → 设置，标题右侧能看到 **v1.0.0**（看不到就说明跑的还是旧版）。

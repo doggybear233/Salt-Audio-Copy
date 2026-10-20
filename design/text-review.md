@@ -45,4 +45,4 @@
 ## 5. 验证
 
 - `gradle clean test plugin --rerun-tasks` → 438 tests / 0 failed / 11 skipped。
-- 包 `plugin-com.saltrip.saltaudiocopy-1.0.0.spmod`，1,219,838 B；`classes/META-INF/MANIFEST.MF` 全 ASCII；`preference_config.json` 8 组 / 45 键 / 14 按钮；`messages-i18n.json` 314 条；`options-i18n.json` en/ja 各 59 条。
+- 包 `plugin-com.doggybear233.saltaudiocopy-1.0.0.spmod`，1,219,838 B；`classes/META-INF/MANIFEST.MF` 全 ASCII；`preference_config.json` 8 组 / 45 键 / 14 按钮；`messages-i18n.json` 314 条；`options-i18n.json` en/ja 各 59 条。

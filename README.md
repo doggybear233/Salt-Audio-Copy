@@ -11,7 +11,7 @@
 
 ## 安装
 
-1. 从 [Releases](https://github.com/doggybear233/Salt-Audio-Copy/releases) 下载 `plugin-com.saltrip.saltaudiocopy-1.0.0.spmod`。
+1. 从 [Releases](https://github.com/doggybear233/Salt-Audio-Copy/releases) 下载 `plugin-com.doggybear233.saltaudiocopy-1.0.0.spmod`。
 2. 打开 Salt Player →「模组管理」→ 导入该文件 → 启用。
 3. 权限里勾上 **class-transform**（面板挂载需要它；缺了面板不会出现）。
 4. 进入「CD 工具箱」，页面底部出现抓轨坞；点「设置」可改输出目录、命名模板、格式等。
@@ -44,10 +44,10 @@
 .\dev-env.ps1              # 设置 JAVA_HOME / GRADLE_HOME
 cd mod
 gradle clean test plugin    # 跑单元测试并产出 .spmod
-# 产物：mod\build\libs\plugin-com.saltrip.saltaudiocopy-<版本>.spmod
+# 产物：mod\build\libs\plugin-com.doggybear233.saltaudiocopy-<版本>.spmod
 ```
 
-- 单元测试 438 项（含硬件门控用例，设 `SALTRIP_HW=1` 才会碰真光驱）。
+- 单元测试 438 项（含硬件门控用例，设 `SALTAC_HW=1` 才会碰真光驱）。
 - 真机测试清单：`manual-test-checklist.md`。
 
 ## 目录

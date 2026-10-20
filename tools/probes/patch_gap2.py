@@ -3,7 +3,7 @@ import io
 base = r'D:\deepseek\workspace\projects\salt-rip\mod'
 
 # settings
-p = base + r'\src\main\kotlin\com\saltrip\rip\settings\RipSettings.kt'
+p = base + r'\src\main\kotlin\com\saltaudiocopy\rip\settings\RipSettings.kt'
 s = io.open(p, encoding='utf-8').read()
 s = s.replace(
     "    /** Test & Copy：先测试读取一遍拿 CRC，再正式写入并逐轨比对。 */\n    val testAndCopy: Boolean = false",
@@ -19,7 +19,7 @@ s = s.replace("            h.set(KEY_TEST_COPY, s.testAndCopy)",
 io.open(p, 'w', encoding='utf-8', newline='').write(s)
 
 # AlbumRipper: 传 detectGaps + 上一轨结束作为下界
-p = base + r'\src\main\kotlin\com\saltrip\rip\album\AlbumRipper.kt'
+p = base + r'\src\main\kotlin\com\saltaudiocopy\rip\album\AlbumRipper.kt'
 s = io.open(p, encoding='utf-8').read()
 s = s.replace("""                retryDelayMs = settings.retryDelayMs,
                 useC2 = settings.useC2

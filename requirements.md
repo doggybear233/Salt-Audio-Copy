@@ -1,4 +1,4 @@
-# SaltRip 需求定义 v1.0（冻结稿）
+# Salt Audio Copy 需求定义 v1.0（冻结稿）
 
 > 项目：Salt Player（Windows / Steam AppID 3009140）的 CD 抓轨 mod，嵌入宿主界面。
 > 依据：`options.md`（选项单）+ 用户 m00740 的决策。所有"已确认"项都来自真机实测。

@@ -1,5 +1,5 @@
 import io, re, sys
-p = r'D:\deepseek\workspace\projects\salt-rip\mod\src\main\kotlin\com\saltrip\rip\rip\RipEngine.kt'
+p = r'D:\deepseek\workspace\projects\salt-rip\mod\src\main\kotlin\com\saltaudiocopy\rip\rip\RipEngine.kt'
 s = io.open(p, encoding='utf-8').read()
 
 s = s.replace(

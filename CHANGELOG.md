@@ -9,6 +9,7 @@
 - 文本框案复查：术语统一、说明与实现对齐（校验次数、限速「不限速」、日志字段），删除 17 条死键。
 - 内置 FLAC 编码器（Xiph 1.4.3），不再需要用户自己找 `flac.exe`。
 - 支持从任意输出根读取已保存的专辑缓存，换根不再丢手填元数据。
+- 插件标识改为自有品牌：`Plugin-Id = com.doggybear233.saltaudiocopy`、`Plugin-Provider = doggybear233`、Kotlin 包 `com.doggybear233.saltaudiocopy`；日志文件名改为 `saltaudiocopy.log`，不再保留 `saltrip` 字样（旧版插件目录需手动删除）。
 - 发布物料：`release/github`、`release/steam`。
 
 ## 0.40 — 0.43

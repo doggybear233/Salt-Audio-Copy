@@ -9,7 +9,7 @@ import json
 
 PAIRS = [
     # ── album/RipPlan.kt ──────────────────────────────────────────
-    ("src/main/kotlin/com/saltrip/rip/album/RipPlan.kt", [
+    ("src/main/kotlin/com/saltaudiocopy/rip/album/RipPlan.kt", [
         ('sb.appendLine("输出目录：$albumDir")',
          'sb.appendLine(Strings.fmt("输出目录：%s", albumDir))'),
         ('sb.appendLine("专辑：$albumArtist - $albumTitle")',
@@ -36,7 +36,7 @@ PAIRS = [
          '            )'),
     ]),
     # ── album/DiscAnalysis.kt ────────────────────────────────────
-    ("src/main/kotlin/com/saltrip/rip/album/DiscAnalysis.kt", [
+    ("src/main/kotlin/com/saltaudiocopy/rip/album/DiscAnalysis.kt", [
         ('if (gaps.isEmpty()) return "没有音轨"',
          'if (gaps.isEmpty()) return Strings.message("没有音轨")'),
         ('sb.append("共 %d 轨 / %s / %d 轨有预间隙".format(gaps.size, CueWriter.msf(total.toInt()), withGap))',
@@ -45,7 +45,7 @@ PAIRS = [
          '        )'),
     ]),
     # ── album/OutputCheck.kt ─────────────────────────────────────
-    ("src/main/kotlin/com/saltrip/rip/album/OutputCheck.kt", [
+    ("src/main/kotlin/com/saltaudiocopy/rip/album/OutputCheck.kt", [
         ('wavCount == 0 && cueCount == 0 -> "目录里没有 WAV/CUE：$dir"',
          'wavCount == 0 && cueCount == 0 -> Strings.fmt("目录里没有 WAV/CUE：%s", dir)'),
         ('ok -> "检查通过：$wavCount 个 WAV，$cueCount 个 CUE"',
@@ -72,7 +72,7 @@ PAIRS = [
          '                        )'),
     ]),
     # ── album/DiscTest.kt ────────────────────────────────────────
-    ("src/main/kotlin/com/saltrip/rip/album/DiscTest.kt", [
+    ("src/main/kotlin/com/saltaudiocopy/rip/album/DiscTest.kt", [
         ('onStage("测试读取第 ${entry.track} 轨…")',
          'onStage(Strings.fmt("测试读取第 %s 轨…", entry.track))'),
         ('if (rows.isEmpty()) return "没有测试任何音轨"',
@@ -90,7 +90,7 @@ PAIRS = [
          '        )'),
     ]),
     # ── meta/MetadataCandidates.kt ───────────────────────────────
-    ("src/main/kotlin/com/saltrip/rip/meta/MetadataCandidates.kt", [
+    ("src/main/kotlin/com/saltaudiocopy/rip/meta/MetadataCandidates.kt", [
         ('notes += "MusicBrainz 查询失败：${it.message ?: it.javaClass.simpleName}"',
          'notes += Strings.fmt(\n'
          '                    "MusicBrainz 查询失败：%s", it.message ?: it.javaClass.simpleName\n'
@@ -107,7 +107,7 @@ PAIRS = [
          'notes += Strings.message("CDDB 缓存命中（离线也能用）")'),
     ]),
     # ── meta/MetadataService.kt ─────────────────────────────────
-    ("src/main/kotlin/com/saltrip/rip/meta/MetadataService.kt", [
+    ("src/main/kotlin/com/saltaudiocopy/rip/meta/MetadataService.kt", [
         ('"MusicBrainz 查询失败: ${it.message}"',
          'Strings.fmt("MusicBrainz 查询失败: %s", it.message)'),
         ('"MusicBrainz: ${releases.size} 个候选"',
@@ -179,7 +179,7 @@ def main():
     for path, pairs in PAIRS:
         src = io.open(path, encoding="utf-8").read()
         if any("Strings." in new for _, new in pairs):
-            src = ensure_import(src, "com.saltrip.rip.ui.Strings")
+            src = ensure_import(src, "com.doggybear233.saltaudiocopy.ui.Strings")
         for old, new in pairs:
             n = src.count(old)
             if n != 1:

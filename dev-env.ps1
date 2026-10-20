@@ -1,4 +1,4 @@
-# SaltRip 开发环境（本机）
+# Salt Audio Copy 开发环境（本机）
 # 用法：在 PowerShell 里 . .\dev-env.ps1   （点号加载，注入当前会话）
 # 不修改系统环境变量，不污染其它 JDK 使用者。
 

@@ -35,7 +35,7 @@
 
 ## 2. 工程骨架
 
-位置 `projects/salt-rip/mod/`：
+位置 `projects/Salt-Audio-Copy/mod/`：
 
 ```
 mod/
@@ -43,8 +43,8 @@ mod/
 ├─ build.gradle.kts         # kotlin 2.4.20 + compose 插件 + spmod{}
 ├─ gradle.properties
 ├─ gradlew(.bat) + gradle/wrapper/
-└─ src/main/kotlin/com/saltrip/rip/
-   ├─ SaltRipPlugin.kt  Diag.kt
+└─ src/main/kotlin/com/saltaudiocopy/rip/
+   ├─ SaltAudioCopyPlugin.kt  Diag.kt
    ├─ ui/RipPanel.kt  ui/HookTargets.kt
    ├─ scsi/Native.kt  scsi/Sptd.kt  scsi/Cdrom.kt
    ├─ rip/Toc.kt  rip/RipEngine.kt
@@ -65,7 +65,7 @@ if (requested.id.id == "com.xuncorp.spw.workshop")
     useModule("com.github.Moriafly.spw-workshop-api:spw-workshop-gradle-plugin:${requested.version}")
 ```
 
-`spmod { PluginId="com.saltrip.rip"; PluginClass="com.saltrip.rip.SaltRipPlugin"; PluginVersion="0.1.0"; PluginProvider="saltrip"; PluginName="盐音抓轨 (SaltRip)"; PluginDescription="CD 抓轨（EAC 风格）"; PluginOpenSourceUrl="..."; PluginHasConfig=true; PluginPermissions=listOf(PluginPermission.CLASS_TRANSFORM) }`
+`spmod { PluginId="com.doggybear233.saltaudiocopy"; PluginClass="com.doggybear233.saltaudiocopy.SaltAudioCopyPlugin"; PluginVersion="0.1.0"; PluginProvider="saltaudiocopy"; PluginName="盐音抓轨 (Salt Audio Copy)"; PluginDescription="CD 抓轨（EAC 风格）"; PluginOpenSourceUrl="..."; PluginHasConfig=true; PluginPermissions=listOf(PluginPermission.CLASS_TRANSFORM) }`
 
 构建后校验 zip：①`classes/META-INF/MANIFEST.MF` 存在 ②含 4 个关键属性 ③未打入宿主已有类。失败即构建失败。
 回退：官方插件不可用时手写 Zip 任务拼 `classes/` + `lib/`。
@@ -73,7 +73,7 @@ if (requested.id.id == "com.xuncorp.spw.workshop")
 ## 4. 生命周期与诊断
 
 - `start()` 注册 hook、打日志、toast 一次；`stop()` 注销 `HookHandle`、释放设备句柄；`delete()` 清理。注册动作幂等。
-- 诊断三通道：`Ui.toast`、`Diag` 环形缓冲（面板可看）、`pluginPath/logs/saltrip.log`。
+- 诊断三通道：`Ui.toast`、`Diag` 环形缓冲（面板可看）、`pluginPath/logs/saltaudiocopy.log`。
 
 ## 5. 宿主内嵌入口（挂载点与降级链）
 
@@ -112,12 +112,12 @@ if (requested.id.id == "com.xuncorp.spw.workshop")
 
 ## 8. 配置与数据
 
-`preference_config.json` 三项：`autoScan`(switch)、`outputRoot`(edittext，默认 `%USERPROFILE%\Music\SaltRip`)、`openPanelOnCdPage`(switch)。运行时用宿主 `ConfigManager`；数据在 `pluginPath`，日志 `pluginPath/logs/`。
+`preference_config.json` 三项：`autoScan`(switch)、`outputRoot`(edittext，默认 `%USERPROFILE%\Music\Salt Audio Copy`)、`openPanelOnCdPage`(switch)。运行时用宿主 `ConfigManager`；数据在 `pluginPath`，日志 `pluginPath/logs/`。
 
 ## 9. 测试
 
 纯 JVM 单测：`TocTest`（真实 TOC 字节→轨表/lead-out）、`CdbTest`（CDB 黄金字节 + LBA 大端）、`WavTest`（头与长度回填）、`SanitizeTest`（非法字符清洗）。
-宿主内手工验收按 §0 逐条；对账脚本 `projects/salt-rip/rip_probe3.py F <track>`。
+宿主内手工验收按 §0 逐条；对账脚本 `projects/Salt-Audio-Copy/rip_probe3.py F <track>`。
 
 ## 10. 风险与回退
 

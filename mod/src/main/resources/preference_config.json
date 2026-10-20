@@ -515,85 +515,85 @@
           "type": "button",
           "title": "① 扫描驱动器",
           "summary": "读取光驱型号、轨数与 DiscID。换盘后必须重新扫描。",
-          "on_click": "com.saltrip.rip.ConfigActions.scanDrives"
+          "on_click": "com.doggybear233.saltaudiocopy.ConfigActions.scanDrives"
         },
         {
           "type": "button",
           "title": "①.2 抓轨计划预览（不写盘）",
           "summary": "先算一遍会生成哪些文件、会不会撞名、空间够不够，再决定抓不抓",
-          "on_click": "com.saltrip.rip.ConfigActions.previewPlan"
+          "on_click": "com.doggybear233.saltaudiocopy.ConfigActions.previewPlan"
         },
         {
           "type": "button",
           "title": "①.5 间隙预扫（只读）",
           "summary": "读取每轨 INDEX 00 位置，结果显示在抓轨面板；不写任何文件",
-          "on_click": "com.saltrip.rip.ConfigActions.analyzeDisc"
+          "on_click": "com.doggybear233.saltaudiocopy.ConfigActions.analyzeDisc"
         },
         {
           "type": "button",
           "title": "①.3 探测可用读命令（只读）",
           "summary": "逐条读 1 个扇区，看这台驱动器真的认哪几种读法",
-          "on_click": "com.saltrip.rip.ConfigActions.probeReadCommands"
+          "on_click": "com.doggybear233.saltaudiocopy.ConfigActions.probeReadCommands"
         },
         {
           "type": "button",
           "title": "只测不写（Test only）",
           "summary": "按正式参数把整盘读一遍，只报告 CRC 与错误，不写任何文件",
-          "on_click": "com.saltrip.rip.ConfigActions.testDisc"
+          "on_click": "com.doggybear233.saltaudiocopy.ConfigActions.testDisc"
         },
         {
           "type": "button",
           "title": "③ 仅查询元数据",
           "summary": "只查 MusicBrainz 与 gnudb，不写文件；用来确认 DiscID 是否命中。",
-          "on_click": "com.saltrip.rip.ConfigActions.lookupMetadata"
+          "on_click": "com.doggybear233.saltaudiocopy.ConfigActions.lookupMetadata"
         },
         {
           "type": "button",
           "title": "③.5 导出元数据模板",
           "summary": "把当前盘的 DiscID + 曲目导出成 <输出根>\\<DiscID>.album.json；改完再抓整盘即生效（适合日版/老盘 MB 命中错版本）",
-          "on_click": "com.saltrip.rip.ConfigActions.exportAlbumJson"
+          "on_click": "com.doggybear233.saltaudiocopy.ConfigActions.exportAlbumJson"
         },
         {
           "type": "button",
           "title": "④ 试抓第 1 轨",
           "summary": "最小链路验证：输出到 <输出根>\\disc-<leadOut>\\01.wav",
-          "on_click": "com.saltrip.rip.ConfigActions.ripFirstTrack"
+          "on_click": "com.doggybear233.saltaudiocopy.ConfigActions.ripFirstTrack"
         },
         {
           "type": "button",
           "title": "取消当前抓轨",
           "summary": "在当前扇区块读完后停止；已写出的文件保留。",
-          "on_click": "com.saltrip.rip.ConfigActions.cancelRip"
+          "on_click": "com.doggybear233.saltaudiocopy.ConfigActions.cancelRip"
         },
         {
           "type": "button",
           "title": "试写测试（中文路径）",
           "summary": "按当前模板创建一次含日文/中文名的目录与文件再删除，确认无乱码、无权限问题",
-          "on_click": "com.saltrip.rip.ConfigActions.probePath"
+          "on_click": "com.doggybear233.saltaudiocopy.ConfigActions.probePath"
         },
         {
           "type": "button",
           "title": "恢复默认设置",
           "summary": "把上述设置恢复为内置默认值（不动已抓好的文件）",
-          "on_click": "com.saltrip.rip.ConfigActions.resetDefaults"
+          "on_click": "com.doggybear233.saltaudiocopy.ConfigActions.resetDefaults"
         },
         {
           "type": "button",
-          "on_click": "com.saltrip.rip.ConfigActions.openLogFolder",
+          "on_click": "com.doggybear233.saltaudiocopy.ConfigActions.openLogFolder",
           "title": "打开日志文件夹",
-          "summary": "打开插件日志所在文件夹，报问题时把 saltrip.log 一起附上"
+          "summary": "打开插件日志所在文件夹，报问题时把 saltaudiocopy.log 一起附上"
         },
         {
           "type": "button",
           "title": "环境自检（语言 / 编码 / 路径）",
           "summary": "看清楚系统代码页与中日韩路径能不能写",
-          "on_click": "com.saltrip.rip.ConfigActions.testEnvironment"
+          "on_click": "com.doggybear233.saltaudiocopy.ConfigActions.testEnvironment"
         },
         {
           "type": "button",
           "title": "网络自检（音乐库 / CDDB）",
           "summary": "并发探测 MusicBrainz、Cover Art Archive 和三个 CDDB 镜像，告诉你查不到元数据是没记录还是网不通",
-          "on_click": "com.saltrip.rip.ConfigActions.testNetwork"
+          "on_click": "com.doggybear233.saltaudiocopy.ConfigActions.testNetwork"
         }
       ]
     }

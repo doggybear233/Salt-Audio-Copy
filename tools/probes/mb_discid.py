@@ -32,7 +32,7 @@ k32.CreateFileW.argtypes = [wt.LPCWSTR, wt.DWORD, wt.DWORD, ctypes.c_void_p, wt.
 k32.DeviceIoControl.restype = wt.BOOL
 k32.DeviceIoControl.argtypes = [wt.HANDLE, wt.DWORD, ctypes.c_void_p, wt.DWORD, ctypes.c_void_p,
                                 wt.DWORD, ctypes.POINTER(wt.DWORD), ctypes.c_void_p]
-UA = "SaltRip/0.1 ( https://github.com/example/salt-rip )"
+UA = "Salt Audio Copy/0.1 ( https://github.com/example/salt-rip )"
 
 
 def spti(h, cdb, buflen, timeout=20):

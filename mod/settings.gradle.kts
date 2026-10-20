@@ -23,4 +23,4 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "saltrip"
+rootProject.name = "saltaudiocopy"

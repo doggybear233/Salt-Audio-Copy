@@ -5,7 +5,7 @@ plugins {
     id("com.xuncorp.spw.workshop") version "0.1.0-dev22"
 }
 
-group = "com.saltrip"
+group = "com.doggybear233"
 version = "1.0.0"
 
 kotlin {
@@ -42,10 +42,10 @@ dependencies {
 }
 
 spmod {
-    PluginClass = "com.saltrip.rip.SaltRipPlugin"
-    PluginId = "com.saltrip.saltaudiocopy"
+    PluginClass = "com.doggybear233.saltaudiocopy.SaltAudioCopyPlugin"
+    PluginId = "com.doggybear233.saltaudiocopy"
     PluginVersion = project.version.toString()
-    PluginProvider = "saltrip"
+    PluginProvider = "doggybear233"
     PluginName = "Salt Audio Copy"
     PluginDescription = "Professional CD ripping: SPTI, secure re-reads, CUE and log, metadata and cover art."
     PluginOpenSourceUrl = "https://github.com/doggybear233/Salt-Audio-Copy"

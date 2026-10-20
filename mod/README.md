@@ -200,7 +200,7 @@ Windows 上把 CD 精确抓成 WAV + CUE + 日志，并把专辑信息（MusicBr
 - **失败被绿字掩盖**：FLAC 编码失败、CUE/日志/封面写不出来以前只进日志，UI 照样报「抓轨完成」。
   现在 `AlbumRipResult.warnings` 单独收集，状态行写「已抓完（N 项需要留意）」、提示改黄字、详情列前三条。
 - **「设置已保存」说谎**：宿主配置写失败时以前照样弹成功，重启后设置就丢了。
-- **日志抬头一直写 `0.7.0`**：版本号改为单一来源 `com.saltrip.rip.Version`，`VersionTest` 防止再次漂移。
+- **日志抬头一直写 `0.7.0`**：版本号改为单一来源 `com.doggybear233.saltaudiocopy.Version`，`VersionTest` 防止再次漂移。
 - 顺带修：跳过同名文件时不计进度（进度条永远差一截）、拼接失败提示里的 `${it.message}` 被转义成字面量、
   `load(force = true)` 在宿主配置不可用时丢弃内存改动、几处历史脚本留下的错缩进与重复注释。
 
@@ -547,14 +547,14 @@ CDB 布局（12 字节，大端）：
 `album.json` 现在有两个消费方向，形成闭环：
 
 - **写出**：设置里开「在专辑目录写入 album.json」后，抓完会在专辑目录写一份，**同时**在
-  `<输出根>/.saltrip/album-<DiscID>.json` 存一份每盘缓存。
+  `<输出根>/.saltaudiocopy/album-<DiscID>.json` 存一份每盘缓存。
 - **读回**：开「抓过的盘优先用上次的元数据」（默认开）后，同一张盘再抓会先看这份缓存，
   命中就**跳过全部联网查询**，直接按缓存里的名字建目录/命名文件。
 
 实际用法：
 
 1. 第一次抓某张盘，元数据抓错了（比如 MB 选错版本）→ 直接编辑专辑目录里的 `album.json`。
-2. 把改好的文件复制到 `<输出根>/.saltrip/album-<DiscID>.json`（或直接在首次抓轨时开启写缓存）。
+2. 把改好的文件复制到 `<输出根>/.saltaudiocopy/album-<DiscID>.json`（或直接在首次抓轨时开启写缓存）。
 3. 再次抓同一张盘 → 名字、音轨标题、年份全部按你改的来，不联网、不重复踩坑。
 
 缓存键是 DiscID（不是目录名），所以改名字、换目录模板都不会让缓存失效；换盘则必然不命中。
@@ -642,7 +642,7 @@ CDB 布局（12 字节，大端）：
 
 ```powershell
 . ..\dev-env.ps1              # JAVA_HOME=D:\dev\jdk-25, GRADLE_HOME=D:\dev\gradle
-.\gradlew.bat plugin          # → build\libs\plugin-com.saltrip.rip-<ver>.spmod
+.\gradlew.bat plugin          # → build\libs\plugin-com.doggybear233.saltaudiocopy-<ver>.spmod
 ```
 
 安装：Salt Player → 设置 → 模组 → 从本地导入 `.spmod`（或用 Steam 创意工坊包）。
@@ -682,7 +682,7 @@ CDB 布局（12 字节，大端）：
 
 打开输出目录、查看日志路径。
 
-所有耗时的 SCSI I/O 都在 `saltrip-worker` 单线程执行器上跑，不阻塞宿主 UI 线程。
+所有耗时的 SCSI I/O 都在 `saltac-worker` 单线程执行器上跑，不阻塞宿主 UI 线程。
 
 
 ## 默认输出结构
@@ -779,7 +779,7 @@ maxRetries / retryDelayMs / fetchMetadata / coverSize / writeCue / writeLog / fo
   插的是数据盘 → 「当前盘不是音频 CD」；正在执行 → 「等当前操作结束」。
   判定放在 `PanelState.actionGate()`，面板与设置页共用，避免两处漂移。
 - 新增 `PanelGateTest` 5 例锁住判定（无盘/数据盘/音频盘/忙碌优先/重复扫描覆盖）。
-- 新增 `projects/salt-rip/manual-test-checklist.md`：把必须真机验证的 10 项写成验收步骤，
+- 新增 `projects/Salt-Audio-Copy/manual-test-checklist.md`：把必须真机验证的 10 项写成验收步骤，
   每项都标明「通过的样子」和「失败时要提供什么」。
 
 
@@ -787,7 +787,7 @@ maxRetries / retryDelayMs / fetchMetadata / coverSize / writeCue / writeLog / fo
 
 ```powershell
 .\gradlew.bat test --no-daemon --no-watch-fs      # 69 个用例（真机用例默认 skip）
-$env:SALTRIP_HW=1; .\gradlew.bat test --no-daemon --no-watch-fs   # 带真机用例
+$env:SALTAC_HW=1; .\gradlew.bat test --no-daemon --no-watch-fs   # 带真机用例
 ```
 
 - 纯单元：DiscID/CDDB 算法（期望值由 Python 独立实现生成）、模板引擎、JSON、CUE/日志/WAV 头、offset、
@@ -839,7 +839,7 @@ ip/SecureRip.kt，与 I/O 解耦，可单测。
 ## 0.2.4 新增：诊断信息导出
 
 - 设置页「诊断 → 导出诊断信息」：把插件版本、OS/JVM、全部设置项、光驱盘符、日志尾部 200 行写成一个
-  SaltRip\diagnostics-<时间>.txt，**不触碰光驱**（设备挂起时也能用）。排障时让用户直接发这个文件即可。
+  Salt Audio Copy\diagnostics-<时间>.txt，**不触碰光驱**（设备挂起时也能用）。排障时让用户直接发这个文件即可。
 
 ## 0.3.0 新增：CD 工具箱内嵌面板
 
@@ -1066,11 +1066,11 @@ CD 工具箱里的面板重做了一版，目标是与宿主「卡片 + 圆角 +
 
 ## 0.23.0 改名 + 第一轮实测反馈修复（P0）
 
-**改名（含插件 ID）**：`盐音抓轨 (SaltRip)` → `盐专辑 (Salt Audio Copy)`，
-`Plugin-Id` 由 `com.saltrip.rip` 改为 `com.saltrip.saltaudiocopy`。
+**改名（含插件 ID）**：`盐音抓轨 (Salt Audio Copy)` → `盐专辑 (Salt Audio Copy)`，
+`Plugin-Id` 由 `com.doggybear233.saltaudiocopy` 改为 `com.doggybear233.saltaudiocopy`。
 换 ID 意味着宿主把它当新插件：**旧版 0.22.3 需要先在「Mod 管理」里卸载**，设置会重置为默认值
-（输出目录默认回到 `音乐\Salt Audio Copy`，缓存目录由 `.saltrip` 改为 `.saltaudiocopy`）。
-Kotlin 包名仍是 `com.saltrip.rip`（避免大范围改包），用户可见的地方（面板标题、日志头、CUE/日志署名、
+（输出目录默认回到 `音乐\Salt Audio Copy`，缓存目录由 `.saltaudiocopy` 改为 `.saltaudiocopy`）。
+Kotlin 包名仍是 `com.doggybear233.saltaudiocopy`（避免大范围改包），用户可见的地方（面板标题、日志头、CUE/日志署名、
 FLAC vendor、HTTP User-Agent、诊断文件名）全部换成新名字。
 
 **修掉的实测问题**：
@@ -1151,7 +1151,7 @@ FLAC vendor、HTTP User-Agent、诊断文件名）全部换成新名字。
   `Enum.name` 仍是 `"Dark"` / `"Light"` / `"FollowSystem"`，据此判定；读不到（宿主没加载该 API）时退回操作系统深浅。
 - **修掉 0.29.6 的实际 bug**：主题包在了 `RipPanel()` 上，而面板实际是由 `PanelMount.Content` 渲染的，
   那条路径根本没套主题 → 仍然落到 Material3 缺省配色（淡紫）。现在 `PanelMount.Content` 里直接
-  `SaltRipTheme { DockPanelBody() }`，两条路径都过主题。
+  `SaltAudioCopyTheme { DockPanelBody() }`，两条路径都过主题。
 
 ## 0.29.6 — 自带中性主题（彻底去紫）+ 设置界面减负
 

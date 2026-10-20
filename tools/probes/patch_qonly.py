@@ -1,6 +1,6 @@
 import io
 
-base = r'D:\deepseek\workspace\projects\salt-rip\mod\src\main\kotlin\com\saltrip\rip\scsi'
+base = r'D:\deepseek\workspace\projects\salt-rip\mod\src\main\kotlin\com\saltaudiocopy\rip\scsi'
 
 # --- CdDevice: 用 sub=2（Q-only）读取，直接拿到 12 字节 Q ---
 p = base + r'\CdDevice.kt'

@@ -227,7 +227,7 @@
     ],
     "openLogFolder": [
       "Open log folder",
-      "Opens the folder that holds saltrip.log so you can attach it to a bug report."
+      "Opens the folder that holds saltaudiocopy.log so you can attach it to a bug report."
     ],
     "testNetwork": [
       "Network self-check (MusicBrainz / CDDB)",
@@ -465,7 +465,7 @@
     ],
     "openLogFolder": [
       "ログフォルダを開く",
-      "saltrip.log のあるフォルダを開きます（不具合報告に添付する用）。"
+      "saltaudiocopy.log のあるフォルダを開きます（不具合報告に添付する用）。"
     ],
     "testNetwork": [
       "ネットワーク自己診断（MusicBrainz / CDDB）",

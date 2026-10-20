@@ -5,7 +5,7 @@
 """
 import io
 
-P = "src/main/kotlin/com/saltrip/rip/album/AlbumRipper.kt"
+P = "src/main/kotlin/com/saltaudiocopy/rip/album/AlbumRipper.kt"
 
 PAIRS = [
     ('onStage("读取元数据…")',
@@ -171,11 +171,11 @@ TEMPLATES = {
 
 def main():
     src = io.open(P, encoding="utf-8").read()
-    if "import com.saltrip.rip.ui.Strings" not in src:
-        src = src.replace("import com.saltrip.rip.ui.SettingsStore",
-                          "import com.saltrip.rip.ui.SettingsStore\nimport com.saltrip.rip.ui.Strings", 1)
-        if "import com.saltrip.rip.ui.Strings" not in src:
-            src = src.replace("\nimport ", "\nimport com.saltrip.rip.ui.Strings\nimport ", 1)
+    if "import com.doggybear233.saltaudiocopy.ui.Strings" not in src:
+        src = src.replace("import com.doggybear233.saltaudiocopy.ui.SettingsStore",
+                          "import com.doggybear233.saltaudiocopy.ui.SettingsStore\nimport com.doggybear233.saltaudiocopy.ui.Strings", 1)
+        if "import com.doggybear233.saltaudiocopy.ui.Strings" not in src:
+            src = src.replace("\nimport ", "\nimport com.doggybear233.saltaudiocopy.ui.Strings\nimport ", 1)
     for old, new in PAIRS:
         n = src.count(old)
         if n != 1:

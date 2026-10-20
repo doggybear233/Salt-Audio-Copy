@@ -1,6 +1,6 @@
 import io
 
-p = r'D:\deepseek\workspace\projects\salt-rip\mod\src\main\kotlin\com\saltrip\rip\album\AlbumRipper.kt'
+p = r'D:\deepseek\workspace\projects\salt-rip\mod\src\main\kotlin\com\saltaudiocopy\rip\album\AlbumRipper.kt'
 s = io.open(p, encoding='utf-8').read()
 
 # 1) 测试通道：在正式循环前先跑一遍"只读不写"的读取，收集每轨 CRC
@@ -63,7 +63,7 @@ s = s.replace(
 io.open(p, 'w', encoding='utf-8', newline='').write(s)
 
 # 3) 设置项
-p = r'D:\deepseek\workspace\projects\salt-rip\mod\src\main\kotlin\com\saltrip\rip\settings\RipSettings.kt'
+p = r'D:\deepseek\workspace\projects\salt-rip\mod\src\main\kotlin\com\saltaudiocopy\rip\settings\RipSettings.kt'
 s = io.open(p, encoding='utf-8').read()
 s = s.replace(
     "    /** 是否用 C2 位检查读取错误（驱动器不支持时自动降级）。 */\n    val useC2: Boolean = false",

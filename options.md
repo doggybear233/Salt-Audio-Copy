@@ -1,4 +1,4 @@
-# SaltRip 需求定义 · 选项单（v3，2026-10-19）
+# Salt Audio Copy 需求定义 · 选项单（v3，2026-10-19）
 
 > 目标：在 Salt Player（Windows，Steam AppID 3009140）里做一个**嵌进宿主界面**的 CD 抓轨 mod。
 > 本文只列「已经验证过的事实」和「需要你拍板的选项」，每项给出推荐值。
@@ -99,7 +99,7 @@ EAC 的 secure 本质是「读两次 → 比对 → 不一致就重读到收敛�
 - 封面：`front-500` 自动下载嵌入 + 存 `cover.jpg`；可选 1200。
 - 字段优先级：**用户手改 > CD-TEXT > MB > gnudb**。
 - 曲目命名模板：默认 `%tracknr2%. %artist% - %title%`（保留 EAC 的模板变量体系，但只实现常用 12 个）。
-- 网络合规：MB 限速 1 req/s + 自定义 User-Agent（`SaltRip/0.1 ( <contact> )`）；gnudb 的 `hello=` 客户端名需先注册（`cddb`/`eac` 可用，自建名要申请）。
+- 网络合规：MB 限速 1 req/s + 自定义 User-Agent（`Salt Audio Copy/0.1 ( <contact> )`）；gnudb 的 `hello=` 客户端名需先注册（`cddb`/`eac` 可用，自建名要申请）。
 
 **需要你选：D1 / D2 / D3**（推荐 D1）。
 

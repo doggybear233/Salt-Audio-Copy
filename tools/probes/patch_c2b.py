@@ -1,6 +1,6 @@
 import io
 
-base = r'D:\deepseek\workspace\projects\salt-rip\mod\src\main\kotlin\com\saltrip\rip'
+base = r'D:\deepseek\workspace\projects\salt-rip\mod\src\main\kotlin\com\saltaudiocopy\rip'
 
 # 1) RipSettings: 字段 + 键 + load + save
 p = base + r'\settings\RipSettings.kt'

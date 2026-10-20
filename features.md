@@ -175,15 +175,15 @@ id    = %02x%02x%04x  (n, crc, floor((leadout+150)/75))
 
 - 尺寸：`front-500`（实测 97,698 B JPEG，够用）；需要时再取 original。
 - 落盘：`cover.jpg` + 可选 `back.jpg`；嵌入标签交给宿主标签系统。
-- 缓存：`%LOCALAPPDATA%/SaltRip/covers/{mbid}-{type}-{size}.jpg`。
+- 缓存：`%LOCALAPPDATA%/Salt Audio Copy/covers/{mbid}-{type}-{size}.jpg`。
 - 无封面：宿主占位图 + "在 CAA 中搜索"链接。
 
 #### 2.6.5 网络与合规（实测约束）
 
 - **MusicBrainz 限速 1 req/s，超了直接 503**（本次实测遇到两次）→ 必须串行化 + 指数退避重试 + 结果缓存。
-- 必须带可识别 `User-Agent`：`SaltRip/0.1 ( https://github.com/<user>/salt-rip )`。
+- 必须带可识别 `User-Agent`：`Salt Audio Copy/0.1 ( https://github.com/<user>/Salt-Audio-Copy )`。
 - **gnudb 的 `hello=` 里的客户端名必须是已注册的**，否则 `500 Unknown application`；
-  实测 `cddb` / `eac` / `ripper` 可用，`SaltRip` 未注册被拒 → 上线前在 gnudb 注册客户端名（免费），
+  实测 `cddb` / `eac` / `ripper` 可用，`Salt Audio Copy` 未注册被拒 → 上线前在 gnudb 注册客户端名（免费），
   或先用已注册名。
 - 运行时**没有 `java.net.http`**（jlink 未打包）→ 用 `HttpURLConnection`，或复用宿主 classpath 的 ktor client。
 - 请求走后台线程，5 s 超时、1 次退避重试；失败静默降级到下一来源，绝不阻塞抓轨。
