@@ -131,6 +131,8 @@ internal fun ManualMetaPanel() {
                         Field(
                             label = "",
                             value = t.title,
+                            // 灰字占位而不是真值：用户直接打字，不用先删掉默认名
+                            placeholder = "Track %02d".format(t.number),
                             compact = true,
                             modifier = Modifier.weight(1.25f)
                         ) { v -> PanelState.manual = PanelState.manual.withTrack(t.number, title = v) }

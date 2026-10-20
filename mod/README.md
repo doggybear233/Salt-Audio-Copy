@@ -3,6 +3,12 @@
 Windows 上把 CD 精确抓成 WAV + CUE + 日志，并把专辑信息（MusicBrainz / gnudb / Cover Art Archive）一起落盘。
 算法与参数来自对 EAC 1.8 的逆向（见 `../architecture.md`、`../features.md`）。
 
+## 0.40.1
+
+- 手填面板的逐轨曲名真正不预填了：输入框只显示灰色占位 `Track 01`；
+  旧版本写进 `album.json` 的 `Track 07` 这类默认名，读回来时也当作「没填」。
+- 新增回归测试 `legacyTrackNumbersAreTreatedAsEmpty`；427 tests / 0 failed。
+
 ## 0.40.0
 
 - **环境自检**（8 · 诊断 → 环境自检）：打印系统语言、ANSI 代码页、`file.encoding` / `sun.jnu.encoding`、

@@ -104,4 +104,25 @@ class ManualMetaTest {
         assertTrue(ManualDraft(albumTitle = "X").hasAnything)
         assertTrue(ManualDraft(tracks = listOf(ManualTrack(1, title = "y"))).hasAnything)
     }
+
+    @Test
+    fun legacyTrackNumbersAreTreatedAsEmpty() {
+        // 0.40.0 之前保存过的 album.json 里 title 是 "Track 07"，读回来必须当没填，
+        // 否则输入框又会显示默认名，用户仍然得先删。
+        val cached = com.saltrip.rip.meta.AlbumMeta(
+            albumArtist = "十明",
+            albumTitle = "変身のレシピ",
+            discId = "X",
+            cddbId = "",
+            source = "manual",
+            tracks = listOf(
+                com.saltrip.rip.meta.TrackMeta(1, "Track 01"),
+                com.saltrip.rip.meta.TrackMeta(2, "灰かぶり")
+            )
+        )
+        val d = ManualDraft.forDisc(2, null, null, cached)
+        assertEquals("", d.tracks[0].title)
+        assertEquals("灰かぶり", d.tracks[1].title)
+        assertEquals("Track 01", d.toAlbumMeta("X").tracks[0].title)
+    }
 }

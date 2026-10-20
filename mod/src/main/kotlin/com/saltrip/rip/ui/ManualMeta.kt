@@ -76,8 +76,14 @@ data class ManualDraft(
             "", "未知艺术家", "未知专辑", "未知", "Unknown Artist", "Unknown Album", "Unknown"
         )
 
-        fun displayable(v: String?): String =
-            if (v == null || v.trim() in PLACEHOLDERS) "" else v.trim()
+        /** 旧版本把 `Track 07` 当默认名写进过 album.json：读回来时也当「没填」。 */
+        private val PLACEHOLDER_PATTERN = Regex("""^Track \d{1,3}$""", RegexOption.IGNORE_CASE)
+
+        fun displayable(v: String?): String {
+            val s = v?.trim().orEmpty()
+            if (s.isEmpty() || s in PLACEHOLDERS || PLACEHOLDER_PATTERN.matches(s)) return ""
+            return s
+        }
 
         /**
          * 为新插入的盘建草稿：优先沿用已有的 `album.json`（用户上次手填/选过的），
