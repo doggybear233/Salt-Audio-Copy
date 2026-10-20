@@ -1,5 +1,6 @@
 package com.doggybear233.saltaudiocopy
 
+import org.junit.jupiter.api.Tag
 import com.doggybear233.saltaudiocopy.scsi.C2
 import com.doggybear233.saltaudiocopy.scsi.CdDevice
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -11,6 +12,7 @@ import kotlin.test.assertTrue
  * 真机 C2 读取：需要一张音频 CD（无光盘时自动 skip）。
  * 校验三点：带 C2 位可用、干净盘片 C2 全零、C2 缓冲里的 PCM 与普通读取逐字节一致。
  */
+@Tag("live")
 class C2LiveTest {
 
     private fun deviceOrSkip(): CdDevice? {

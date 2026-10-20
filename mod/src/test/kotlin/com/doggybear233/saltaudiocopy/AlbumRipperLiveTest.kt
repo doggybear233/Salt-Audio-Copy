@@ -1,5 +1,6 @@
 package com.doggybear233.saltaudiocopy
 
+import org.junit.jupiter.api.Tag
 import com.doggybear233.saltaudiocopy.album.AlbumRipper
 import com.doggybear233.saltaudiocopy.rip.RipEngine
 import com.doggybear233.saltaudiocopy.scsi.CdDevice
@@ -14,6 +15,7 @@ import kotlin.test.assertTrue
  * 整盘流程真机集成测试：只抓第 1 轨，验证目录/文件/CUE/日志都按模板落盘。
  * 需要 F: 上有音频 CD，否则 skip。
  */
+@Tag("live")
 class AlbumRipperLiveTest {
 
     @Test

@@ -1,5 +1,6 @@
 package com.doggybear233.saltaudiocopy
 
+import org.junit.jupiter.api.Tag
 import com.doggybear233.saltaudiocopy.album.AlbumRipper
 import com.doggybear233.saltaudiocopy.encode.FlacEncoder
 import com.doggybear233.saltaudiocopy.encode.FlacMeta
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
  *
  * 不依赖光驱（用 [FakeTrackSource]），找不到 flac.exe 时 skip。
  */
+@Tag("live")
 class FlacMetaLiveTest {
 
     private lateinit var dir: Path

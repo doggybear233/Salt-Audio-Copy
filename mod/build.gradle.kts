@@ -70,6 +70,12 @@ spmod {
 tasks.withType<Test> {
     useJUnitPlatform()
     jvmArgs("--enable-native-access=ALL-UNNAMED")
+    // 需要真光驱 / 真网络的用例打 @Tag("live")，默认不跑：
+    // 否则换一台没有 F: 盘、或者离线机器，`gradlew test` 会一片红，
+    // 而这些红跟代码质量无关，反而掩盖真正的回归。
+    useJUnitPlatform {
+        excludeTags("live")
+    }
     // 断言的期望值是中文原文；宿主语言的探测在测试里没有宿主，会落到 JVM 默认语言，
     // 而本机（以及多语言 CI）默认可能是日文/英文。钉死成中文，测的才是格式化逻辑本身。
     systemProperty("user.language", "zh")
@@ -78,4 +84,17 @@ tasks.withType<Test> {
         showStandardStreams = true
         events("passed", "skipped", "failed")
     }
+}
+
+/** 真机自检：`gradlew liveTest`（需要 F: 盘音频 CD + 能上网）。 */
+tasks.register<Test>("liveTest") {
+    group = "verification"
+    description = "Runs tests tagged live (real CD drive / network)."
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform { includeTags("live") }
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    systemProperty("user.language", "zh")
+    systemProperty("user.country", "CN")
+    shouldRunAfter(tasks.withType<Test>())
 }

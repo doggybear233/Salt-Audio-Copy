@@ -1,5 +1,6 @@
 package com.doggybear233.saltaudiocopy
 
+import org.junit.jupiter.api.Tag
 import com.doggybear233.saltaudiocopy.meta.GnudbClient
 import com.doggybear233.saltaudiocopy.scsi.CdDevice
 import org.junit.jupiter.api.Assumptions
@@ -9,6 +10,7 @@ import kotlin.test.Test
  * gnudb 真机连通性测试：需要 F: 上有音频 CD 且能访问网络，否则 skip。
  * 打印 status / 候选条数 / 第一条的专辑名，便于判断 `hello=` 是否被接受。
  */
+@Tag("live")
 class GnudbLiveTest {
 
     @Test

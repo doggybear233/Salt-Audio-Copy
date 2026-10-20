@@ -1,5 +1,6 @@
 package com.doggybear233.saltaudiocopy
 
+import org.junit.jupiter.api.Tag
 import com.doggybear233.saltaudiocopy.scsi.CdDevice
 import com.doggybear233.saltaudiocopy.scsi.Subchannel
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -11,6 +12,7 @@ import kotlin.test.assertTrue
  * 真机子通道验证：Q 通道自带 CRC，CRC 正确说明「反交织 + 字段解析」整套实现没有错位。
  * 同时验证 Q 里的绝对地址与请求的 LBA 一致。
  */
+@Tag("live")
 class SubchannelLiveTest {
 
     @Test

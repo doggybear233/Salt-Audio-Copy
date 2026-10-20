@@ -1,5 +1,6 @@
 package com.doggybear233.saltaudiocopy
 
+import org.junit.jupiter.api.Tag
 import com.doggybear233.saltaudiocopy.rip.RipEngine
 import com.doggybear233.saltaudiocopy.scsi.C2
 import com.doggybear233.saltaudiocopy.scsi.CdDevice
@@ -17,6 +18,7 @@ import kotlin.test.assertTrue
  * 这条用例选第 2 轨（起始 LBA 远大于 0），并且不经过主路径的 `ReadCommand`，
  * 用 C2 读取（另一份 CDB 构造）取 PCM 与主路径对账。
  */
+@Tag("live")
 class NonZeroLbaLiveTest {
 
     @Test

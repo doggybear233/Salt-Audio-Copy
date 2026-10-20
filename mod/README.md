@@ -50,8 +50,9 @@ mod/                     插件模块（Kotlin/JVM + Compose 桌面）
 
 ```powershell
 cd mod
-.\gradlew.bat test --rerun-tasks        # 518 个用例；真机与联网用例默认 skip
-$env:SALTAC_HW=1; .\gradlew.bat test    # 带上真机用例（需要 F: 有音频 CD）
+.\gradlew.bat test --rerun-tasks        # 555 个用例，真机/联网用例（@Tag("live")）默认不跑
+.\gradlew.bat liveTest                   # 只跑真机与联网用例（需要 F: 有音频 CD、能上网）
+$env:SALTAC_HW=1; .\gradlew.bat test     # 老写法：把硬件门控用例也带上
 ```
 
 - 纯单元：DiscID / CDDB 算法（期望值由独立 Python 实现生成）、模板引擎、JSON、CUE / 日志 / WAV 头、offset、

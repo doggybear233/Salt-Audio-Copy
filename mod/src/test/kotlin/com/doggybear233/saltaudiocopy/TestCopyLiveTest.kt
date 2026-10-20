@@ -4,6 +4,7 @@ import com.doggybear233.saltaudiocopy.rip.RipEngine
 import com.doggybear233.saltaudiocopy.rip.ScanResult
 import com.doggybear233.saltaudiocopy.scsi.CdDevice
 import org.junit.jupiter.api.Assumptions.assumeTrue
+import org.junit.jupiter.api.Tag
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -12,6 +13,7 @@ import kotlin.test.assertEquals
  * Test & Copy 的硬件验证：同一轨用「只读不写」的测试通道与正式写入通道各抓一次，
  * 两者的 CRC32 必须相同——这是 Test&Copy 功能成立的前提。
  */
+@Tag("live")
 class TestCopyLiveTest {
 
     private fun scanOrSkip(): ScanResult? {
