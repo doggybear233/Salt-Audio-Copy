@@ -227,7 +227,10 @@ private fun ReadyBlock() {
         }
         Spacer(Modifier.width(12.dp))
         Button(onClick = { ConfigActions.ripAlbum() }, enabled = gate == null, colors = monoPrimary()) {
-            Text(Strings.key("rip_album"), style = MaterialTheme.typography.labelLarge)
+            Text(
+                Strings.key(if (PanelState.ripDone) "rip_again" else "rip_album"),
+                style = MaterialTheme.typography.labelLarge
+            )
         }
         Spacer(Modifier.width(6.dp))
         if (showManualButton()) {

@@ -97,6 +97,8 @@ object DiscWatcher {
                     // 新盘：先清「查过了」的标记，否则上一张盘的「手动填写」按钮状态会串过来。
                     PanelState.lookupTried = false
                     PanelState.closeManual()
+                    // 上一张盘的「已抓完 / 重新抓取」也不能留到新盘
+                    PanelState.clearRipped()
                     // 换盘后自动查元数据：用户不该再点一次按钮。
                     // 传入这张盘的指纹，查询回来时若已换盘就丢弃（见 autoResultIsFresh）。
                     runCatching { ConfigActions.refreshMetadataAuto(fp) }

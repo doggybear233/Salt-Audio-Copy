@@ -44,6 +44,15 @@ object PanelState {
      */
     var cancelArmed: Boolean by mutableStateOf(false)
 
+    /**
+     * 当前盘是否已经整盘抓完（成功后为 true）。
+     * 用途：主按钮文案从「抓整盘」变「重新抓取」，且第一次点击只做二次确认。
+     */
+    var ripDone: Boolean by mutableStateOf(false)
+
+    /** 「重新抓取」的二次确认是否已武装。 */
+    var reRipArmed: Boolean by mutableStateOf(false)
+
     /** 面板内嵌设置区是否展开。 */
     var settingsOpen: Boolean by mutableStateOf(false)
 
@@ -52,6 +61,9 @@ object PanelState {
 
     /** 手动元数据草稿（点「手动填写」时建，保存前只活在这里）。 */
     var manual: ManualDraft by mutableStateOf(ManualDraft())
+
+    /** 手动元数据里导入的封面（本地图片路径；null = 没导入）。 */
+    var manualCover: String? by mutableStateOf(null)
 
     /**
      * 这一张盘是否已经查过一轮元数据。
@@ -63,6 +75,7 @@ object PanelState {
 
     fun openManual(d: ManualDraft) {
         manual = d
+        manualCover = null
         settingsOpen = false
         manualOpen = true
     }
@@ -242,6 +255,22 @@ object PanelState {
         progress = null
         status = statusText
         detail = detailText
+    }
+
+    /** 整盘抓完：主按钮变成「重新抓取」，并且第一次点击只做确认。 */
+    fun markRipped(trackCount: Int) {
+        ripDone = true
+        reRipArmed = false
+        finish(
+            statusText = "已抓完 · $trackCount 轨",
+            detailText = "记录、CUE、日志都已写好；再抓一遍请点「重新抓取」（会先确认）"
+        )
+    }
+
+    /** 换盘 / 重新扫描时清掉「已抓完」，避免上一个盘的状态骗人。 */
+    fun clearRipped() {
+        ripDone = false
+        reRipArmed = false
     }
 }
 

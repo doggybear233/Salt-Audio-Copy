@@ -159,9 +159,10 @@ object SettingsSpec {
                 SettingItem(SettingKind.LIST, "driveLetter", "", options = drives),
                 opt(
                     "driveSpeed",
-                    "0" to "不干预（最快）", "1200" to "8x（约 1200 KB/s）",
-                    "600" to "4x（约 600 KB/s）", "300" to "2x（约 300 KB/s）"
-                ),
+                    "1200" to "8x（约 1200 KB/s，推荐）", "2400" to "16x（约 2400 KB/s）",
+                    "3600" to "24x（约 3600 KB/s）", "600" to "4x（约 600 KB/s）",
+                    "300" to "2x（约 300 KB/s）", "0" to "不干预（全速，最快但抖）"
+                ).copy(hint = "默认 8x：全速时驱动器噪音大、重读更频繁，剩余时间也更抖"),
                 opt(
                     "readCommand",
                     "auto" to "自动（推荐）", "mmc" to "标准 MMC（0xBE）",

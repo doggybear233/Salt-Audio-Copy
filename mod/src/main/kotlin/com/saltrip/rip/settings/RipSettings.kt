@@ -133,7 +133,7 @@ data class RipSettings(
     /** 指定光驱盘符（`F` / `F:` / 空＝自动取第一台）。 */
     val driveLetter: String = "",
     /** 读速上限（KB/s）；0＝不干预（驱动器最高速）。低速通常换来更稳的错误率。 */
-    val driveSpeed: Int = 0,
+    val driveSpeed: Int = 1200,
     /** 抓完后弹出托盘。 */
     val ejectAfterRip: Boolean = false
 ) {

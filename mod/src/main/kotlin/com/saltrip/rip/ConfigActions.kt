@@ -159,6 +159,7 @@ object ConfigActions {
                                 )
                             }.getOrNull()
                         } else null
+                        PanelState.clearRipped()
                         PanelState.showDisc(
                             PanelState.DiscInfo(
                                 tracks = r.toc.tracks.size,
@@ -774,6 +775,7 @@ object ConfigActions {
                     java.nio.file.Files.writeString(root.resolve("$discId.album.json"), json, Charsets.UTF_8)
                 }
                 Diag.log("manual album.json saved: $cachePath")
+                saveManualCover(cachePath, root, discId)
 
                 PanelState.showDisc(
                     PanelState.DiscInfo(
@@ -796,6 +798,21 @@ object ConfigActions {
                 Diag.log("saveManualMeta failed", e)
                 toast("保存失败：" + com.saltrip.rip.scsi.ScsiMessages.human(e), ToastType.Error)
             }
+        }
+    }
+
+    /** 手填元数据时导入本地封面（没有网络元数据的盘常常也没有封面）。 */
+    @JvmStatic
+    fun chooseManualCover() {
+        exec.execute {
+            val current = PanelState.manualCover.orEmpty()
+            val picked = pickFile(current, "选择专辑封面", "图片 (jpg / png / webp)", "jpg;jpeg;png;webp")
+            if (picked == null) {
+                toast("已取消选择", ToastType.Warning)
+                return@execute
+            }
+            PanelState.manualCover = picked
+            Notify.info("封面已选：" + picked.substringAfterLast('\\').substringAfterLast('/'))
         }
     }
 
@@ -836,6 +853,33 @@ object ConfigActions {
     }
 
     /** 抓轨实际读取的缓存路径；DiscID 缺失时按 lead-out 兜底，避免各写各的。 */
+    /**
+     * 把导入的封面复制到 album.json 旁边（`<discId>.album.cover.jpg`），
+     * 下次读缓存时 [com.saltrip.rip.meta.MetaOverride.load] 会自动带上。
+     */
+    private fun saveManualCover(cachePath: java.nio.file.Path, root: java.nio.file.Path, discId: String) {
+        val picked = PanelState.manualCover ?: return
+        runCatching {
+            val src = java.nio.file.Path.of(picked)
+            if (!java.nio.file.Files.isRegularFile(src)) return@runCatching
+            val ext = picked.substringAfterLast('.', "jpg").lowercase()
+                .let { if (it == "jpeg") "jpg" else it }
+            val bytes = java.nio.file.Files.readAllBytes(src)
+            val stem = cachePath.fileName.toString().removeSuffix(".json")
+            val targets = buildList {
+                add(cachePath.parent.resolve("$stem.cover.$ext"))
+                if (discId.isNotBlank()) add(root.resolve("$discId.album.cover.$ext"))
+            }
+            for (dst in targets) {
+                runCatching {
+                    java.nio.file.Files.createDirectories(dst.parent)
+                    java.nio.file.Files.write(dst, bytes)
+                }.onFailure { Diag.log("cover copy failed: $dst", it) }
+            }
+            Diag.log("manual cover saved: ${bytes.size} B -> $stem.cover.$ext")
+        }.onFailure { Diag.log("saveManualCover failed", it) }
+    }
+
     internal fun manualCachePath(root: java.nio.file.Path, discId: String, leadOutLba: Int): java.nio.file.Path =
         com.saltrip.rip.album.DiscCache.path(root, discId.ifBlank { "disc-$leadOutLba" })
 
@@ -855,6 +899,16 @@ object ConfigActions {
             toast("已有抓轨任务在进行", ToastType.Warning)
             return
         }
+        // 这张盘已经抓完一遍：第一次点击只确认，第二次才真的覆盖
+        if (PanelState.ripDone && !PanelState.reRipArmed) {
+            PanelState.reRipArmed = true
+            PanelState.set(
+                "已抓完 · 再点一次「重新抓取」确认",
+                "重新抓取会按当前设置覆盖同名文件（覆盖策略见设置 → 输出位置）"
+            )
+            toast("再点一次「重新抓取」才会开始；「取消」或换盘会解除", ToastType.Warning)
+            return
+        }
         val scan = freshScan() ?: return
         if (!scan.toc.isAudioCd) {
             toast("这张盘不是音频 CD（数据盘不能抓轨）：请换一张音乐 CD", ToastType.Warning)
@@ -866,6 +920,7 @@ object ConfigActions {
         cancelFlag.set(false)
         paused = false
         userCancel = false
+        PanelState.reRipArmed = false
         PanelState.begin("准备中…")
         PanelState.set("正在抓取 $count 轨…", "可用「取消」在当前块结束后停止，已抓部分保留")
         toast("开始抓取整张专辑（$count 轨，${if (settings.secureMode) "双读校验" else "快速模式"}）…", ToastType.Success)
@@ -932,13 +987,14 @@ object ConfigActions {
                         val retries = result.tracks.sumOf { it.errors }
                         if (retries > 0) add("重试 $retries 次")
                     }
-                    PanelState.set(
-                        "抓轨完成：${result.tracks.size}/$count 轨，用时 ${result.elapsedMs / 1000} 秒",
-                        buildString {
-                            append(result.outDir)
-                            result.cueFile?.let { append("\nCUE：").append(it) }
-                        }
-                    )
+                    PanelState.markRipped(result.tracks.size)
+                    PanelState.status = "已抓完 · ${result.tracks.size} 轨 · 用时 ${result.elapsedMs / 1000} 秒"
+                    PanelState.lastOutDir = result.outDir
+                    PanelState.detail = buildString {
+                        append(result.outDir)
+                        result.cueFile?.let { append("\nCUE：").append(it) }
+                        append("\n再抓一遍请点「重新抓取」（会先确认）")
+                    }
                     toast(bits.joinToString("\n") + "\n${result.outDir}", ToastType.Success)
                 }
             } catch (e: com.saltrip.rip.scsi.ScsiException) {
@@ -1075,6 +1131,8 @@ object ConfigActions {
      */
     @JvmStatic
     fun cancelRip() {
+        // 「取消」也解除「重新抓取」的待确认态
+        PanelState.reRipArmed = false
         if (!busy) {
             toast("当前没有抓轨任务", ToastType.Warning)
             return

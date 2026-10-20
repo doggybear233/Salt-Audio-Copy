@@ -154,6 +154,23 @@ internal fun ManualMetaPanel() {
                 TextButton(onClick = { ConfigActions.fillManualFromCdText() }) {
                     Text(Strings.key("manual_fill_cdtext"), fontSize = 12.sp)
                 }
+                TextButton(onClick = { ConfigActions.chooseManualCover() }) {
+                    Text(
+                        if (PanelState.manualCover == null) Strings.key("manual_cover")
+                        else Strings.key("manual_cover_chosen"),
+                        fontSize = 12.sp
+                    )
+                }
+                PanelState.manualCover?.let { p ->
+                    Text(
+                        text = p.substringAfterLast('\\').substringAfterLast('/'),
+                        fontSize = 11.sp,
+                        color = cs.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = 180.dp)
+                    )
+                }
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = { PanelState.closeManual() }) {
                     Text(Strings.key("cancel"), fontSize = 12.sp)

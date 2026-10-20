@@ -75,6 +75,7 @@ object Strings {
         "settings_close" to "收起设置",
         "scan" to "扫描",
         "rip_album" to "抓整盘",
+        "rip_again" to "重新抓取",
         "pause" to "暂停",
         "resume" to "继续",
         "cancel" to "取消",
@@ -114,6 +115,8 @@ object Strings {
         "manual_track_artist" to "该轨艺术家（可空）",
         "manual_fill_cdtext" to "用 CD-TEXT 填",
         "manual_save" to "保存元数据",
+        "manual_cover" to "导入封面…",
+        "manual_cover_chosen" to "换一张封面…",
         "manual_no_cdtext" to "这张盘没有 CD-TEXT"
     )
 
@@ -128,6 +131,7 @@ object Strings {
         "settings_close" to "Hide",
         "scan" to "Scan",
         "rip_album" to "Rip disc",
+        "rip_again" to "Rip again",
         "pause" to "Pause",
         "resume" to "Resume",
         "cancel" to "Cancel",
@@ -167,6 +171,8 @@ object Strings {
         "manual_track_artist" to "Track artist (optional)",
         "manual_fill_cdtext" to "Fill from CD-TEXT",
         "manual_save" to "Save metadata",
+        "manual_cover" to "Import cover…",
+        "manual_cover_chosen" to "Change cover…",
         "manual_no_cdtext" to "This disc has no CD-TEXT"
     )
 
@@ -181,6 +187,7 @@ object Strings {
         "settings_close" to "閉じる",
         "scan" to "スキャン",
         "rip_album" to "全曲取り込み",
+        "rip_again" to "再取得",
         "pause" to "一時停止",
         "resume" to "再開",
         "cancel" to "中止",
@@ -220,6 +227,8 @@ object Strings {
         "manual_track_artist" to "この曲のアーティスト（任意）",
         "manual_fill_cdtext" to "CD-TEXT から入力",
         "manual_save" to "メタデータを保存",
+        "manual_cover" to "カバーを取り込む…",
+        "manual_cover_chosen" to "カバーを変更…",
         "manual_no_cdtext" to "このディスクに CD-TEXT はありません"
     )
 }

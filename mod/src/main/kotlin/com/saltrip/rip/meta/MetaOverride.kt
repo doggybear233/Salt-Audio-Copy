@@ -43,6 +43,21 @@ object MetaOverride {
         return if (Files.isRegularFile(generic)) generic else null
     }
 
+    /**
+     * 手填元数据旁的封面文件：`<discId>.album.cover.jpg`。
+     * 认得 jpg/jpeg/png/webp 四种后缀，取第一个存在的。
+     */
+    fun coverSibling(json: Path): Path? {
+        val fileName = json.fileName.toString()
+        val stem = fileName.removeSuffix(".json")
+        val dir = json.parent ?: return null
+        for (ext in listOf("jpg", "jpeg", "png", "webp")) {
+            val candidate = dir.resolve("$stem.cover.$ext")
+            if (Files.isRegularFile(candidate)) return candidate
+        }
+        return null
+    }
+
     fun load(path: Path): AlbumMeta? = runCatching {
         val text = Files.readString(path, Charsets.UTF_8)
         val root = Json.parse(text)
@@ -74,6 +89,19 @@ object MetaOverride {
             discNumber = (Json.long(o["discNumber"]) ?: 0L).toInt(),
             totalDiscs = (Json.long(o["totalDiscs"]) ?: 0L).toInt()
         )
+    }.map { meta ->
+        val cover = coverSibling(path)
+        if (cover != null) {
+            val bytes = runCatching { Files.readAllBytes(cover) }.getOrNull()
+            val mime = when (cover.fileName.toString().substringAfterLast('.').lowercase()) {
+                "png" -> "image/png"
+                "webp" -> "image/webp"
+                else -> "image/jpeg"
+            }
+            if (bytes != null && bytes.isNotEmpty()) meta.withCover(bytes, mime) else meta
+        } else {
+            meta
+        }
     }.onFailure { Diag.log("album.json 解析失败: ${it.message}") }.getOrNull()
 
     /** 用 override 覆盖 base 中「有值」的字段；tracks 按轨号逐条覆盖。 */
