@@ -44,6 +44,9 @@ object PanelState {
     @Volatile
     var lastBeatAt: Long = 0L
 
+    /** 每块数据校验读的次数（2 = 读两次比对）；面板用它解释「为什么速度只有盘速的一半」。 */
+    var verifyTimes: Int = 1
+
     /** 抓轨是否已暂停（只在当前块结束后真正停住）。 */
     var paused: Boolean by mutableStateOf(false)
 

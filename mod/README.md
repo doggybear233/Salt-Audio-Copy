@@ -3,6 +3,15 @@
 Windows 上把 CD 精确抓成 WAV + CUE + 日志，并把专辑信息（MusicBrainz / gnudb / Cover Art Archive）一起落盘。
 算法与参数来自对 EAC 1.8 的逆向（见 `../architecture.md`、`../features.md`）。
 
+## 0.41.1
+
+- **「不限速」之前根本没下发命令**：`AlbumRipper` 外层还留着 `if (driveSpeed > 0)`，`0` 直接跳过
+  SET CD SPEED，驱动器停在默认低速。现在无论 0 还是具体值都会下发（0 → 请求 7056 KB/s）。
+- **中等校验从 3 次读改为 2 次**：EAC 的 medium 就是「读两次比对，不一致再重读」。
+  多读一遍等于把 12x 的盘压成 4x——日志实测每块 27 扇区耗时 87 ms、`reads=3`。
+- 面板在速度后面显示「每块校验 N 次」，让「为什么只有一半速度」一眼可见。
+- 434 tests / 0 failed（policy 断言同步为 2 次）。
+
 ## 0.41.0
 
 - **抓轨速度**：单条 READ CD 从 16 扇区提到 **27**（约 63 KB/命令，EAC 同值）。

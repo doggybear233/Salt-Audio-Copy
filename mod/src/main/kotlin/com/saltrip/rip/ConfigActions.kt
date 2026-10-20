@@ -1037,6 +1037,9 @@ object ConfigActions {
         PanelState.reRipArmed = false
         PanelState.begin("准备中…")
         PanelState.set(Strings.fmt("正在抓取 %s 轨…", count), "可用「取消」在当前块结束后停止，已抓部分保留")
+        PanelState.verifyTimes =
+            if (settings.secureMode) com.saltrip.rip.rip.SecureRip.policyFor(settings.errorRecovery, settings.maxRetries).identicalNeeded
+            else 1
         val modeTalk = if (settings.secureMode) Strings.message("双读校验") else Strings.message("快速模式")
         toast(Strings.fmt("开始抓取整张专辑（%s 轨，%s）…", count, modeTalk), ToastType.Success)
         exec.execute {

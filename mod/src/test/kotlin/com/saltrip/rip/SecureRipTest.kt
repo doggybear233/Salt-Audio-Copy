@@ -11,11 +11,11 @@ class SecureRipTest {
     @Test
     fun `policy maps recovery levels`() {
         assertEquals(1, SecureRip.policyFor("low").identicalNeeded)
-        assertEquals(3, SecureRip.policyFor("medium").identicalNeeded)
+        assertEquals(2, SecureRip.policyFor("medium").identicalNeeded)
         assertEquals(5, SecureRip.policyFor("high").identicalNeeded)
         assertEquals(SecureRip.MAX_TOTAL_READS, SecureRip.policyFor("high").maxReads)
         // 未知值退回 medium
-        assertEquals(3, SecureRip.policyFor("bogus").identicalNeeded)
+        assertEquals(2, SecureRip.policyFor("bogus").identicalNeeded)
     }
 
     @Test

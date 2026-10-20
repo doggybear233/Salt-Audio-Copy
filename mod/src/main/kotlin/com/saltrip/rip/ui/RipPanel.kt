@@ -385,7 +385,8 @@ private fun RunningBlock() {
                         paused -> Strings.message("已暂停 · 点「继续」接着抓")
                         // 8 秒没有任何进度：驱动器在死磕某一块（多半是重读坏道），把等待时间说出来
                         idleSec >= 8 -> Strings.fmt("正在重读这一块 · 已等 %s 秒", idleSec)
-                        p != null -> PanelFormat.speed(p.speedX) + " · " + PanelFormat.eta(p.etaSec)
+                        p != null -> PanelFormat.speed(p.speedX) + " · " + PanelFormat.eta(p.etaSec) +
+                            if (PanelState.verifyTimes > 1) " · " + Strings.fmt("每块校验 %s 次", PanelState.verifyTimes) else ""
                         else -> ""
                     },
                     style = MaterialTheme.typography.labelSmall,

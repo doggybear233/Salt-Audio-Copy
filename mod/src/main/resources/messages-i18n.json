@@ -1300,6 +1300,10 @@
     "这张盘有你填过或选过的信息；要重新联网查可以点「刷新元数据」": [
       "This disc already has names you entered or picked. Use Refresh metadata to search online again.",
       "このディスクには入力済み／選択済みの情報があります。再検索するには「メタデータを更新」を押してください。"
+    ],
+    "每块校验 %s 次": [
+      "verifies each block %s×",
+      "各ブロックを %s 回検証"
     ]
   }
 }

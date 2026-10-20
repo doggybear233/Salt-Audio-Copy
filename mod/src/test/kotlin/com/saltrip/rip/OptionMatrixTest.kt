@@ -226,7 +226,7 @@ class OptionMatrixTest {
     @Test
     fun errorRecoveryLevelsMapToStablePolicies() {
         assertEquals(SecureRip.Policy(1, 1), SecureRip.policyFor("low"), "Low 只读一次，不校验")
-        assertEquals(SecureRip.Policy(3, 9), SecureRip.policyFor("medium", maxRetries = 8))
+        assertEquals(SecureRip.Policy(2, 9), SecureRip.policyFor("medium", maxRetries = 8), "中等=读两次比对（EAC 同义）")
         assertEquals(SecureRip.Policy(5, SecureRip.MAX_TOTAL_READS), SecureRip.policyFor("high"))
         assertEquals(
             SecureRip.policyFor("medium"),

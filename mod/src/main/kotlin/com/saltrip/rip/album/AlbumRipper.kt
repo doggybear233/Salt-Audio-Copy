@@ -61,12 +61,17 @@ object AlbumRipper {
         // 盘符设置优先：多光驱时把「第一台」当成目标太容易抓错盘
         val scan = RipEngine.selectScan(settings.driveLetter, scan)
         val toc = scan.toc
-        if (settings.driveSpeed > 0) {
-            val kbps = speedRequestKbps(settings.driveSpeed)
+        // 0（不限速）也要下发：以前这里是 if (driveSpeed > 0)，选「不限速」等于完全不发命令，
+        // 驱动器停在默认低速，用户看到的一直是 4x。
+        val kbps = speedRequestKbps(settings.driveSpeed)
         runCatching { CdDevice(scan.path).use { it.setSpeed(kbps) } }
-                .onSuccess { Diag.log("drive speed limited to ${settings.driveSpeed} KB/s") }
-                .onFailure { Diag.log("set speed failed", it) }
-        }
+            .onSuccess {
+                Diag.log(
+                    if (settings.driveSpeed > 0) "drive speed limited to ${settings.driveSpeed} KB/s"
+                    else "drive speed: unlimited, requested $kbps KB/s (drive clamps)"
+                )
+            }
+            .onFailure { Diag.log("set speed failed", it) }
         RipEngine.requireAudioCd(toc)
         val startedAt = System.nanoTime()
         val notes = ArrayList<String>()

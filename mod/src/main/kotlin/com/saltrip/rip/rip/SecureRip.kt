@@ -6,7 +6,7 @@ package com.saltrip.rip.rip
  * EAC 的 secure 模式不是「固定重读 N 次」，而是「连续读到足够多的一致结果才接受」：
  * 官方文档的说法是 "until eight of 16 retries are identical"，即同一块数据要被独立读到
  * 多次完全相同才认为可信；出错恢复质量 Low/Medium/High 决定要求多少次一致
- * （对应界面里的 1 / 3 / 5 轮），最坏情况一块数据会被读 82 次。
+ * （对应界面里的 1 / 2 / 5 轮，够用即可，多读一遍就是白白降速），最坏情况一块数据会被读 82 次。
  *
  * 这里把策略与读取动作解耦：[readStable] 只吃一个「读一次」的 lambda，
  * 因此可以脱离光驱做单元测试。
@@ -17,7 +17,7 @@ object SecureRip {
     const val MAX_TOTAL_READS = 82
 
     /**
-     * @param identicalNeeded 需要连续多少次一致才接受（1=不校验，3=中等，5=高）
+     * @param identicalNeeded 需要连续多少次一致才接受（1=不校验，2=中等，5=高）
      * @param maxReads 这一块最多读几次
      */
     data class Policy(val identicalNeeded: Int, val maxReads: Int) {
@@ -28,7 +28,9 @@ object SecureRip {
     fun policyFor(level: String, maxRetries: Int = 8): Policy = when (level.trim().lowercase()) {
         "low" -> Policy(1, 1)
         "high" -> Policy(5, MAX_TOTAL_READS)
-        else -> Policy(3, (maxRetries + 1).coerceIn(2, MAX_TOTAL_READS))
+        // 中等：读两次比对即可（不一致再重读），和 EAC 的行为一致。
+        // 原来是 3 次，等于凭空多读一遍：盘速 12x 却只能跑出 4x。
+        else -> Policy(2, (maxRetries + 1).coerceIn(2, MAX_TOTAL_READS))
     }
 
     /**
