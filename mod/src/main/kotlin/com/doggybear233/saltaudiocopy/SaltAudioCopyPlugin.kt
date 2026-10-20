@@ -36,6 +36,8 @@ class SaltAudioCopyPlugin(context: PluginContext) : SpwPlugin(context) {
     }
 
     override fun stop() {
+        // 先让抓轨停下来：卸载后工作线程若还在写盘，会留下半截 WAV 与打不开的句柄。
+        runCatching { com.doggybear233.saltaudiocopy.ConfigActions.shutdown() }
         runCatching { com.doggybear233.saltaudiocopy.DiscWatcher.stop() }
         runCatching { PanelMount.uninstall() }
         Diag.log("stop")

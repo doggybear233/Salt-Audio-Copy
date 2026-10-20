@@ -79,7 +79,12 @@ class CandidateAndWatchTest {
     fun notReadyAndMediumMissingAreNotFailures() {
         assertTrue(DiscWatcher.isEmptyDisc(scsi(2, 0x3A)), "无盘应视为空，不是故障")
         assertTrue(DiscWatcher.isEmptyDisc(scsi(2, 0x04)), "未就绪应视为空")
-        assertTrue(DiscWatcher.isEmptyDisc(IllegalStateException("没有检测到可用的光驱")))
+        // 只看结构化错误码，不看文案：界面语言一变，「没有光盘」这类中文子串就不存在了。
+        // 早先按文案判定，英文/日文界面会把没盘当设备故障，指数退避到 30 秒才发现插盘。
+        assertFalse(
+            DiscWatcher.isEmptyDisc(IllegalStateException("没有检测到可用的光驱")),
+            "没有结构化 sense 时不能靠文案猜"
+        )
         // 介质格式不兼容 = 盘在里面（数据盘），要让用户看到错误，不能静默当空盘。
         assertFalse(DiscWatcher.isEmptyDisc(scsi(5, 0x30, 0x02)), "数据盘不该被当成空盘")
         assertFalse(DiscWatcher.isEmptyDisc(RuntimeException("boom")))

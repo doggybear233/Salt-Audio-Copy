@@ -1256,6 +1256,26 @@
     "默认 8x：全速时噪音大、重读更频繁，剩余时间也更抖；选「不限速」时插件会请求驱动器最高速（约 7056 KB/s）": [
       "8x by default: full speed is louder, re-reads more and makes the ETA jitter. \"No limit\" asks the drive for its maximum (about 7056 KB/s).",
       "既定 8x：最高速は騒音が大きく再読も増え、残り時間も不安定になります。「速度制限なし」はドライブに最高速（約 7056 KB/s）を要求します。"
+    ],
+    "保存失败": [
+      "Save failed",
+      "保存に失敗しました"
+    ],
+    "光驱标识无效：%s": [
+      "Invalid drive letter: %s",
+      "ドライブ文字が無効です：%s"
+    ],
+    "正在保存元数据…": [
+      "Saving metadata…",
+      "メタデータを保存しています…"
+    ],
+    "正在读取光盘信息…": [
+      "Reading disc information…",
+      "ディスク情報を読み取っています…"
+    ],
+    "读不到光盘，元数据没有写入": [
+      "Cannot read the disc, so the metadata was not written",
+      "ディスクを読み取れないため、メタデータは書き込まれませんでした"
     ]
   }
 }

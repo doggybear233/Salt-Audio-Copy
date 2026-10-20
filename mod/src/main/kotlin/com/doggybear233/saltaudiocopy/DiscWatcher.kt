@@ -92,6 +92,11 @@ object DiscWatcher {
             onSuccess = { scan ->
                 lastError = null
                 val fp = DiscFingerprint.of(scan.toc)
+                // 上一轮读失败时面板已被清空（指纹也清成 null），这里的指纹比对一定不相等；
+                // 但若因为别的路径把指纹留了下来，面板空着也要重建一次，否则永久「读不到光盘」。
+                if (fp == lastFingerprint && PanelState.disc == null) {
+                    runCatching { com.doggybear233.saltaudiocopy.Discs.publish(scan) }
+                }
                 if (fp != lastFingerprint) {
                     lastFingerprint = fp
                     lastHadDisc = true
@@ -143,34 +148,27 @@ object DiscWatcher {
         Diag.log("DiscWatcher: no disc ($reason)")
     }
 
+    /** 抽盘后再插回同一张盘：把记忆取回；面板此刻是空的，所以状态行由这里重建。 */
     private fun reportFailure(e: Throwable) {
         val msg = com.doggybear233.saltaudiocopy.scsi.ScsiMessages.human(e)
+        // 读盘失败后必须让下一轮能重新「发现」这张盘：如果继续留着旧指纹，
+        // 恢复后 fp == lastFingerprint，换盘分支永远不触发，面板就永久停在「读不到光盘」。
+        lastFingerprint = null
+        lastHadDisc = false
         if (msg == lastError) return
         lastError = msg
         Diag.log("DiscWatcher failed: $msg")
-        if (lastHadDisc) {
-            runCatching {
-                PanelState.showDisc(null)
-                PanelState.set(Strings.message("读不到光盘"), msg)
-            }
+        runCatching {
+            PanelState.showDisc(null)
+            PanelState.set(Strings.message("读不到光盘"), msg)
         }
     }
 
-    /** sense key 2（NOT READY）/ ASC 0x3A（medium not present）算「没盘」，不算故障。 */
-    internal fun isEmptyDisc(e: Throwable): Boolean {
-        var cur: Throwable? = e
-        var depth = 0
-        while (cur != null && depth < 8) {
-            if (cur is ScsiException) {
-                if (cur.senseKey == 2) return true
-                if (cur.asc == 0x3A || cur.asc == 0x04) return true
-            }
-            cur = cur.cause
-            depth++
-        }
-        val text = generateSequence(e as Throwable?) { it.cause }.take(8)
-            .joinToString(" ") { it.message.orEmpty() }
-        return text.contains("没有光盘") || text.contains("读不到光盘") ||
-            text.contains("没有检测到可用的光驱") || text.contains("没有检测到光驱")
-    }
+    /**
+     * sense key 2（NOT READY）/ ASC 0x3A（medium not present）算「没盘」，不算故障。
+     * 判定逻辑在 [com.doggybear233.saltaudiocopy.scsi.ScsiMessages.isNoDisc]：只看结构化错误码，
+     * 不看界面文案（否则英文/日文界面会把「没盘」当设备故障）。
+     */
+    internal fun isEmptyDisc(e: Throwable): Boolean =
+        com.doggybear233.saltaudiocopy.scsi.ScsiMessages.isNoDisc(e)
 }

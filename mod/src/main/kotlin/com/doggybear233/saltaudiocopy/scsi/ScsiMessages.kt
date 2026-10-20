@@ -47,6 +47,27 @@ object ScsiMessages {
         return Strings.fmt("%s（ASC 0x%02X / ASCQ 0x%02X）", key, e.asc, e.ascq)
     }
 
+    /**
+     * 这条异常是否只是「驱动器里没有光盘」，而不是设备故障。
+     *
+     * 只看结构化的 sense / Win32 码，**不看文案**：文案会随界面语言变化，
+     * 早先用「没有光盘」这种中文子串判定，英文/日文界面会把没盘当成设备故障并
+     * 指数退避到 30 秒，插盘后半天不识别。
+     */
+    fun isNoDisc(t: Throwable): Boolean {
+        var cur: Throwable? = t
+        var depth = 0
+        while (cur != null && depth < 8) {
+            if (cur is ScsiException) {
+                if (cur.win32Error == 21) return true
+                if (cur.senseKey == 0x02 && (cur.asc == 0x3A || cur.asc == 0x04 || cur.asc == 0x3C)) return true
+            }
+            cur = cur.cause
+            depth++
+        }
+        return false
+    }
+
     /** 已知组合的具体说明；没命中就返回 null，交给 [human] 兜底。 */
     fun specific(key: Int, asc: Int, ascq: Int): String? = when {
         key == 0x02 && asc == 0x3A -> Strings.message("光驱里没有光盘（或托盘没关上）")

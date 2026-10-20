@@ -100,6 +100,41 @@ object ConfigActions {
     }
 
     /**
+     * 从设备路径取盘符：`\\.\F:` → `F`。
+     *
+     * 早先写的是 `path.trimEnd('\\').lastOrNull()`：对 `\\.\F:` 取到的是 `':'`，
+     * 于是所有光驱 chip 都显示 `:`、点第二台会写进 `driveLetter=":"`，
+     * 之后 normalize 又把它当空串回退到第一台——显示、设置、实际抓轨三处不一致。
+     */
+    internal fun driveLetterOf(path: String): String {
+        val tail = path.trim().removePrefix("\\\\.\\").trimEnd('\\')
+        val head = tail.substringBefore(':')
+        return if (head.length == 1 && head[0].isLetter()) head.uppercase() else ""
+    }
+
+    /**
+     * 在工作线程里先重读一次盘，再执行 [block]。
+     *
+     * 配置页按钮是在宿主 UI 线程被反射调用的；`freshScan()` 会打开设备并读 TOC，
+     * 空盘/驱动挂起时能阻塞十几秒，放在入口里直接调用就是「点一下界面冻住」。
+     */
+    private fun onWorkerWithScan(block: (com.doggybear233.saltaudiocopy.rip.ScanResult) -> Unit) {
+        exec.execute {
+            val scan = freshScan() ?: return@execute
+            block(scan)
+        }
+    }
+
+    /** 插件卸载时调用：让抓轨停下来，并把两条工作线程收掉，避免卸载后还在写盘。 */
+    internal fun shutdown() {
+        userCancel = true
+        cancelFlag.set(true)
+        runCatching { exec.shutdownNow() }
+        runCatching { saveExec.shutdownNow() }
+        Diag.log("ConfigActions shutdown")
+    }
+
+    /**
      * 每次操作前重读一次盘。
      *
      * 缓存里的 [com.doggybear233.saltaudiocopy.rip.ScanResult] 可能对应上一张盘（用户换盘后不点扫描），
@@ -148,7 +183,7 @@ object ConfigActions {
                         // 让轮询以这张盘为基准，避免它立刻再判一次「换盘」。
                         runCatching { DiscWatcher.seed(r.toc) }
                         sb.append("，${r.toc.tracks.size} 轨 / $kind$ids")
-                        val letter = path.trimEnd('\\').lastOrNull()?.uppercase() ?: ""
+                        val letter = driveLetterOf(path)
                         chips += PanelState.DriveChip(
                             letter = letter,
                             label = "$letter: ${r.toc.tracks.size} 轨",
@@ -224,12 +259,11 @@ object ConfigActions {
      */
     @JvmStatic
     fun exportAlbumJson() {
-        val scan = freshScan() ?: return
-        if (!scan.toc.isAudioCd) {
-            toast(Strings.message("当前盘不是音频 CD"), ToastType.Warning)
-            return
-        }
-        exec.execute {
+        onWorkerWithScan { scan ->
+            if (!scan.toc.isAudioCd) {
+                toast(Strings.message("当前盘不是音频 CD"), ToastType.Warning)
+                return@onWorkerWithScan
+            }
             try {
                 val settings = SettingsStore.load(force = true)
                 val toc = scan.toc
@@ -481,9 +515,8 @@ object ConfigActions {
     /** 只查询元数据，落地目录与文件不动；用于确认 DiscID 是否命中。 */
     @JvmStatic
     fun previewPlan() {
-        val scan = freshScan() ?: return
         toast(Strings.message("正在计算抓轨计划（不写盘）…"), ToastType.Success)
-        exec.execute {
+        onWorkerWithScan { scan ->
             try {
                 val settings = SettingsStore.load()
                 val notes = ArrayList<String>()
@@ -832,11 +865,11 @@ object ConfigActions {
         // 内存里留一份：换输出根 / 缓存读不到时标题不会变「未知」
         PanelState.rememberMeta(before?.discId.orEmpty(), album)
         PanelState.closeManual()
+        // 「已保存」必须等文件真写进去再说：读不到盘时这里会失败，先说成功等于骗用户。
         PanelState.set(
-            Strings.message("已保存手动元数据"),
+            Strings.message("正在保存元数据…"),
             Strings.fmt("%s — %s（%s 轨）", album.albumArtist, album.albumTitle, album.tracks.size)
         )
-        Notify.info(Strings.message("已保存手动元数据，抓轨会用这些名字"))
 
         // 2) 落盘（独立线程，不跟自动查询抢队）
         saveExec.execute {
@@ -845,7 +878,11 @@ object ConfigActions {
                 // 面板会被重新刷成「未知艺术家」。所以扫描后立刻把乐观值再盖回去，
                 // 等写完文件再用 publish 从缓存重建（那一次才是准的）。
                 val scan = freshScan() ?: run {
-                    Notify.fail(Strings.message("保存失败：读不到光盘，文件没有写入"))
+                    val why = Strings.message("读不到光盘，元数据没有写入")
+                    PanelState.set(Strings.message("保存失败"), why)
+                    Notify.fail(Strings.message("保存失败：") + why)
+                    // 把草稿放回面板，用户换盘/放回盘后可以直接再点保存，不用重填
+                    PanelState.openManual(draft)
                     return@execute
                 }
                 val keptCover = PanelState.discCover
@@ -885,10 +922,18 @@ object ConfigActions {
                     )
                 }
                 PanelState.discCover = readCachedAlbum(root, discId)?.cover ?: PanelState.discCover
+                PanelState.set(
+                    Strings.message("已保存手动元数据"),
+                    Strings.fmt("%s — %s（%s 轨）", finalAlbum.albumArtist, finalAlbum.albumTitle, finalAlbum.tracks.size)
+                )
+                Notify.info(Strings.message("已保存手动元数据，抓轨会用这些名字"))
                 Diag.log("manual meta persisted: ${finalAlbum.tracks.size} tracks")
             } catch (e: Throwable) {
                 Diag.log("saveManualMeta failed", e)
-                toast(Strings.message("保存失败：") + com.doggybear233.saltaudiocopy.scsi.ScsiMessages.human(e), ToastType.Error)
+                val why = com.doggybear233.saltaudiocopy.scsi.ScsiMessages.human(e)
+                PanelState.set(Strings.message("保存失败"), why)
+                Notify.fail(Strings.message("保存失败：") + why)
+                PanelState.openManual(draft)
             }
         }
     }
@@ -1023,27 +1068,29 @@ object ConfigActions {
             )
             return
         }
-        val scan = freshScan() ?: return
-        if (!scan.toc.isAudioCd) {
-            toast(Strings.message("这张盘不是音频 CD（数据盘不能抓轨）：请换一张音乐 CD"), ToastType.Warning)
-            return
-        }
-        val settings = SettingsStore.load(force = true)
-        val count = scan.toc.tracks.size
         busy = true
         cancelFlag.set(false)
         paused = false
         userCancel = false
         PanelState.reRipArmed = false
         PanelState.begin("准备中…")
-        PanelState.set(Strings.fmt("正在抓取 %s 轨…", count), "可用「取消」在当前块结束后停止，已抓部分保留")
-        PanelState.verifyTimes =
-            if (settings.secureMode) com.doggybear233.saltaudiocopy.rip.SecureRip.policyFor(settings.errorRecovery, settings.maxRetries).identicalNeeded
-            else 1
-        val modeTalk = if (settings.secureMode) Strings.message("双读校验") else Strings.message("快速模式")
-        toast(Strings.fmt("开始抓取整张专辑（%s 轨，%s）…", count, modeTalk), ToastType.Success)
+        toast(Strings.message("正在读取光盘信息…"), ToastType.Success)
         exec.execute {
             try {
+                // 读盘放到工作线程：入口是宿主 UI 线程调用的，空盘/挂起时 freshScan 能阻塞十几秒。
+                val scan = freshScan() ?: return@execute
+                if (!scan.toc.isAudioCd) {
+                    toast(Strings.message("这张盘不是音频 CD（数据盘不能抓轨）：请换一张音乐 CD"), ToastType.Warning)
+                    return@execute
+                }
+                val settings = SettingsStore.load(force = true)
+                val count = scan.toc.tracks.size
+                PanelState.set(Strings.fmt("正在抓取 %s 轨…", count), "可用「取消」在当前块结束后停止，已抓部分保留")
+                PanelState.verifyTimes =
+                    if (settings.secureMode) com.doggybear233.saltaudiocopy.rip.SecureRip.policyFor(settings.errorRecovery, settings.maxRetries).identicalNeeded
+                    else 1
+                val modeTalk = if (settings.secureMode) Strings.message("双读校验") else Strings.message("快速模式")
+                toast(Strings.fmt("开始抓取整张专辑（%s 轨，%s）…", count, modeTalk), ToastType.Success)
                 var lastPct = -10
                 var removedFiles = 0
                 val result = AlbumRipper.rip(
@@ -1162,13 +1209,8 @@ object ConfigActions {
     /** 只抓第 1 轨到临时目录，用于快速验证驱动器状态。 */
     @JvmStatic
     fun testDisc() {
-        val scan = freshScan() ?: return
         if (busy) {
             toast(Strings.message("已有任务在进行"), ToastType.Warning)
-            return
-        }
-        if (!scan.toc.isAudioCd) {
-            toast(Strings.message("这不是音频 CD"), ToastType.Warning)
             return
         }
         busy = true
@@ -1177,6 +1219,11 @@ object ConfigActions {
         toast(Strings.message("开始测试读取，不会写任何文件…"), ToastType.Success)
         exec.execute {
             try {
+                val scan = freshScan() ?: return@execute
+                if (!scan.toc.isAudioCd) {
+                    toast(Strings.message("这不是音频 CD"), ToastType.Warning)
+                    return@execute
+                }
                 val settings = SettingsStore.load(true)
                 val rows = DiscTest.run(
                     scan, scan.toc, { gate() },
@@ -1206,7 +1253,6 @@ object ConfigActions {
 
     @JvmStatic
     fun ripFirstTrack() {
-        val scan = freshScan() ?: return
         if (busy) {
             toast(Strings.message("已有抓轨任务在进行"), ToastType.Warning)
             return
@@ -1216,6 +1262,7 @@ object ConfigActions {
         toast(Strings.message("开始抓取第 1 轨…"), ToastType.Success)
         exec.execute {
             try {
+                val scan = freshScan() ?: return@execute
                 val settings = SettingsStore.load(true)
                 val dir = settings.effectiveRoot.resolve("disc-${scan.toc.leadOutLba}")
                 val out = dir.resolve("01.wav")
@@ -1450,8 +1497,13 @@ object ConfigActions {
      */
     @JvmStatic
     fun selectDrive(letter: String) {
+        // 传进来的是光驱 chip 的 letter；只接受单个字母，别把 ":" 或空串写进设置。
+        val upper = letter.trim().uppercase()
+        if (upper.length != 1 || upper[0] !in 'A'..'Z') {
+            toast(Strings.fmt("光驱标识无效：%s", letter), ToastType.Warning)
+            return
+        }
         val s = SettingsStore.load(true)
-        val upper = letter.uppercase()
         PanelState.selectedDrive = upper
         persist(s.copy(driveLetter = upper), "已切换到光驱 $upper:")
         scanDrives()
