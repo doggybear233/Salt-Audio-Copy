@@ -34,6 +34,7 @@ object Sptd {
     const val STRUCT_SIZE = 56
     const val SENSE_LEN = 32
     const val TOTAL_SIZE = STRUCT_SIZE + SENSE_LEN
+    const val DATA_OUT = 0
     const val DATA_IN = 1
     const val DATA_NONE = 2
 
@@ -92,7 +93,9 @@ object Sptd {
             pkt.set(JAVA_BYTE, 5L, 0)   // Lun
             pkt.set(JAVA_BYTE, OFF_CDB_LENGTH, cdb.size.toByte())
             pkt.set(JAVA_BYTE, OFF_SENSE_LEN, SENSE_LEN.toByte())
-            pkt.set(JAVA_BYTE, OFF_DATA_IN, (if (dataIn) DATA_IN else DATA_NONE).toByte())
+            // 以前「不是 Data-In」一律填 DATA_NONE，于是 MODE SELECT 这种要下传数据的命令
+            // 被当成「没有数据阶段」，驱动器直接回 ILLEGAL REQUEST，READ(10) 永远用不上。
+            pkt.set(JAVA_BYTE, OFF_DATA_IN, (if (bufLen == 0) DATA_NONE else if (dataIn) DATA_IN else DATA_OUT).toByte())
             pkt.set(JAVA_INT, OFF_TRANSFER, bufLen)
             pkt.set(JAVA_INT, OFF_TIMEOUT, timeoutSec)
             pkt.set(ADDRESS, OFF_DATA_PTR, if (bufLen == 0) MemorySegment.NULL else buf)

@@ -43,6 +43,12 @@ object ScsiMessages {
         e.win32Error.takeIf { it != 0 && e.scsiStatus == 0 }?.let { win ->
             win32Map()[win]?.let { return it }
         }
+        // 结构化字段全是 0 时说明这条异常不是 sense 带回来的（插件自己抛的校验错误、
+        // 或读取失败但没 sense 数据）。此时 [keyMap] 会命中 0x00 -> 「没有错误」，
+        // 把「短读」「lead-out 缺失」解释成「一切正常」——必须改用异常自己的文案。
+        if (e.senseKey == 0 && e.asc == 0 && e.ascq == 0 && e.win32Error == 0) {
+            e.message?.takeIf { it.isNotBlank() }?.let { return it }
+        }
         val key = keyMap()[e.senseKey] ?: Strings.fmt("未知状态 key=0x%02X", e.senseKey)
         return Strings.fmt("%s（ASC 0x%02X / ASCQ 0x%02X）", key, e.asc, e.ascq)
     }

@@ -204,6 +204,24 @@ class CdDevice private constructor(
         transport.executeOut(cdb, param)
         blockLengthReady = true
         Diag.log("READ(10): block length set to $sectorSize")
+        // 回读确认：有的驱动器静默忽略 MODE SELECT，然后按 2048 回数据，
+        // 表现为「短读」或「CRC 全错」。这里读回来记日志，不改流程（部分 ATAPI 不回报块长）。
+        runCatching {
+            val sense = ByteArray(12)
+            sense[0] = 0x5A.toByte()                  // MODE SENSE(10)
+            sense[2] = 0x3F.toByte()                  // 所有页
+            sense[7] = (64 shr 8).toByte()
+            sense[8] = (64 and 0xFF).toByte()
+            val back = transport.execute(sense, 64)
+            val bdl = (((back[6].toInt() and 0xFF) shl 8) or (back[7].toInt() and 0xFF))
+            if (bdl >= 8 && back.size >= 16) {
+                val len = ((back[13].toInt() and 0xFF) shl 16) or
+                    ((back[14].toInt() and 0xFF) shl 8) or (back[15].toInt() and 0xFF)
+                if (len != sectorSize) {
+                    Diag.log("READ(10): 驱动器回报块长 $len 而不是 $sectorSize（读回的数据长度会不符）")
+                }
+            }
+        }.onFailure { Diag.log("READ(10): 回读块长失败（部分驱动器不支持）", it) }
     }
 
     /**
