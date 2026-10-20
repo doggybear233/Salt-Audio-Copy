@@ -23,7 +23,14 @@ data class ManualDraft(
     val year: String = "",
     val discNumber: Int = 1,
     val totalDiscs: Int = 1,
-    val tracks: List<ManualTrack> = emptyList()
+    val tracks: List<ManualTrack> = emptyList(),
+    /**
+     * 这份草稿是从哪张盘读出来的（[com.doggybear233.saltaudiocopy.scsi.DiscFingerprint.of]）。
+     *
+     * 保存时会重新扫盘再比一次：用户在填的过程中换了盘，A 盘的歌名不能写进 B 盘的缓存。
+     * 空串表示不知道（测试或旧草稿），此时跳过校验。
+     */
+    val fingerprint: String = ""
 ) {
 
     /** 改某一轨的标题 / 艺术家；越界就原样返回（UI 不该传越界值，但别崩）。 */

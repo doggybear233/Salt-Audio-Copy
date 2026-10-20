@@ -37,6 +37,12 @@ object DiscWatcher {
     @Volatile
     private var lastHadDisc = false
 
+    /** 测试缝：替换一轮「检查光盘」的实际动作，避免单测真的去读 \.\X:。 */
+    internal var tickOverride: (() -> Boolean)? = null
+
+    /** 线程是否还活着（测试用：验证 stop() 真的 join 了）。 */
+    internal fun workerAliveForTest(): Boolean = thread?.isAlive == true
+
     fun start() {
         if (!running.compareAndSet(false, true)) return
         val t = Thread({
@@ -53,7 +59,8 @@ object DiscWatcher {
                     interval = MIN_INTERVAL_MS
                     continue
                 }
-                interval = if (tick()) MIN_INTERVAL_MS
+                val ok = tickOverride?.invoke() ?: tick()
+                interval = if (ok) MIN_INTERVAL_MS
                 else (interval * 2).coerceAtMost(MAX_INTERVAL_MS)
             }
         }, "saltaudiocopy-watch")
@@ -65,8 +72,15 @@ object DiscWatcher {
 
     fun stop() {
         running.set(false)
-        thread?.interrupt()
+        val t = thread
         thread = null
+        t?.interrupt()
+        // 等它真的退出：不 join 的话旧线程可能还卡在一次 SCSI 轮询里，
+        // 随后插件被重新加载、start() 又起一条，两条线程同时读同一台光驱。
+        if (t != null && t.isAlive) {
+            runCatching { t.join(2_000) }
+            if (t.isAlive) Diag.log("DiscWatcher stop: 旧线程 2 秒内没退出（仍在一次读盘里）")
+        }
         Diag.log("DiscWatcher stopped")
     }
 

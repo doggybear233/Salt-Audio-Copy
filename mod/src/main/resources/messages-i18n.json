@@ -1420,6 +1420,30 @@
     "需要时可以再点一次刷新元数据": [
       "You can press Refresh metadata again whenever you need.",
       "必要になったら「メタデータ更新」をもう一度押してください。"
+    ],
+    "光盘已经换过了，这次没有保存": [
+      "The disc changed, so nothing was saved",
+      "ディスクが入れ替わったため保存していません"
+    ],
+    "光盘换过了，元数据没有写入": [
+      "Disc changed — metadata was not written",
+      "ディスクが入れ替わりました。メタデータは書き込んでいません"
+    ],
+    "抓轨进行中，暂时不能保存元数据": [
+      "Ripping in progress — metadata cannot be saved right now",
+      "取り込み中はメタデータを保存できません"
+    ],
+    "抓轨进行中：等抓轨结束再保存元数据": [
+      "Ripping: save the metadata after the rip finishes",
+      "取り込み中です。完了してから保存してください"
+    ],
+    "等这次抓轨结束再保存；草稿还在，不会丢": [
+      "Wait for this rip to finish; your draft is kept.",
+      "この取り込みが終わってから保存してください。下書きは残っています。"
+    ],
+    "草稿还在：把原来那张盘放回来，再点一次保存": [
+      "Your draft is kept: put the original disc back and save again.",
+      "下書きは残っています。元のディスクを戻してもう一度保存してください。"
     ]
   }
 }

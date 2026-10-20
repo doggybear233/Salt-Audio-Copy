@@ -2,6 +2,7 @@ package com.doggybear233.saltaudiocopy
 
 import com.doggybear233.saltaudiocopy.album.AlbumRipper
 import com.doggybear233.saltaudiocopy.album.DiscTest
+import com.doggybear233.saltaudiocopy.album.DriveSelect
 import com.doggybear233.saltaudiocopy.album.AlbumJsonWriter
 import com.doggybear233.saltaudiocopy.meta.DiscId
 import com.doggybear233.saltaudiocopy.meta.MetadataService
@@ -36,16 +37,6 @@ object ConfigActions {
         Thread(r, "saltac-worker").apply { isDaemon = true }
     }
 
-    /**
-     * 「保存手填元数据」专用线程。
-     *
-     * [exec] 是单线程串行队列：自动查元数据（CDDB 镜像连不上时要等几十秒）占着它的时候，
-     * 保存动作被排在后面，用户会以为「点保存没反应」。这条只写本地文件，
-     * 单独一条线程既不会被查询堵住，也不会和查询互相抢。
-     */
-    private val saveExec = Executors.newSingleThreadExecutor { r ->
-        Thread(r, "saltac-save").apply { isDaemon = true }
-    }
     private val cancelFlag = AtomicBoolean(false)
 
     /**
@@ -121,6 +112,14 @@ object ConfigActions {
      * 于是所有光驱 chip 都显示 `:`、点第二台会写进 `driveLetter=":"`，
      * 之后 normalize 又把它当空串回退到第一台——显示、设置、实际抓轨三处不一致。
      */
+    /**
+     * 保存手填元数据前判断「盘是不是换过了」。
+     *
+     * 任一为空就放行（旧草稿/测试没有指纹）；都有且不等才拦——那时写下去就是错盘的歌名。
+     */
+    internal fun discChanged(draftFingerprint: String, nowFingerprint: String): Boolean =
+        draftFingerprint.isNotBlank() && nowFingerprint.isNotBlank() && draftFingerprint != nowFingerprint
+
     internal fun driveLetterOf(path: String): String {
         val tail = path.trim().removePrefix("\\\\.\\").trimEnd('\\')
         val head = tail.substringBefore(':')
@@ -145,7 +144,6 @@ object ConfigActions {
         userCancel = true
         cancelFlag.set(true)
         runCatching { exec.shutdownNow() }
-        runCatching { saveExec.shutdownNow() }
         Diag.log("ConfigActions shutdown")
     }
 
@@ -211,10 +209,13 @@ object ConfigActions {
                 // 多光驱：先选「要显示的那一台」，最后只发布一次。
                 // 原先每读到一张盘就 publish 一次，于是最后一台（常常是空盘或数据盘）
                 // 会把前面那台音乐 CD 的信息从面板上覆盖掉，用户以为扫错了盘。
-                val want = SettingsStore.load(true).driveLetter.uppercase()
-                val chosen = found.firstOrNull { it.first == want }
-                    ?: found.firstOrNull { it.second.toc.isAudioCd }
-                    ?: found.firstOrNull()
+                // 盘符语义统一走 DriveSelect：设置里可能存 `F`、`f:`、`\\.\F:`，
+                // 以前这里直接 uppercase 后与 chip 的裸字母比较，配成 `F:` 就永远选不中。
+                val scans = found.map { it.second }
+                val chosenScan = DriveSelect.pick(scans, SettingsStore.load(true).driveLetter)
+                    ?: scans.firstOrNull { it.toc.isAudioCd }
+                    ?: scans.firstOrNull()
+                val chosen = chosenScan?.let { s -> found.firstOrNull { it.second === s } }
                 PanelState.selectedDrive = chosen?.first ?: chips.firstOrNull()?.letter ?: ""
                 chosen?.second?.let { publishScanned(it) }
                 val text = sb.toString().trim()
@@ -836,6 +837,10 @@ object ConfigActions {
                     artist = PanelState.disc?.artist,
                     album = PanelState.disc?.album,
                     cached = cached
+                ).copy(
+                    fingerprint = runCatching {
+                        com.doggybear233.saltaudiocopy.scsi.DiscFingerprint.of(scan.toc)
+                    }.getOrDefault("")
                 )
                 // 盘上有 CD-TEXT 时先塞进去：用户经常只需要补一两个字段。
                 var prefilled = false
@@ -906,11 +911,21 @@ object ConfigActions {
      * - `<输出根>/<DiscID>.album.json`：`MetaOverride` 认的位置，「刷新元数据」/离线查询也能读到。
      *
      * 分两步：**先立刻改面板状态**（用户点了保存就该马上看到名字变了），
-     * 再把写文件丢到 [saveExec]。旧实现在工作线程里先 `freshScan()`（读 TOC，
+     * 再把写文件丢到 [exec]（与抓轨同一条队列，天然不会两边同时读光驱）。旧实现在工作线程里先 `freshScan()`（读 TOC，
      * 可能等上十几秒）且排在查询后面，于是"点保存没反应"。
      */
     @JvmStatic
     fun saveManualMeta() {
+        // 抓轨正在读同一台光驱：这时候再插一次 TOC/读盘会跟抓轨抢设备，
+        // 真机上表现为「抓轨莫名慢一截、偶尔读失败」。
+        if (PanelState.busy) {
+            PanelState.set(
+                Strings.message("抓轨进行中，暂时不能保存元数据"),
+                Strings.message("等这次抓轨结束再保存；草稿还在，不会丢")
+            )
+            Notify.warn(Strings.message("抓轨进行中：等抓轨结束再保存元数据"))
+            return
+        }
         val draft = PanelState.manual
         if (!draft.hasAnything) {
             Notify.warn(Strings.message("至少写一个专辑名或歌名再保存"))
@@ -938,7 +953,7 @@ object ConfigActions {
         )
 
         // 2) 落盘（独立线程，不跟自动查询抢队）
-        saveExec.execute {
+        exec.execute {
             try {
                 // freshScan() 内部会 Discs.publish()：此刻 JSON 还没写，缓存是空的，
                 // 面板会被重新刷成「未知艺术家」。所以扫描后立刻把乐观值再盖回去，
@@ -948,6 +963,20 @@ object ConfigActions {
                     PanelState.set(Strings.message("保存失败"), why)
                     Notify.fail(Strings.message("保存失败：") + why)
                     // 把草稿放回面板，用户换盘/放回盘后可以直接再点保存，不用重填
+                    PanelState.openManual(draft)
+                    return@execute
+                }
+                // 盘换过了：A 盘的歌名不能写进 B 盘的缓存。
+                val nowFp = runCatching {
+                    com.doggybear233.saltaudiocopy.scsi.DiscFingerprint.of(scan.toc)
+                }.getOrDefault("")
+                if (discChanged(draft.fingerprint, nowFp)) {
+                    Diag.log("manual save aborted: disc changed (${draft.fingerprint} -> $nowFp)")
+                    PanelState.set(
+                        Strings.message("光盘已经换过了，这次没有保存"),
+                        Strings.message("草稿还在：把原来那张盘放回来，再点一次保存")
+                    )
+                    Notify.warn(Strings.message("光盘换过了，元数据没有写入"))
                     PanelState.openManual(draft)
                     return@execute
                 }
@@ -1009,7 +1038,7 @@ object ConfigActions {
      *
      * 选择框是模态的，会一直占着线程直到用户点确定或取消。放进 [exec] 的话，
      * 一旦用户开着框发呆，后面所有任务（抓轨、查元数据）都被卡住；
-     * 放进 [saveExec] 又会挡住保存。所以每次单开一条一次性线程。
+     * 放进 [exec] 又会挡住保存。所以每次单开一条一次性线程。
      */
     private fun pickerThread(name: String, block: () -> Unit) {
         Thread(block, name).apply { isDaemon = true }.start()
@@ -1616,8 +1645,9 @@ object ConfigActions {
      */
     @JvmStatic
     fun selectDrive(letter: String) {
-        // 传进来的是光驱 chip 的 letter；只接受单个字母，别把 ":" 或空串写进设置。
-        val upper = letter.trim().uppercase()
+        // 传进来的是光驱 chip 的 letter；也接受 `F:` / `\\.\F:` 这种写法，
+        // 统一用 DriveSelect 归一化后再校验，避免两套盘符语义各判一套。
+        val upper = DriveSelect.normalize(letter).uppercase()
         if (upper.length != 1 || upper[0] !in 'A'..'Z') {
             toast(Strings.fmt("光驱标识无效：%s", letter), ToastType.Warning)
             return
