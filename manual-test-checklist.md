@@ -66,7 +66,7 @@
 | D2 | 用播放器打开 D1 的 `.flac` | 专辑/艺术家/曲名/轨号齐全，中日文正常 |
 | D3 | FLAC + 「整盘镜像」 | 只产出一个 `.flac` + 一个 `.cue`，`.cue` 里的 `FILE` 指向这个 flac；`INDEX 01` 正常 |
 | D4 | FLAC + 「内嵌封面」 | 播放器里封面能显示（`easytag`/`mp3tag` 也能看到 PICTURE 块） |
-| D5 | 抓轨中把 `%APPDATA%\Salt Player for Windows\workshop\plugins\plugin-com.saltrip.saltaudiocopy-0.39.0\bin\flac-1.4.3\flac.exe` 改名 | 该轨保留 WAV + 完成提示里出现「FLAC 编码失败（已保留 WAV）」；**不产生半截损坏的 .flac**（下一轮会自动重新解出内置件） |
+| D5 | 把 D1 的 `.flac` 拖进 Salt Player 音乐库并播放 | 能播放、封面与标签正常显示（这一条替代原来「改名内置 flac.exe 验失败路径」——那条已由自动化测试 `brokenBundledEncoderKeepsWavAndExplainsWhy` 覆盖，不用你再动手） |
 
 ## E. 标签（Windows 资源管理器）
 
