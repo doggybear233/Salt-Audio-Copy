@@ -45,13 +45,13 @@ object MetaOverride {
 
     /**
      * 手填元数据旁的封面文件：`<discId>.album.cover.jpg`。
-     * 认得 jpg/jpeg/png/webp 四种后缀，取第一个存在的。
+     * 用户导入什么类型就用什么后缀（jpg/jpeg/png/webp/bmp/gif），取第一个存在的。
      */
     fun coverSibling(json: Path): Path? {
         val fileName = json.fileName.toString()
         val stem = fileName.removeSuffix(".json")
         val dir = json.parent ?: return null
-        for (ext in listOf("jpg", "jpeg", "png", "webp")) {
+        for (ext in listOf("jpg", "jpeg", "png", "webp", "bmp", "gif")) {
             val candidate = dir.resolve("$stem.cover.$ext")
             if (Files.isRegularFile(candidate)) return candidate
         }
@@ -96,6 +96,8 @@ object MetaOverride {
             val mime = when (cover.fileName.toString().substringAfterLast('.').lowercase()) {
                 "png" -> "image/png"
                 "webp" -> "image/webp"
+                "bmp" -> "image/bmp"
+                "gif" -> "image/gif"
                 else -> "image/jpeg"
             }
             if (bytes != null && bytes.isNotEmpty()) meta.withCover(bytes, mime) else meta

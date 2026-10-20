@@ -74,4 +74,37 @@ class ManualCoverTest {
         val found = assertNotNull(MetaOverride.coverSibling(json))
         assertTrue(found.fileName.toString().endsWith(".cover.jpg"), "found=$found")
     }
+
+    /** 用户选 bmp / gif 时也要认得，别把图片存下来却读不回去。 */
+    @Test
+    fun bmpAndGifCoversAreRecognised() {
+        val bmpJson = writeJson("bmp.album.json")
+        Files.write(dir.resolve("bmp.album.cover.bmp"), byteArrayOf(0x42, 0x4D, 1, 2))
+        val bmp = assertNotNull(MetaOverride.load(bmpJson))
+        assertEquals("image/bmp", bmp.coverMime)
+
+        val gifJson = writeJson("gif.album.json")
+        Files.write(dir.resolve("gif.album.cover.gif"), byteArrayOf(0x47, 0x49, 0x46, 1))
+        val gif = assertNotNull(MetaOverride.load(gifJson))
+        assertEquals("image/gif", gif.coverMime)
+    }
+
+    /**
+     * 回归：文件选择的过滤器必须**每个扩展名一个参数**。
+     * 早先传 `"jpg;jpeg;png;webp"` 一整串，FileNameExtensionFilter 当成一个扩展名，
+     * 于是列表里一张图都看不见（只有切「所有文件」才看得到）。
+     */
+    @Test
+    fun fileFilterNeedsSeparateExtensions() {
+        val good = javax.swing.filechooser.FileNameExtensionFilter(
+            "图片 (jpg / png)", "jpg", "jpeg", "png", "webp"
+        )
+        assertTrue(good.accept(java.io.File("cover.jpg")), "jpg 必须可见")
+        assertTrue(good.accept(java.io.File("cover.JPG")), "大小写都要认")
+        assertTrue(good.accept(java.io.File("cover.png")))
+        assertTrue(!good.accept(java.io.File("cover.txt")))
+
+        val broken = javax.swing.filechooser.FileNameExtensionFilter("图片", "jpg;jpeg;png;webp")
+        assertTrue(!broken.accept(java.io.File("cover.jpg")), "这正是旧 bug 的形态：一张都不显示")
+    }
 }

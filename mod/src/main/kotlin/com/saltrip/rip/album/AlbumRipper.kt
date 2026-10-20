@@ -490,7 +490,14 @@ object AlbumRipper {
         var coverFile: Path? = null
         val cover = album?.cover
         if (cover != null && !cancelled) {
-            val ext = if (album.coverMime?.contains("png", true) == true) ".png" else ".jpg"
+            val mime = album?.coverMime.orEmpty().lowercase()
+            val ext = when {
+                mime.contains("png") -> ".png"
+                mime.contains("webp") -> ".webp"
+                mime.contains("bmp") -> ".bmp"
+                mime.contains("gif") -> ".gif"
+                else -> ".jpg"
+            }
             val p = dir.resolve(TemplateEngine.sanitizeSegment(settings.coverFileName) + ext)
             runCatching { Files.write(p, cover) }
                 .onSuccess { coverFile = p; Diag.log("cover written: $p (${cover.size} B)") }

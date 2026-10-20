@@ -806,7 +806,7 @@ object ConfigActions {
     fun chooseManualCover() {
         exec.execute {
             val current = PanelState.manualCover.orEmpty()
-            val picked = pickFile(current, "选择专辑封面", "图片 (jpg / png / webp)", "jpg;jpeg;png;webp")
+            val picked = pickFile(current, "选择专辑封面", "图片 (jpg / jpeg / png / webp / bmp)", "jpg", "jpeg", "jpe", "jfif", "png", "webp", "bmp", "gif")
             if (picked == null) {
                 toast("已取消选择", ToastType.Warning)
                 return@execute
@@ -1439,7 +1439,14 @@ object ConfigActions {
         }
     }
 
-    private fun pickFile(initial: String, title: String, desc: String, ext: String): String? {
+    /**
+     * 打开系统文件选择框。
+     *
+     * [ext] 必须是**每个扩展名一个参数**（`"jpg", "jpeg", "png"`）：
+     * `FileNameExtensionFilter` 收的是 `vararg`，早先误传一整串 `"jpg;jpeg;png;webp"`
+     * 会被当成一个扩展名，于是列表里一个文件都不显示（只能切「所有文件」才看得见）。
+     */
+    private fun pickFile(initial: String, title: String, desc: String, vararg ext: String): String? {
         var result: String? = null
         val latch = java.util.concurrent.CountDownLatch(1)
         runCatching {
@@ -1452,7 +1459,12 @@ object ConfigActions {
                     val chooser = javax.swing.JFileChooser(start)
                     chooser.dialogTitle = title
                     chooser.fileSelectionMode = javax.swing.JFileChooser.FILES_ONLY
-                    chooser.fileFilter = javax.swing.filechooser.FileNameExtensionFilter(desc, ext)
+                    // 主过滤器只放需要的类型；再补一个「所有文件」备选，
+                    // 免得遇到改名奇怪的图片（.jfif / .avif）时又只能去翻下拉框。
+                    chooser.fileFilter = javax.swing.filechooser.FileNameExtensionFilter(desc, *ext)
+                    chooser.addChoosableFileFilter(
+                        javax.swing.filechooser.FileNameExtensionFilter("所有文件", "*")
+                    )
                     val parent = javax.swing.JFrame.getFrames().firstOrNull { it.isVisible && it.isShowing }
                     if (chooser.showOpenDialog(parent) == javax.swing.JFileChooser.APPROVE_OPTION) {
                         result = chooser.selectedFile?.absolutePath
