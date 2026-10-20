@@ -60,5 +60,8 @@ object Diag {
     fun logPath(): String = logFile?.toString() ?: "(未初始化)"
 
     /** 插件数据目录（`<pluginPath>`），缓存/诊断包都放这里，不污染用户音乐目录。 */
-    fun dataDir(): Path? = logFile?.parent?.parent
+    /** 测试缝：单测没有宿主插件目录，靠它把备份/缓存写到临时目录。 */
+    internal var dataDirOverride: Path? = null
+
+    fun dataDir(): Path? = dataDirOverride ?: logFile?.parent?.parent
 }

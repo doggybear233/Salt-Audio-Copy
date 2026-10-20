@@ -1388,6 +1388,30 @@
     "%s（非预设）": [
       "%s (custom)",
       "%s（プリセット外）"
+    ],
+    "再点一次「恢复默认设置」确认": [
+      "Click “Restore defaults” again to confirm",
+      "もう一度「既定値に戻す」を押して確認してください"
+    ],
+    "会先把当前设置备份到插件数据目录，再换成内置默认值": [
+      "Your current settings are backed up to the plug-in data folder first, then replaced with the built-in defaults",
+      "現在の設定をプラグインのデータフォルダーに退避してから、内蔵の既定値に置き換えます"
+    ],
+    "再点一次「恢复默认设置」确认：会先备份当前设置": [
+      "Click “Restore defaults” again to confirm — current settings are backed up first",
+      "もう一度「既定値に戻す」を押して確認してください。現在の設定は先に退避します"
+    ],
+    "已恢复默认设置（备份：%s）": [
+      "Defaults restored (backup: %s)",
+      "既定値に戻しました（バックアップ：%s）"
+    ],
+    "已恢复默认设置（备份失败，旧设置未另存）": [
+      "Defaults restored (backup could not be written, old settings were not saved)",
+      "既定値に戻しました（バックアップを作成できず、以前の設定は保存されていません）"
+    ],
+    "宿主配置不可用，改动只在本次运行有效；详见日志": [
+      "The host configuration is unavailable, so changes only apply to this session (see the log)",
+      "ホストの設定を利用できないため、変更は今回の起動中のみ有効です（ログ参照）"
     ]
   }
 }

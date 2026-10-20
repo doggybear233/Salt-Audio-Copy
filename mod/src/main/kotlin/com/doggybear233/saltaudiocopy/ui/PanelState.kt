@@ -69,6 +69,9 @@ object PanelState {
     /** 「重新抓取」的二次确认是否已武装。 */
     var reRipArmed: Boolean by mutableStateOf(false)
 
+    /** 「恢复默认设置」的二次确认：第一次点击只进入待确认态。 */
+    var resetArmed: Boolean by mutableStateOf(false)
+
     /** 面板内嵌设置区是否展开。 */
     var settingsOpen: Boolean by mutableStateOf(false)
 

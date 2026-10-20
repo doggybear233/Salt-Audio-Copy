@@ -44,19 +44,38 @@ object PanelMount {
             }
         }
 
+        // 候选来源：先宿主页面类常量池里现算的（宿主升级换了混淆名也能跟上），
+        // 再退回写死的常量（校验过的实测值）。以前只试常量，解析器写好了却从未被调用。
+        val pageTarget = HostTargets.Target(HostTargets.PAGE_CLASS, HostTargets.PAGE_METHOD)
+        val candidateList = mountTargets()
+        Diag.log("panel mount candidates=${candidateList.joinToString()}")
+
         // parameterTypes：null = 不限（官方语义）；另外两种是宿主可能比较的写法。
-        for (types in listOf<List<String>?>(null, emptyList(), listOf(HostTargets.PAGE_PARAM))) {
-            if (tryMount(registrar, hook, HostTargets.PAGE_CLASS, HostTargets.PAGE_METHOD,
-                    HostTargets.PAGE_CALLER, types)) {
-                Diag.log("panel mounted on CD page (types=$types)")
-                PanelState.detail = Strings.message("面板已挂载；点「扫描」读取当前光盘")
-                return
+        for (cand in candidateList) {
+            for (types in listOf<List<String>?>(null, emptyList(), listOf(HostTargets.PAGE_PARAM))) {
+                val source = if (cand == pageTarget) "const" else "pool"
+                if (tryMount(registrar, hook, cand.owner, cand.method, HostTargets.PAGE_CALLER, types)) {
+                    Diag.log("panel mounted on CD page (target=$cand source=$source types=$types)")
+                    PanelState.detail = Strings.message("面板已挂载；点「扫描」读取当前光盘")
+                    return
+                }
             }
         }
 
         lastError = Strings.message("宿主 CD 页类名未解析到（宿主版本可能已变化）")
         Diag.log("panel mount gave up：宿主类名可能已变化，功能仍可通过插件设置页使用")
         warnUserOnce()
+    }
+
+    /**
+     * 挂载候选顺序：常量池里现算的（宿主升级换了混淆名也能跟上）→ 写死常量。
+     *
+     * 常量放最后而不是最前：解析器能读到真实类名时它更可信；解析失败时它自然只剩常量。
+     */
+    internal fun mountTargets(): List<HostTargets.Target> {
+        val pageTarget = HostTargets.Target(HostTargets.PAGE_CLASS, HostTargets.PAGE_METHOD)
+        val found = runCatching { HostTargets.candidates() }.getOrElse { emptyList() }
+        return found + if (pageTarget in found) emptyList() else listOf(pageTarget)
     }
 
     private fun tryMount(

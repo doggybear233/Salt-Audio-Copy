@@ -1461,11 +1461,13 @@ object ConfigActions {
      */
     internal fun persist(next: com.doggybear233.saltaudiocopy.settings.RipSettings, okMessage: String): Boolean {
         val ok = SettingsStore.save(next)
+        // 宿主 API 在单测 classpath 上不存在：取枚举本身也要包在 runCatching 里，
+        // 否则失败路径会抛 NoClassDefFoundError（成功的路径反而没事，很难发现）
         if (ok) {
-            toast(okMessage, ToastType.Success)
+            runCatching { toast(okMessage, ToastType.Success) }
         } else {
-            PanelState.set(Strings.message("设置没能写回磁盘"), "宿主配置不可用，改动只在本次运行有效；详见日志")
-            toast(Strings.message("设置没能写回磁盘（详见日志）"), ToastType.Error)
+            PanelState.set(Strings.message("设置没能写回磁盘"), Strings.message("宿主配置不可用，改动只在本次运行有效；详见日志"))
+            runCatching { toast(Strings.message("设置没能写回磁盘（详见日志）"), ToastType.Error) }
         }
         return ok
     }
@@ -1932,11 +1934,56 @@ object ConfigActions {
         }
     }
 
-    /** 恢复内置默认设置（不碰已存在的文件）。 */
+    /**
+     * 恢复内置默认设置（不碰已存在的文件）。
+     *
+     * 破坏性操作：输出根、模板、读偏移、光驱/读命令全被换掉，而「试写测试」就在旁边。
+     * 因此要二次确认，并先把旧设置另存一份——偏移被清零后抓轨会整体错位，且用户无从察觉。
+     */
     @JvmStatic
     fun resetDefaults() {
-        persist(RipSettings(), "已恢复默认设置")
+        if (!PanelState.resetArmed) {
+            PanelState.resetArmed = true
+            PanelState.set(
+                Strings.message("再点一次「恢复默认设置」确认"),
+                Strings.message("会先把当前设置备份到插件数据目录，再换成内置默认值")
+            )
+            Notify.warn(Strings.message("再点一次「恢复默认设置」确认：会先备份当前设置"))
+            return
+        }
+        PanelState.resetArmed = false
+        val backup = writeSettingsBackup(SettingsStore.load())
+        val ok = persist(
+            RipSettings(),
+            if (backup != null) Strings.fmt("已恢复默认设置（备份：%s）", backup.toString())
+            else Strings.message("已恢复默认设置（备份失败，旧设置未另存）")
+        )
+        if (!ok) PanelState.resetArmed = true
     }
+
+    /** 把当前设置按 key=value 存一份到插件数据目录，返回路径；失败返回 null。 */
+    internal fun writeSettingsBackup(s: RipSettings): java.nio.file.Path? = runCatching {
+        val dir = Diag.dataDir() ?: error("没有数据目录")
+        java.nio.file.Files.createDirectories(dir)
+        val target = dir.resolve("settings.backup-" + java.time.LocalDateTime.now()
+            .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".txt")
+        java.nio.file.Files.writeString(
+            target,
+            "outputRoot=" + s.outputRoot + System.lineSeparator() +
+                "folderTemplate=" + s.folderTemplate + System.lineSeparator() +
+                "fileTemplate=" + s.fileTemplate + System.lineSeparator() +
+                "coverFileName=" + s.coverFileName + System.lineSeparator() +
+                "multiDiscFolder=" + s.multiDiscFolder + System.lineSeparator() +
+                "offsetSamples=" + s.offsetSamples + System.lineSeparator() +
+                "driveSpeed=" + s.driveSpeed + System.lineSeparator() +
+                "driveLetter=" + s.driveLetter + System.lineSeparator() +
+                "readCommand=" + s.readCommand + System.lineSeparator() +
+                "format=" + s.format + System.lineSeparator() +
+                "overwritePolicy=" + s.overwritePolicy + System.lineSeparator(),
+            Charsets.UTF_8
+        )
+        target
+    }.onFailure { Diag.log("settings backup failed", it) }.getOrNull()
 
     /** 供测试/诊断：当前设置的一行摘要。 */
     fun describeSettings(s: RipSettings = SettingsStore.load()): String =
