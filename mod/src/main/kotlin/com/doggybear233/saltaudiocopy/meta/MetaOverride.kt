@@ -136,6 +136,14 @@ object MetaOverride {
             releaseId = base?.releaseId,
             discNumber = override.discNumber.takeIf { it > 0 } ?: base?.discNumber ?: 1,
             totalDiscs = override.totalDiscs.takeIf { it > 0 } ?: base?.totalDiscs ?: 1
-        ).let { if (base?.cover != null) it.withCover(base.cover!!, base.coverMime) else it }
+        ).let { merged ->
+            // override 自带封面（<id>.album.cover.jpg）时它才是用户的选择，
+            // 以前一律用 base 的封面，把手导的封面丢掉。
+            when {
+                override.cover != null -> merged.withCover(override.cover, override.coverMime)
+                base?.cover != null -> merged.withCover(base.cover, base.coverMime)
+                else -> merged
+            }
+        }
     }
 }

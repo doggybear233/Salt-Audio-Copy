@@ -78,11 +78,18 @@ object MetadataCandidates {
                 }
                 .getOrDefault(emptyList())
             val ranked = MetadataService.rank(releases, toc.tracks.size, settings.preferTrackCount)
-            if (releases.isEmpty()) notes += Strings.message("MusicBrainz 没有这张盘的记录")
-            ranked.take(12).forEachIndexed { i, m ->
-                val cover = m.releaseId?.let { id ->
-                    runCatching { CoverArtClient.front(id, THUMB_SIZE) }.getOrNull()
-                }
+            if (releases.isEmpty()) {
+                // 区分「库里确实没有」与「服务暂时不可用」：后者要说出来，
+                // 否则用户以为这张盘真的没收录。
+                notes += MusicBrainzClient.lastFailure
+                    ?: Strings.message("MusicBrainz 没有这张盘的记录")
+            }
+            val top = ranked.take(12)
+            // 12 张封面串行下载会把候选面板拖住十几秒（共享单线程上更糟）；
+            // 并行取，顺序按候选排列保持不变。
+            val covers = coverThumbs(top.map { it.releaseId })
+            top.forEachIndexed { i, m ->
+                val cover = covers.getOrNull(i)
                 out += Candidate(
                     index = i,
                     albumArtist = m.albumArtist,
@@ -160,6 +167,27 @@ object MetadataCandidates {
         return Result(discId, cddb, out, notes)
     }
 
+    /** 并行取候选缩略图（4 线程足够绕开单次往返的等待），失败当没有封面。 */
+    private fun coverThumbs(ids: List<String?>): List<Pair<ByteArray, String>?> {
+        if (ids.isEmpty()) return emptyList()
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
+        return try {
+            val tasks = ids.map { id ->
+                java.util.concurrent.Callable {
+                    id?.let { runCatching { CoverArtClient.front(it, THUMB_SIZE) }.getOrNull() }
+                }
+            }
+            pool.invokeAll(tasks).map { f ->
+                runCatching { f.get() }.getOrNull()
+            }
+        } catch (e: Throwable) {
+            Diag.log("cover thumbs failed", e)
+            ids.map { null }
+        } finally {
+            pool.shutdownNow()
+        }
+    }
+
     /** 用户点选后取完整元数据（含原图尺寸由 [settings] 决定）。 */
     fun materialize(
         toc: DiscToc,
@@ -175,10 +203,18 @@ object MetadataCandidates {
         val base = when {
             c.source == "cd-text" && cdtext?.hasText == true -> cdtext.toAlbumMeta(toc, discId, cddb)
             c.source.startsWith("gnudb") -> {
-                val entries = runCatching { GnudbClient.query(toc, cddb) }.getOrDefault(emptyList())
-                val pick = entries.firstOrNull { it.discId.equals(cddb, true) } ?: entries.firstOrNull()
-                val album = pick?.let { runCatching { GnudbClient.read(it) }.getOrNull() }
-                album?.withIds(discId, cddb)
+                // 候选可能来自 CDDB 本地缓存（网络当时不通）；点选时若先去联网，
+                // 断网环境下必然失败。缓存能读就用缓存。
+                val cached = runCatching { CddbCache.read(cddb) }.getOrNull()
+                if (cached != null) {
+                    notes += "CDDB 缓存命中（离线可用）"
+                    cached.withIds(discId, cddb)
+                } else {
+                    val entries = runCatching { GnudbClient.query(toc, cddb) }.getOrDefault(emptyList())
+                    val pick = entries.firstOrNull { it.discId.equals(cddb, true) } ?: entries.firstOrNull()
+                    val album = pick?.let { runCatching { GnudbClient.read(it) }.getOrNull() }
+                    album?.withIds(discId, cddb)
+                }
             }
             else -> {
                 val releases = runCatching { MusicBrainzClient.lookup(toc, discId) }.getOrDefault(emptyList())

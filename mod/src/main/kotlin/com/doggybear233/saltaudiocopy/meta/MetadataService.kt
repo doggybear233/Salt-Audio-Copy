@@ -25,6 +25,8 @@ object MetadataService {
         notes: MutableList<String> = ArrayList(),
         cdtext: CdText.Info? = null
     ): AlbumMeta? {
+        // 抓轨路径也会走这里：代理必须在这里同步一次，否则「候选/自检能通、抓轨不能通」。
+        Http.configure(settings.proxyUrl)
         val discId = runCatching { DiscId.musicBrainz(toc) }
             .onFailure { Diag.log("discid failed", it) }.getOrNull()
         val cddb = runCatching { DiscId.cddb(toc) }.getOrDefault("")

@@ -53,6 +53,30 @@ class JsonTest {
     }
 
     @Test
+    fun multiDiscResponseGetsDiscNumberAndTotal() {
+        // medium.position 是「第几张」，media.size 才是「共几张」。
+        // 以前把 position 当 totalDiscs，双碟装的第二张会被算成 CD2/2——第一张算成 CD1/1。
+        val json = """
+            {"releases":[{"id":"rel-1","title":"Two Disc","artist-credit":[{"name":"A"}],
+              "media":[
+                {"position":1,"track-count":2,"tracks":[{"number":"1","title":"a1"},{"number":"2","title":"a2"}]},
+                {"position":2,"track-count":2,"tracks":[{"number":"1","title":"b1"},{"number":"2","title":"b2"}]}
+              ]}]}
+        """.trimIndent()
+        val toc = com.doggybear233.saltaudiocopy.scsi.DiscToc(
+            1, 2, listOf(
+                com.doggybear233.saltaudiocopy.scsi.TocEntry(1, true, 1, 0),
+                com.doggybear233.saltaudiocopy.scsi.TocEntry(2, true, 1, 2000),
+                com.doggybear233.saltaudiocopy.scsi.TocEntry(0xAA, true, 1, 5000)
+            )
+        )
+        val list = com.doggybear233.saltaudiocopy.meta.MusicBrainzClient
+            .parseDiscidResponse(com.doggybear233.saltaudiocopy.meta.Json.parse(json), toc, "id", "cddb")
+        assertEquals(2, list[0].totalDiscs, "双碟装总碟数应为 2")
+        assertEquals(1, list[0].discNumber, "轨数与光盘一致的 medium 是第 1 张")
+    }
+
+    @Test
     fun parsesGnudbRecord() {
         val text = """
             210 rock 1f090a1d CD database entry follows

@@ -15,6 +15,16 @@ object MusicBrainzClient {
 
     private val MB_THROTTLE_MS = 1100L
 
+    /**
+     * 上一次查询的「非 404 失败」原因（服务不可用、响应坏）。
+     *
+     * 只用于给用户一句能区分「库里没有」与「网/服务有问题」的说明；
+     * 404 与查到了都不置这个字段。
+     */
+    @Volatile
+    var lastFailure: String? = null
+        private set
+
     fun lookup(toc: DiscToc, discId: String = DiscId.musicBrainz(toc)): List<AlbumMeta> {
         // 先看七天内的缓存：MB 限速 1 req/s，重抓/改设置时没必要再打一次
         MbCache.read(discId)?.let { cached ->
@@ -26,17 +36,27 @@ object MusicBrainzClient {
         val url = "$BASE/discid/$discId?fmt=json&inc=artists+recordings+release-groups+labels+isrcs&cdstubs=no"
         Http.throttle("musicbrainz.org", MB_THROTTLE_MS)
         val r = Http.get(url)
+        lastFailure = null
         if (r.status == 404) {
             Diag.log("mb: discid $discId not found (404)")
+            lastFailure = null // 库里确实没有，不算故障
             return emptyList()
         }
         if (r.status != 200) {
+            // 5xx / 429 / 403 是「服务有问题」，和「库里没有这张盘」是两件事：
+            // 以前统一返回空列表，用户只会看到「没有可用元数据」，完全无从判断。
             Diag.log("mb: discid $discId -> HTTP ${r.status}: ${r.text.take(200)}")
+            lastFailure = "MusicBrainz 返回 HTTP ${r.status}（不是没有记录，是服务暂时不可用）"
             return emptyList()
         }
-        MbCache.write(discId, r.text)
-        val root = Json.parse(r.text)
+        val root = runCatching { Json.parse(r.text) }.getOrElse {
+            Diag.log("mb: discid $discId -> 响应不是合法 JSON", it)
+            lastFailure = "MusicBrainz 的响应不是合法 JSON"
+            return emptyList()
+        }
         val out = parseDiscidResponse(root, toc, discId, DiscId.cddb(toc))
+        // 解析成功才写缓存：以前先写后解析，一次坏响应会把「七天缓存」污染成空结果。
+        if (out.isNotEmpty()) runCatching { MbCache.write(discId, r.text) }
         Diag.log("mb: discid $discId -> ${out.size} release(s)")
         return out
     }
@@ -87,7 +107,10 @@ object MusicBrainzClient {
                 source = "musicbrainz",
                 tracks = tracks,
                 releaseId = id,
-                totalDiscs = (Json.long(medium?.get("position")) ?: 1L).toInt().let { maxOf(it, 1) }
+                // medium.position 是「这是第几张碟」，media.size 是这套发行有几张；
+                // 以前把 position 当 totalDiscs，多碟专辑会被算成 CD1/1。
+                discNumber = (Json.long(medium?.get("position")) ?: 1L).toInt().coerceAtLeast(1),
+                totalDiscs = media.size.coerceAtLeast(1)
             )
         }
         return out

@@ -149,4 +149,15 @@ class MetaOverrideTest {
         val keepOrder = MetadataService.rank(listOf(other, same), 2, preferTrackCount = false)
         assertEquals("Multi-disc Box", keepOrder.first().albumTitle)
     }
+
+    @Test
+    fun mergePrefersTheOverrideCover() {
+        // 用户手导的封面（<id>.album.cover.jpg）是他明确的选择，
+        // 不能被网上候选的封面盖掉。
+        val base = AlbumMeta(albumArtist = "A", albumTitle = "B", discId = "id", cddbId = "cc", source = "test").withCover(byteArrayOf(1, 2), "image/jpeg")
+        val ov = AlbumMeta(albumArtist = "", albumTitle = "", discId = "", cddbId = "", source = "album.json").withCover(byteArrayOf(9, 9, 9), "image/png")
+        val merged = MetaOverride.merge(base, ov)
+        assertEquals(3, merged.cover!!.size)
+        assertEquals("image/png", merged.coverMime)
+    }
 }

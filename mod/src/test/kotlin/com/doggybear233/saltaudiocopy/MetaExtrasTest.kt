@@ -106,4 +106,21 @@ class MetaExtrasTest {
         ).toMap()
         assertTrue("COMPOSER" !in tags, "空白词曲作者不应写入标签")
     }
+
+    @Test
+    fun exportedJsonKeepsDiscIds() {
+        // 读取侧认 discId/cddbId，写入侧之前从不写：导出的模板改完再读回来就丢了。
+        val toc = com.doggybear233.saltaudiocopy.scsi.DiscToc(
+            1, 1, listOf(
+                com.doggybear233.saltaudiocopy.scsi.TocEntry(1, true, 1, 0),
+                com.doggybear233.saltaudiocopy.scsi.TocEntry(0xAA, true, 1, 1000)
+            )
+        )
+        val album = com.doggybear233.saltaudiocopy.meta.AlbumMeta(
+            albumArtist = "A", albumTitle = "B", discId = "mbid", cddbId = "ccid", source = "test"
+        )
+        val text = com.doggybear233.saltaudiocopy.album.AlbumJsonWriter.build(album, toc)
+        assertTrue(text.contains("\"discId\": \"mbid\""), text)
+        assertTrue(text.contains("\"cddbId\": \"ccid\""), text)
+    }
 }

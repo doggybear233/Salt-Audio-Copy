@@ -20,6 +20,13 @@ object AlbumJsonWriter {
         sb.append("  \"albumTitle\": ").append(q(album?.albumTitle)).append(",\n")
         sb.append("  \"year\": ").append(q(album?.year)).append(",\n")
         sb.append("  \"genre\": ").append(q(album?.genre)).append(",\n")
+        // 读取侧认 discId / cddbId，写入侧以前从不写，导出的模板再读回来就丢了这两个值。
+        album?.discId?.takeIf { it.isNotBlank() }?.let {
+            sb.append("  \"discId\": ").append(q(it)).append(",\n")
+        }
+        album?.cddbId?.takeIf { it.isNotBlank() }?.let {
+            sb.append("  \"cddbId\": ").append(q(it)).append(",\n")
+        }
         sb.append("  \"discNumber\": ").append(album?.discNumber ?: 1).append(",\n")
         sb.append("  \"totalDiscs\": ").append(album?.totalDiscs ?: 1).append(",\n")
         sb.append("  \"tracks\": [\n")
