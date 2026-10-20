@@ -176,6 +176,12 @@ object SettingsStore {
     private const val KEY_DRIVE_LETTER = "driveLetter"
     private const val KEY_DRIVE_SPEED = "driveSpeed"
     private const val KEY_EJECT = "ejectAfterRip"
+    private const val KEY_EMBED_COVER = "embedCover"
+    private const val KEY_IMAGE_MODE = "imageMode"
+    private const val KEY_READ_COMMAND = "readCommand"
+    private const val KEY_REUSE_ALBUM_JSON = "reuseAlbumJson"
+    private const val KEY_WRITE_ALBUM_JSON = "writeAlbumJson"
+    private const val KEY_ANALYZE_BEFORE_RIP = "analyzeBeforeRip"
 
     @Volatile
     private var cached: RipSettings? = null
@@ -254,7 +260,13 @@ object SettingsStore {
             guardDisc = readBool(h, KEY_GUARD_DISC, d.guardDisc),
             driveLetter = read(h, KEY_DRIVE_LETTER, d.driveLetter),
             driveSpeed = readInt(h, KEY_DRIVE_SPEED, d.driveSpeed),
-            ejectAfterRip = readBool(h, KEY_EJECT, d.ejectAfterRip)
+            ejectAfterRip = readBool(h, KEY_EJECT, d.ejectAfterRip),
+            embedCover = readBool(h, KEY_EMBED_COVER, d.embedCover),
+            imageMode = readBool(h, KEY_IMAGE_MODE, d.imageMode),
+            readCommand = read(h, KEY_READ_COMMAND, d.readCommand),
+            reuseAlbumJson = readBool(h, KEY_REUSE_ALBUM_JSON, d.reuseAlbumJson),
+            writeAlbumJson = readBool(h, KEY_WRITE_ALBUM_JSON, d.writeAlbumJson),
+            analyzeBeforeRip = readBool(h, KEY_ANALYZE_BEFORE_RIP, d.analyzeBeforeRip)
         )
         cached = s
         return s
@@ -306,6 +318,12 @@ object SettingsStore {
             h.set(KEY_DRIVE_LETTER, s.driveLetter)
             h.set(KEY_DRIVE_SPEED, s.driveSpeed.toString())
             h.set(KEY_EJECT, s.ejectAfterRip.toString())
+            h.set(KEY_EMBED_COVER, s.embedCover)
+            h.set(KEY_IMAGE_MODE, s.imageMode)
+            h.set(KEY_READ_COMMAND, s.readCommand)
+            h.set(KEY_REUSE_ALBUM_JSON, s.reuseAlbumJson)
+            h.set(KEY_WRITE_ALBUM_JSON, s.writeAlbumJson)
+            h.set(KEY_ANALYZE_BEFORE_RIP, s.analyzeBeforeRip)
             h.save()
             true
         }.onFailure { Diag.log("settings save failed", it) }.getOrDefault(false)
