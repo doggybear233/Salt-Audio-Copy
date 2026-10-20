@@ -58,6 +58,10 @@ internal fun SettingsPanel() {
     val s = PanelState.draft
     val page = SettingsSpec.page(PanelState.settingsPage)
 
+    // 整块可滚动：宿主给的高度可能比「头部 + 320dp 列表 + 底部按钮」还小，
+    // 不套滚动就会把内容裁掉（看起来像没渲染）。
+    Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = Strings.key("settings"),
@@ -135,6 +139,7 @@ internal fun SettingsPanel() {
         TextButton(onClick = { ConfigActions.closeSettings() }) {
             Text(Strings.key("cancel"), style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
         }
+    }
     }
 }
 

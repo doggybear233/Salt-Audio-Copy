@@ -1,20 +1,7 @@
 {
   "configs": [
     {
-      "title": "1 · 抓轨范围",
-      "config": "config.json",
-      "preferences": [
-        {
-          "type": "edittext",
-          "key": "trackSelection",
-          "title": "只抓这些音轨",
-          "summary": "如 1-5,8；留空＝整盘",
-          "default_value": ""
-        }
-      ]
-    },
-    {
-      "title": "2 · 输出位置",
+      "title": "1 · 输出位置",
       "config": "config.json",
       "preferences": [
         {
@@ -85,7 +72,7 @@
       ]
     },
     {
-      "title": "3 · 命名模板",
+      "title": "2 · 命名模板",
       "config": "config.json",
       "preferences": [
         {
@@ -112,7 +99,7 @@
       ]
     },
     {
-      "title": "4 · 音频格式",
+      "title": "3 · 音频格式",
       "config": "config.json",
       "preferences": [
         {
@@ -202,7 +189,7 @@
       ]
     },
     {
-      "title": "5 · 标签与附属文件",
+      "title": "4 · 标签与附属文件",
       "config": "config.json",
       "preferences": [
         {
@@ -267,7 +254,7 @@
       ]
     },
     {
-      "title": "6 · 元数据",
+      "title": "5 · 元数据",
       "config": "config.json",
       "preferences": [
         {
@@ -322,7 +309,7 @@
       ]
     },
     {
-      "title": "7 · 光驱与校验",
+      "title": "6 · 光驱与校验",
       "config": "config.json",
       "preferences": [
         {
@@ -500,7 +487,7 @@
       ]
     },
     {
-      "title": "8 · 间隙",
+      "title": "7 · 间隙",
       "config": "config.json",
       "preferences": [
         {
@@ -552,15 +539,15 @@
       ]
     },
     {
-      "title": "9 · 诊断",
+      "title": "8 · 诊断",
       "config": "config.json",
       "preferences": [
         {
-          "type": "switch",
-          "key": "testMode",
-          "title": "显示诊断工具",
-          "summary": "打开后，面板里才出现扫描/试写/预扫等真机诊断按钮",
-          "default_value": false
+          "type": "edittext",
+          "key": "trackSelection",
+          "title": "只抓这些音轨",
+          "summary": "如 1-5,8；留空＝整盘",
+          "default_value": ""
         },
         {
           "type": "button",

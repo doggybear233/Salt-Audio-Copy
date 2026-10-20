@@ -25,8 +25,8 @@ class SettingsSpecTest {
     }
 
     @Test
-    fun ninePagesWithUniqueIds() {
-        assertEquals(9, SettingsSpec.pages.size, "设计上是 9 个二级页")
+    fun pagesWithUniqueIds() {
+        assertEquals(8, SettingsSpec.pages.size, "0.30.1 起是 8 个二级页（抓轨范围并入诊断）")
         val ids = SettingsSpec.pages.map { it.id }
         assertEquals(ids.size, ids.toSet().size, "页 id 不能重复")
         assertTrue(ids.contains(SettingsSpec.DEFAULT_PAGE), "默认页 ${SettingsSpec.DEFAULT_PAGE} 必须存在")
@@ -112,7 +112,7 @@ class SettingsSpecTest {
                 }
             }
         }
-        assertEquals(50, SettingsSpec.settingKeys.size, "50 个设置键：48 个原有 + 2 个原本隐藏的")
+        assertEquals(49, SettingsSpec.settingKeys.size, "49 个设置键：50 减去被删掉的「显示诊断工具」")
         assertEquals(
             SettingsSpec.settingKeys.size,
             SettingsSpec.settingKeys.toSet().size,

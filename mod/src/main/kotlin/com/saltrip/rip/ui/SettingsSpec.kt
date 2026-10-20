@@ -76,13 +76,8 @@ object SettingsSpec {
     private fun act(name: String, label: String, hint: String = "") =
         SettingItem(SettingKind.ACTION, name, label, hint)
 
-    /** 9 个页；顺序即面板左列与宿主配置页的顺序。 */
+    /** 8 个页；顺序即面板左列与宿主配置页的顺序。 */
     val pages: List<SettingPage> = listOf(
-        SettingPage(
-            "p1", "抓轨范围", listOf(
-                txt("trackSelection", "1-5,8；留空＝全部")
-            )
-        ),
         SettingPage(
             "p2", "输出位置", listOf(
                 path("outputRoot"),
@@ -200,19 +195,19 @@ object SettingsSpec {
         ),
         SettingPage(
             "p9", "诊断", listOf(
-                sw("testMode").copy(hint = "关掉时本页只剩这一行"),
-                act("scanDrives", "扫描驱动器").copy(visibleWhen = { it.testMode }),
-                act("previewPlan", "抓轨计划预览（不写盘）").copy(visibleWhen = { it.testMode }),
-                act("analyzeDisc", "间隙预扫（只读）").copy(visibleWhen = { it.testMode }),
-                act("probeReadCommands", "探测可用读命令（只读）").copy(visibleWhen = { it.testMode }),
-                act("testDisc", "只测不写").copy(visibleWhen = { it.testMode }),
-                act("lookupMetadata", "仅查询元数据").copy(visibleWhen = { it.testMode }),
-                act("exportAlbumJson", "导出元数据模板").copy(visibleWhen = { it.testMode }),
-                act("ripFirstTrack", "试抓第 1 轨").copy(visibleWhen = { it.testMode }),
-                act("cancelRip", "取消当前抓轨").copy(visibleWhen = { it.testMode }),
-                act("probePath", "试写测试（中文路径）").copy(visibleWhen = { it.testMode }),
-                act("resetDefaults", "恢复默认设置").copy(visibleWhen = { it.testMode }),
-                act("openLogFolder", "打开日志文件夹").copy(visibleWhen = { it.testMode })
+                txt("trackSelection", "1-5,8；留空＝全部"),
+                act("scanDrives", "扫描驱动器"),
+                act("previewPlan", "抓轨计划预览（不写盘）"),
+                act("analyzeDisc", "间隙预扫（只读）"),
+                act("probeReadCommands", "探测可用读命令（只读）"),
+                act("testDisc", "只测不写"),
+                act("lookupMetadata", "仅查询元数据"),
+                act("exportAlbumJson", "导出元数据模板"),
+                act("ripFirstTrack", "试抓第 1 轨"),
+                act("cancelRip", "取消当前抓轨"),
+                act("probePath", "试写测试（中文路径）"),
+                act("resetDefaults", "恢复默认设置"),
+                act("openLogFolder", "打开日志文件夹")
             )
         )
     )
