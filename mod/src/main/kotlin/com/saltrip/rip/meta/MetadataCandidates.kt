@@ -107,6 +107,23 @@ object MetadataCandidates {
             notes += "CD-TEXT 命中（盘上自带曲名）"
         }
 
+        // 先看 CDDB 缓存：gnudb 可能整段网络不通，但以前查过的盘不该再查一次。
+        if (out.isEmpty()) {
+            val cached = runCatching { CddbCache.read(cddb) }.getOrNull()
+            if (cached != null) {
+                out += Candidate(
+                    index = 0,
+                    albumArtist = cached.albumArtist,
+                    albumTitle = cached.albumTitle,
+                    year = cached.year,
+                    trackCount = cached.tracks.size,
+                    releaseId = null,
+                    source = "gnudb"
+                )
+                notes += "CDDB 缓存命中（离线也能用）"
+            }
+        }
+
         if (out.isEmpty()) {
             val entries = runCatching { GnudbClient.query(toc, cddb) }
                 .onFailure { notes += "gnudb 查询失败：${it.message}" }
@@ -115,6 +132,7 @@ object MetadataCandidates {
             if (pick != null) {
                 val album = runCatching { GnudbClient.read(pick) }.getOrNull()
                 if (album != null) {
+                    runCatching { CddbCache.write(pick.discId, album, toc) }
                     out += Candidate(
                         index = 0,
                         albumArtist = album.albumArtist,

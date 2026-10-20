@@ -162,6 +162,6 @@ class SettingsSpecTest {
                 "$name 必须是 static"
             )
         }
-        assertEquals(14, SettingsSpec.actionKeys.size, "全站 14 个按钮（2 个选择器 + 诊断页 12 个）")
+        assertEquals(15, SettingsSpec.actionKeys.size, "全站 15 个按钮（2 个选择器 + 诊断页 13 个）")
     }
 }

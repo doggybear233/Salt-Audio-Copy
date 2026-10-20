@@ -161,19 +161,48 @@ object GnudbClient {
     var lastMirror: String? = null
         private set
 
-    private fun request(query: String): HttpResult {
+    /**
+     * CDDB 的 `hello` 参数在不同服务端实现里要的段数不一样：
+     * gnudb 收 `名 版本 邮箱`（3 段），freedb 系老实现要 `user host client version`（4 段）。
+     * 500 时换下一个变体再试同一镜像——比固定一个格式活得多。
+     */
+    private val HELLOS = listOf(
+        "ripper 0.2 saltrip@example.invalid",
+        "saltrip user saltrip 1.0",
+        "ripper saltrip 0.2 saltrip@example.invalid"
+    )
+
+    private fun request(cmd: String): HttpResult {
         var lastError: Throwable? = null
         for (host in MIRRORS) {
             if (host in deadMirrors) continue
-            try {
-                Http.throttle(java.net.URI(host).host ?: host, THROTTLE_MS)
-                val r = Http.get("$host?$query", accept = "text/plain")
+            var tried500: HttpResult? = null
+            for (hello in HELLOS) {
+                try {
+                    val q = Http.encodeQuery(
+                        listOf("cmd" to cmd, "hello" to hello, "proto" to "6")
+                    )
+                    Http.throttle(java.net.URI(host).host ?: host, THROTTLE_MS)
+                    val r = Http.get("$host?$q", accept = "text/plain", connectMs = 2_500)
+                    val first = r.text.lineSequence().firstOrNull().orEmpty()
+                    if (first.startsWith("500")) {
+                        Diag.log("cddb 500 from $host (hello=\"$hello\"): ${first.take(80)}")
+                        tried500 = r
+                        continue
+                    }
+                    lastMirror = host
+                    return r
+                } catch (e: Throwable) {
+                    lastError = e
+                    deadMirrors += host
+                    Diag.log("cddb mirror unreachable: $host -> ${e.message}")
+                    break
+                }
+            }
+            // 连得上但握手一直 500：把最后一个响应交回去，让上层记日志。
+            if (tried500 != null) {
                 lastMirror = host
-                return r
-            } catch (e: Throwable) {
-                lastError = e
-                deadMirrors += host
-                Diag.log("cddb mirror unreachable: $host -> ${e.message}")
+                return tried500
             }
         }
         throw java.io.IOException(
@@ -187,14 +216,7 @@ object GnudbClient {
 
     fun query(toc: DiscToc, cddbId: String = DiscId.cddb(toc)): List<Entry> {
         val total = toc.tracks.indices.sumOf { (toc.sectorsOf(it).second / 75) }
-        val q = Http.encodeQuery(
-            listOf(
-                "cmd" to "cddb query $cddbId ${toc.tracks.size} $total",
-                "hello" to "ripper 0.2 saltrip@example.invalid",
-                "proto" to "6"
-            )
-        )
-        val lines = request(q).text.lines()
+        val lines = request("cddb query $cddbId ${toc.tracks.size} $total").text.lines()
         if (lines.isEmpty()) return emptyList()
         val first = lines[0]
         val entries = ArrayList<Entry>()
@@ -226,14 +248,9 @@ object GnudbClient {
 
     /** 读取一条记录，返回 (DTITLE, [track titles], 额外字段)。 */
     fun read(entry: Entry): AlbumMeta? {
-        val q = Http.encodeQuery(
-            listOf(
-                "cmd" to "cddb read ${entry.category} ${entry.discId}",
-                "hello" to "ripper 0.2 saltrip@example.invalid",
-                "proto" to "6"
-            )
-        )
-        return parseReadResponse(request(q).text.lines(), entry.discId)
+        // 先看缓存：CDDB 条目几乎不变，而 gnudb 可能根本连不上。
+        CddbCache.read(entry.discId)?.let { return it }
+        return parseReadResponse(request("cddb read ${entry.category} ${entry.discId}").text.lines(), entry.discId)
     }
 
     /** 解析 `cddb read` 的响应文本；抽出来便于单测。 */

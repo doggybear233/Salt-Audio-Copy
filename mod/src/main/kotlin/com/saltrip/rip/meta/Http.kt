@@ -79,7 +79,9 @@ object Http {
         url: String,
         headers: Map<String, String> = emptyMap(),
         retries: Int = 3,
-        accept: String = "application/json"
+        accept: String = "application/json",
+        connectMs: Int = connectTimeoutMs,
+        readMs: Int = readTimeoutMs
     ): HttpResult {
         var attempt = 0
         var backoff = 600L
@@ -88,8 +90,8 @@ object Http {
             try {
                 val base = URI(url).toURL()
                 val conn = ((if (proxy != null) base.openConnection(proxy) else base.openConnection()) as HttpURLConnection).apply {
-                    readTimeout = readTimeoutMs
-                    connectTimeout = connectTimeoutMs
+                    readTimeout = readMs
+                    connectTimeout = connectMs
                     requestMethod = "GET"
                     instanceFollowRedirects = true
                     setRequestProperty("User-Agent", DEFAULT_UA)
@@ -127,6 +129,17 @@ object Http {
                 backoff = (backoff * 2).coerceAtMost(8000)
             }
         }
+    }
+
+    /**
+     * 只探测可达性：任何 HTTP 状态码都算「通」，只有连不上才抛。
+     *
+     * 用途是网络自检——MusicBrainz 对不存在的 discid 返回 404，那也是通的。
+     */
+    fun ping(url: String, connectMs: Int = 3_000, readMs: Int = 5_000): Long {
+        val started = System.currentTimeMillis()
+        get(url, retries = 0, accept = "*/*", connectMs = connectMs, readMs = readMs)
+        return System.currentTimeMillis() - started
     }
 
     /** 下载可能较大的二进制（封面），带 Content-Type 与大小上限。 */

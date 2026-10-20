@@ -1,6 +1,6 @@
-# 盐专辑（Salt Audio Copy）配置界面选项统计表 v2（0.33.0）
+# 盐专辑（Salt Audio Copy）配置界面选项统计表 v2（0.34.0）
 
-> 0.33.0 起配置页为 **8 组 / 51 个设置键 / 14 个按钮**；面板内是同一份数据的 8 页二级导航。
+> 0.34.0 起配置页为 **8 组 / 51 个设置键 / 15 个按钮**；面板内是同一份数据的 8 页二级导航。
 > 本表由 `design/options_table.py` 从 `mod/src/main/resources/preference_config.json` 生成，与代码同步。
 > 末列「改法（你填）」留空；要改就在那格写（行首加 `#` 表示删掉这一项）。
 
@@ -91,7 +91,7 @@
 | 49 | 间隙处理方式 | `gapMode` | 单选 | 附加到上一轨（EAC 默认）（append） / 归入下一轨（非标准）（prepend） / 丢弃间隙（leaveout） | append | 决定 INDEX 00 归属哪个文件 |  |
 | 50 | 抓轨前预扫间隙 | `analyzeBeforeRip` | 开关 | 开 / 关 | 关 | 整盘先扫 INDEX 00，省逐轨重复读 Q |  |
 
-## 8 · 诊断（1 设置 + 12 按钮）
+## 8 · 诊断（1 设置 + 13 按钮）
 
 | 序号 | 选项名（界面原文） | key | 控件 | 取值 / 格式 | 默认 | 作用 | 改法（你填） |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -108,6 +108,7 @@
 | B12 | 试写测试（中文路径） | — | 按钮 | `ConfigActions.probePath` | — | 在含中文的路径下试写一小段 |  |
 | B13 | 恢复默认设置 | — | 按钮 | `ConfigActions.resetDefaults` | — | 把全部设置恢复默认 |  |
 | B14 | 打开日志文件夹 | — | 按钮 | `ConfigActions.openLogFolder` | — | 打开日志所在文件夹 |  |
+| B15 | 网络自检（音乐库 / CDDB） | — | 按钮 | `ConfigActions.testNetwork` | — | 并发探测 MusicBrainz / Cover Art / CDDB，判断是没记录还是网不通 |  |
 
 ## B 面板设置（8 页二级导航）
 
@@ -137,5 +138,5 @@
 - 4 组 → 8 组；`ripAlbum`/`pauseRip` 从配置页移到面板（只在面板出现）。
 - 新增两个原本隐藏的键：`multiDiscFolder`（多碟子目录模板）、`annotateCueCrc`（CUE 写 CRC）。
 - 新增按钮「打开日志文件夹」；`chooseOutputRoot`/`chooseFlacExe` 并入各自的行。
-- 51 键 = 原 48 + 新增 3（multiDiscFolder / annotateCueCrc / proxyUrl）；14 按钮 = 原 15 - 移到面板的 2（ripAlbum/pauseRip）+ 新增 1（openLogFolder）。
+- 51 键 = 原 48 + 新增 3（multiDiscFolder / annotateCueCrc / proxyUrl）；15 按钮 = 原 15 - 移到面板的 2（ripAlbum/pauseRip）+ 新增 2（openLogFolder / testNetwork）。
 

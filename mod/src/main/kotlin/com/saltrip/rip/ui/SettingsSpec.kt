@@ -209,7 +209,8 @@ object SettingsSpec {
                 act("cancelRip", "取消当前抓轨"),
                 act("probePath", "试写测试（中文路径）"),
                 act("resetDefaults", "恢复默认设置"),
-                act("openLogFolder", "打开日志文件夹")
+                act("openLogFolder", "打开日志文件夹"),
+            act("testNetwork", "网络自检（音乐库 / CDDB）")
             )
         )
     )

@@ -5,6 +5,7 @@ import com.saltrip.rip.album.DiscTest
 import com.saltrip.rip.album.AlbumJsonWriter
 import com.saltrip.rip.meta.DiscId
 import com.saltrip.rip.meta.MetadataService
+import com.saltrip.rip.meta.NetCheck
 import com.saltrip.rip.rip.RipEngine
 import com.saltrip.rip.rip.RipProgress
 import com.saltrip.rip.scsi.CdDevice
@@ -697,15 +698,44 @@ object ConfigActions {
                 val settings = SettingsStore.load()
                 val discId = runCatching { DiscId.musicBrainz(scan.toc) }.getOrDefault("")
                 val cached = readCachedAlbum(settings.effectiveRoot, discId)
-                PanelState.openManual(
-                    ManualDraft.forDisc(
-                        trackCount = scan.toc.tracks.size,
-                        artist = PanelState.disc?.artist,
-                        album = PanelState.disc?.album,
-                        cached = cached
-                    )
+                var draft = ManualDraft.forDisc(
+                    trackCount = scan.toc.tracks.size,
+                    artist = PanelState.disc?.artist,
+                    album = PanelState.disc?.album,
+                    cached = cached
                 )
-                PanelState.set("手动填写元数据", "写歌手/专辑名/歌名，保存后抓轨按这些名字命名并写标签")
+                // 盘上有 CD-TEXT 时先塞进去：用户经常只需要补一两个字段。
+                var prefilled = false
+                if (draft.tracks.all { it.title.isBlank() }) {
+                    val cdtext = runCatching {
+                        com.saltrip.rip.scsi.CdDevice(scan.path).use { it.readCdText() }
+                    }.getOrNull()
+                    if (cdtext != null && cdtext.hasText) {
+                        val ctTitle = cdtext.albumTitle.orEmpty()
+                        val ctArtist = cdtext.albumPerformer.orEmpty()
+                        if (draft.albumTitle.isBlank() && ctTitle.isNotBlank()) {
+                            draft = draft.copy(albumTitle = ctTitle); prefilled = true
+                        }
+                        if (ManualDraft.displayable(draft.albumArtist) == null && ctArtist.isNotBlank()) {
+                            draft = draft.copy(albumArtist = ctArtist); prefilled = true
+                        }
+                        for (i in draft.tracks.indices) {
+                            val n = draft.tracks[i].number
+                            val title = cdtext.titles[n]
+                            val performer = cdtext.performers[n]
+                            if (!title.isNullOrBlank() || !performer.isNullOrBlank()) {
+                                draft = draft.withTrack(n, title, performer)
+                                prefilled = true
+                            }
+                        }
+                    }
+                }
+                PanelState.openManual(draft)
+                PanelState.set(
+                    "手动填写元数据",
+                    if (prefilled) "已用盘上的 CD-TEXT 预填，改完保存即可"
+                    else "写歌手/专辑名/歌名，保存后抓轨按这些名字命名并写标签"
+                )
             } catch (e: Throwable) {
                 Diag.log("openManualMeta failed", e)
                 PanelState.manualOpen = false
@@ -1207,6 +1237,31 @@ object ConfigActions {
     @JvmStatic
     fun showLogPath() {
         toast("日志: ${Diag.logPath()}", ToastType.Success)
+    }
+
+    /**
+     * 网络自检：并发探测 MusicBrainz / Cover Art Archive / 三个 CDDB 镜像。
+     *
+     * 用户分不清「盘没记录」和「网不通」时，点一下就知道；填了代理后也能立刻验证。
+     */
+    @JvmStatic
+    fun testNetwork() {
+        PanelState.set("正在自检网络…", "并发探测 MusicBrainz / Cover Art Archive / 三个 CDDB 镜像")
+        exec.execute {
+            val settings = runCatching { SettingsStore.load() }.getOrDefault(RipSettings())
+            val items = runCatching { NetCheck.run(settings.proxyUrl) }.getOrElse { e ->
+                Diag.log("netcheck failed", e)
+                Notify.fail("网络自检失败：${e.message}")
+                return@execute
+            }
+            val summary = NetCheck.summary(items)
+            val detail = items.joinToString("；") {
+                "${it.name} ${if (it.ok) "${it.ms}ms" else "不通（${it.note}）"}"
+            }
+            PanelState.set("网络自检完成", detail)
+            Diag.log("netcheck: $summary")
+            Notify.info(if (settings.proxyUrl.isBlank()) summary else "$summary（代理 ${settings.proxyUrl}）")
+        }
     }
 
     /** 打开日志所在的文件夹（诊断页用；找不到就退回输出根目录）。 */

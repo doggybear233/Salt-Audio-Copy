@@ -633,6 +633,12 @@
           "type": "button",
           "on_click": "com.saltrip.rip.ConfigActions.openLogFolder",
           "title": "打开日志文件夹"
+        },
+        {
+          "type": "button",
+          "title": "网络自检（音乐库 / CDDB）",
+          "summary": "并发探测 MusicBrainz、Cover Art Archive 和三个 CDDB 镜像，告诉你查不到元数据是没记录还是网不通",
+          "on_click": "com.saltrip.rip.ConfigActions.testNetwork"
         }
       ]
     }

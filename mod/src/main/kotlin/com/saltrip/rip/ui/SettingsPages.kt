@@ -361,6 +361,7 @@ private fun runAction(name: String) {
         "probePath" -> ConfigActions.probePath()
         "resetDefaults" -> ConfigActions.resetDefaults()
         "openLogFolder" -> ConfigActions.openLogFolder()
+        "testNetwork" -> ConfigActions.testNetwork()
         "chooseOutputRoot" -> ConfigActions.chooseOutputRoot()
         "chooseFlacExe" -> ConfigActions.chooseFlacExe()
         else -> Unit
