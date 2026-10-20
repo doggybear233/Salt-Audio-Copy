@@ -41,6 +41,15 @@ dependencies {
     testImplementation("org.jetbrains.compose.material3:material3:1.12.0-alpha03")
 }
 
+// R3：把根目录的 LICENSE 打进 spmod（宿主插件目录里也能看到授权）。
+// 发布渠道目录另行放一份，两者内容相同。
+tasks.named<ProcessResources>("processResources") {
+    from(rootProject.layout.projectDirectory.file("../LICENSE")) {
+        rename { "LICENSE" }
+        into("META-INF")
+    }
+}
+
 spmod {
     PluginClass = "com.doggybear233.saltaudiocopy.SaltAudioCopyPlugin"
     PluginId = "com.doggybear233.saltaudiocopy"

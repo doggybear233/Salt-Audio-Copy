@@ -46,7 +46,7 @@ cuecrc = {
 }
 logbtn = {
     "type": "button",
-    "on_click": "com.saltrip.rip.ConfigActions.openLogFolder",
+    "on_click": "com.doggybear233.saltaudiocopy.ConfigActions.openLogFolder",
     "title": "打开日志文件夹",
 }
 

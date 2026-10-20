@@ -16,3 +16,4 @@ design/dbg_spw.db
 
 # Release bundles (generated)
 release/
+dist/

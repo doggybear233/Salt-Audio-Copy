@@ -2,7 +2,7 @@
 REM DATE 2021
 REM DISCID hZlwxqA4_l5dnDUKH1drpWEXCRM-
 REM CDDBID ca150015
-REM COMMENT "SaltRip"
+REM COMMENT "Salt Audio Copy"
 PERFORMER "Various Artists"
 TITLE "TV ANIMATION Sonny Boy soundtrack"
 
