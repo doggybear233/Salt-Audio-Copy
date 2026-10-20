@@ -178,7 +178,7 @@
           "type": "switch",
           "key": "writeCue",
           "title": "生成 CUE",
-          "summary": "UTF-8 with BOM + CRLF，含 REM DISCID / CDDBID",
+          "summary": "写出 CUE 分轨表（UTF-8 带 BOM、CRLF 换行），并附 REM DISCID / CDDBID 便于对账",
           "default_value": true
         },
         {
@@ -333,7 +333,7 @@
           "type": "list",
           "key": "driveSpeed",
           "title": "读速上限",
-          "summary": "默认 8x：全速时噪音大、重读更频繁，剩余时间也更抖",
+          "summary": "默认 8x：全速时噪音大、重读更频繁，剩余时间也更抖；选「不限速」时插件会请求驱动器最高速（约 7056 KB/s）",
           "default_value": "1200",
           "entries": [
             "8x（约 1200 KB/s，推荐）",
@@ -341,7 +341,7 @@
             "24x（约 3600 KB/s）",
             "4x（约 600 KB/s）",
             "2x（约 300 KB/s）",
-            "不干预（全速，最快但抖）"
+            "不限速（请求全速，最快但抖）"
           ],
           "entry_values": [
             "1200",
@@ -391,7 +391,7 @@
           "type": "list",
           "key": "errorRecovery",
           "title": "出错恢复质量",
-          "summary": "low = 只读一次；medium = 连续 3 次一致；high = 连续 5 次一致（最坏单块读 82 次）",
+          "summary": "low＝只读一次；medium＝读两次逐字节比对（不一致再重读）；high＝连续 5 次一致（最坏单块读 82 次）",
           "default_value": "medium",
           "entries": [
             "低（快速）",
@@ -580,7 +580,8 @@
         {
           "type": "button",
           "on_click": "com.saltrip.rip.ConfigActions.openLogFolder",
-          "title": "打开日志文件夹"
+          "title": "打开日志文件夹",
+          "summary": "打开插件日志所在文件夹，报问题时把 saltrip.log 一起附上"
         },
         {
           "type": "button",

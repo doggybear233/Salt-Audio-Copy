@@ -67,7 +67,7 @@
     ],
     "writeCue": [
       "Write CUE",
-      "UTF-8 with BOM + CRLF, including REM DISCID / CDDBID."
+      "Writes the CUE track sheet (UTF-8 with BOM, CRLF line endings) plus REM DISCID / CDDBID so logs can be matched."
     ],
     "annotateCueCrc": [
       "Add per-track CRC to CUE",
@@ -119,7 +119,7 @@
     ],
     "driveSpeed": [
       "Read speed limit",
-      "Default 8x: full speed is louder, re-reads more often and makes the remaining time jumpier."
+      "8x by default: full speed is louder, re-reads more often and makes the ETA jitter. \"No limit\" asks the drive for its maximum (about 7056 KB/s)."
     ],
     "readCommand": [
       "Audio read command",
@@ -135,7 +135,7 @@
     ],
     "errorRecovery": [
       "Error recovery level",
-      "low = read once; medium = 3 identical reads; high = 5 identical reads (up to 82 reads for a bad block)."
+      "low = read once; medium = read twice and compare byte for byte (re-read on mismatch); high = 5 identical reads in a row (up to 82 reads for one block)"
     ],
     "maxRetries": [
       "Max re-reads per block",
@@ -227,7 +227,7 @@
     ],
     "openLogFolder": [
       "Open log folder",
-      "Opens the folder that holds saltrip.log, so you can attach it to a bug report."
+      "Opens the folder that holds saltrip.log so you can attach it to a bug report."
     ],
     "testNetwork": [
       "Network self-check (MusicBrainz / CDDB)",
@@ -305,7 +305,7 @@
     ],
     "writeCue": [
       "CUE を生成",
-      "UTF-8 with BOM + CRLF、REM DISCID / CDDBID を含みます。"
+      "CUE のトラック表（UTF-8 BOM 付き・CRLF）を書き出し、REM DISCID / CDDBID でログと照合できます。"
     ],
     "annotateCueCrc": [
       "CUE に各トラックの CRC を付ける",
@@ -357,7 +357,7 @@
     ],
     "driveSpeed": [
       "読み取り速度の上限",
-      "既定 8x：最高速は騒音が大きく再読も増え、残り時間も不安定になります。"
+      "既定 8x：最高速は騒音が大きく再読も増え、残り時間も不安定になります。「速度制限なし」はドライブに最高速（約 7056 KB/s）を要求します。"
     ],
     "readCommand": [
       "音声読み取りコマンド",
@@ -373,7 +373,7 @@
     ],
     "errorRecovery": [
       "エラー回復レベル",
-      "low＝1 回だけ読む；medium＝3 回一致；high＝5 回一致（最悪 1 ブロック 82 回）。"
+      "low＝1 回だけ読む；medium＝2 回読んでバイト比較（不一致なら再読）；high＝5 回連続一致（最悪 1 ブロック 82 回）"
     ],
     "maxRetries": [
       "ブロックあたりの最大再読回数",

@@ -560,7 +560,7 @@ object ConfigActions {
                 PanelState.rememberMeta(localId, local)
                 PanelState.set(
                     Strings.message("使用已保存的元数据"),
-                    Strings.message("这张盘有你填过或选过的信息；要重新联网查可以点「刷新元数据」")
+                    Strings.message("这张盘有你填过或选过的信息；想重新联网查，点面板上的元数据按钮")
                 )
                 return
             }

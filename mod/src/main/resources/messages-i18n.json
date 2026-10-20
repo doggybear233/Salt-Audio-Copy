@@ -9,10 +9,6 @@
       "Click Cancel again to abort and delete the files created by this run",
       "もう一度「キャンセル」で中止し、今回生成したファイルを削除します"
     ],
-    "再点一次「重新抓取」才会开始；「取消」或换盘会解除": [
-      "Click Rip again to confirm; Cancel or swapping the disc clears it",
-      "もう一度押すと実行します。「キャンセル」かディスク交換で解除されます"
-    ],
     "至少写一个专辑名或歌名再保存": [
       "Fill in an album title or a track title before saving",
       "アルバム名か曲名を 1 つ以上入力してから保存してください"
@@ -197,14 +193,6 @@
       "Ripping",
       "取り込み中"
     ],
-    "正在查询元数据…": [
-      "Looking up metadata…",
-      "メタデータを検索中…"
-    ],
-    "读 CD-TEXT，再连 MusicBrainz / gnudb；换盘会自动重来": [
-      "Reading CD-TEXT, then MusicBrainz / gnudb; swapping the disc starts over",
-      "CD-TEXT を読み、MusicBrainz / gnudb に接続します。ディスクを替えるとやり直します"
-    ],
     "%s 轨": [
       "%s tracks",
       "%s トラック"
@@ -277,10 +265,6 @@
       "Done (%s things to check) · %s tracks · %s s",
       "完了（確認事項 %s 件）· %s トラック · %s 秒"
     ],
-    "记录、CUE、日志都已写好；再抓一遍请点「重新抓取」（会先确认）": [
-      "CUE and log are written; to rip again press Rip again (asks first)",
-      "CUE とログは書き込み済み。もう一度取得するには「再取得」を押します（確認あり）"
-    ],
     "已抓完 · 要重新抓取吗？再点一次「重新抓取」确认": [
       "Done · rip again? Press Rip again once more to confirm",
       "完了 · 再取得しますか？もう一度「再取得」で確定します"
@@ -298,7 +282,7 @@
       "同名ファイルが既にあるため、今回は「%s」のような複製として書き出しました"
     ],
     "（要替换请在 设置 → 输出位置 → 同名文件已存在时 选「覆盖」）": [
-      "(To replace them, set Settings → Output → If a file exists to Overwrite)",
+      "(To replace them, set Settings → Output → If the file already exists to Overwrite)",
       "（置き換えるには 設定 → 出力先 → 同名ファイルがある場合 で「上書き」を選択）"
     ],
     "已取消（%s/%s 扇区）": [
@@ -341,10 +325,6 @@
       "Rip failed: %s",
       "取得に失敗しました：%s"
     ],
-    "%02d  %6d 扇区  CRC32 %08X%s": [
-      "%02d  %6d sectors  CRC32 %08X%s",
-      "%02d  %6d セクタ  CRC32 %08X%s"
-    ],
     "已扫描": [
       "Scan finished",
       "スキャン完了"
@@ -358,8 +338,8 @@
       "「スキャン」でディスクを認識します。その後まとめて取得できます"
     ],
     "点「抓整盘」按当前设置输出；「查元数据」只联网不写文件": [
-      "Press Rip album to write with the current settings; Refresh metadata only looks online",
-      "「アルバムを取得」で現在の設定どおり書き出します。「メタデータ更新」は検索のみ"
+      "Press Rip disc to write with the current settings; Refresh metadata only looks online",
+      "「全曲取り込み」で現在の設定どおり書き出します。「メタデータ更新」は検索のみ"
     ],
     "正在执行，等当前操作结束": [
       "Busy — wait for the current operation to finish",
@@ -554,7 +534,7 @@
       "アルバム情報が見つかりませんでした"
     ],
     "点「手动填写元数据…」自己写歌手/专辑名/歌名，或换一张盘再查": [
-      "Press Fill in metadata… to type the artist/album/track names, or try another disc",
+      "Press Enter metadata manually… to type the artist/album/track names, or try another disc",
       "「メタデータを手入力…」でアーティスト／アルバム／曲名を入力するか、別のディスクでお試しください"
     ],
     "已找到 %s 个候选": [
@@ -660,10 +640,6 @@
     "输出目录：%s": [
       "Output folder: %s",
       "出力先：%s"
-    ],
-    "FLAC 编码器：%s": [
-      "FLAC encoder: %s",
-      "FLAC エンコーダ：%s"
     ],
     "导出失败: %s": [
       "Export failed: %s",
@@ -789,10 +765,6 @@
       "8x (about 1200 KB/s, recommended)",
       "8x（約 1200 KB/s・推奨）"
     ],
-    "不干预（全速，最快但抖）": [
-      "Leave alone (full speed, fastest but jittery)",
-      "介入しない（最高速だが不安定）"
-    ],
     "丢弃间隙": [
       "Drop gaps",
       "ギャップを捨てる"
@@ -896,38 +868,6 @@
     "WAV（推荐）": [
       "WAV (recommended)",
       "WAV（推奨）"
-    ],
-    "FLAC 没有标签就只剩裸音频": [
-      "FLAC without tags is just bare audio",
-      "FLAC はタグがないと素の音声だけになります"
-    ],
-    "外部编码器（自定义命令行）": [
-      "External encoder (custom command line)",
-      "外部エンコーダ（独自コマンドライン）"
-    ],
-    "留空走 PATH": [
-      "Empty = use PATH",
-      "空欄なら PATH を使用"
-    ],
-    "留 flac 走 PATH": [
-      "Empty = use flac from PATH",
-      "空欄なら PATH の flac を使用"
-    ],
-    "选择 flac.exe…": [
-      "Choose flac.exe…",
-      "flac.exe を選択…"
-    ],
-    "选择输出目录…": [
-      "Choose output folder…",
-      "出力先を選択…"
-    ],
-    "默认音乐库": [
-      "Music folder by default",
-      "既定はミュージックフォルダ"
-    ],
-    "默认 8x：全速时驱动器噪音大、重读更频繁，剩余时间也更抖": [
-      "8x by default: full speed is louder, re-reads more, and the ETA jitters",
-      "既定は 8x：最高速だと駆動音が大きく、再読み取りも増え、残り時間もぶれます"
     ],
     "正数＝丢弃开头若干采样": [
       "Positive = drop samples at the start",
@@ -1045,10 +985,6 @@
       "before track %s",
       "%s トラック目の前"
     ],
-    "第 %s 轨目标文件已存在，按设置跳过": [
-      "Track %s already exists — skipped per settings",
-      "%s トラック目のファイルが既存のため、設定に従いスキップ"
-    ],
     "抓取第 %s 轨：%s": [
       "Ripping track %s: %s",
       "%s トラック目を取得：%s"
@@ -1073,10 +1009,6 @@
       "Track %s: WAV tag write failed (audio is fine): %s",
       "%s トラック目：WAV タグの書き込みに失敗（音声は無事）：%s"
     ],
-    "第 %s 轨外部编码失败（已保留 WAV）: %s": [
-      "Track %s: external encoding failed (WAV kept): %s",
-      "%s トラック目：外部エンコードに失敗（WAV は保持）：%s"
-    ],
     "第 %s 轨标签写入失败（音频不受影响）: %s": [
       "Track %s: tag write failed (audio is fine): %s",
       "%s トラック目：タグの書き込みに失敗（音声は無事）：%s"
@@ -1084,10 +1016,6 @@
     "第 %s 轨 FLAC 编码失败（已保留 WAV）: %s": [
       "Track %s: FLAC encoding failed (WAV kept): %s",
       "%s トラック目：FLAC エンコードに失敗（WAV は保持）：%s"
-    ],
-    "间隙处理为 %s 时音轨边界不连续，已跳过整盘镜像": [
-      "Gaps set to %s makes track boundaries non-contiguous; disc image skipped",
-      "ギャップ処理が %s のときはトラック境界が連続しないため、イメージ取得をスキップしました"
     ],
     "生成整盘镜像…": [
       "Building the disc image…",
@@ -1132,10 +1060,6 @@
     "错误报告: %s": [
       "Error report: %s",
       "エラーレポート：%s"
-    ],
-    "弹出托盘失败: %s": [
-      "Ejecting the tray failed: %s",
-      "トレイの排出に失敗：%s"
     ],
     "← 不足": [
       "← not enough",
@@ -1297,10 +1221,6 @@
       "Using the saved metadata",
       "保存済みのメタデータを使います"
     ],
-    "这张盘有你填过或选过的信息；要重新联网查可以点「刷新元数据」": [
-      "This disc already has names you entered or picked. Use Refresh metadata to search online again.",
-      "このディスクには入力済み／選択済みの情報があります。再検索するには「メタデータを更新」を押してください。"
-    ],
     "每块校验 %s 次": [
       "verifies each block %s×",
       "各ブロックを %s 回検証"
@@ -1320,6 +1240,22 @@
     "第 %s 轨测试读取失败，本轨不做 Test&Copy 比对: %s": [
       "Test read of track %s failed; this track has no Test&Copy reference: %s",
       "トラック %s のテスト読み込みに失敗。このトラックは Test&Copy 照合をしません: %s"
+    ],
+    "这张盘有你填过或选过的信息；想重新联网查，点面板上的元数据按钮": [
+      "This disc already has names you entered or picked. To search online again, use the metadata button in the panel.",
+      "このディスクには入力済み／選択済みの情報があります。再検索するにはパネルのメタデータボタンを押してください。"
+    ],
+    "音轨、CUE、日志都已写好；再抓一遍请点「重新抓取」（会先确认）": [
+      "Tracks, CUE and log are written; to rip again press Rip again (asks first)",
+      "トラック・CUE・ログは書き込み済み。もう一度取得するには「再取得」を押します（確認あり）"
+    ],
+    "不限速（请求全速，最快但抖）": [
+      "No limit (asks for full speed; fastest but jittery)",
+      "速度制限なし（最高速を要求。最速だが不安定）"
+    ],
+    "默认 8x：全速时噪音大、重读更频繁，剩余时间也更抖；选「不限速」时插件会请求驱动器最高速（约 7056 KB/s）": [
+      "8x by default: full speed is louder, re-reads more and makes the ETA jitter. \"No limit\" asks the drive for its maximum (about 7056 KB/s).",
+      "既定 8x：最高速は騒音が大きく再読も増え、残り時間も不安定になります。「速度制限なし」はドライブに最高速（約 7056 KB/s）を要求します。"
     ]
   }
 }

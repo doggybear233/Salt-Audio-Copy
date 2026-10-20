@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.saltrip"
-version = "0.42.0"
+version = "0.43.0"
 
 kotlin {
     jvmToolchain(25)
@@ -46,8 +46,8 @@ spmod {
     PluginId = "com.saltrip.saltaudiocopy"
     PluginVersion = project.version.toString()
     PluginProvider = "saltrip"
-    PluginName = "盐专辑 (Salt Audio Copy)"
-    PluginDescription = "专业 CD 抓轨：SPTI 直连驱动器、安全双读校验、CUE/日志、元数据与封面。"
+    PluginName = "Salt Audio Copy"
+    PluginDescription = "Professional CD ripping: SPTI, secure re-reads, CUE and log, metadata and cover art."
     PluginOpenSourceUrl = "https://github.com/saltrip/saltrip"
     PluginHasConfig = true
     PluginPermissions = listOf(com.xuncorp.spw.workshop.gradle.PluginPermission.CLASS_TRANSFORM)

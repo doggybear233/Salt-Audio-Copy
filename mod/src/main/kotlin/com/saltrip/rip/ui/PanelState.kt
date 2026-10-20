@@ -378,7 +378,7 @@ object PanelState {
         reRipArmed = false
         finish(
             statusText = Strings.fmt("已抓完 · %s 轨", trackCount),
-            detailText = Strings.message("记录、CUE、日志都已写好；再抓一遍请点「重新抓取」（会先确认）")
+            detailText = Strings.message("音轨、CUE、日志都已写好；再抓一遍请点「重新抓取」（会先确认）")
         )
     }
 
