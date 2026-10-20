@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -96,7 +97,12 @@ internal fun DockPanelBody() {
 private fun PanelSurface() {
     val cs = MaterialTheme.colorScheme
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        // 宿主注入面板时宽度约束可能是无界的（横向 wrap）。此时 fillMaxWidth 不生效，
+        // Row 里的 weight(1f) 子项会拿到 0 宽——真机截图里「专辑名 / 轨数 / 输出路径」
+        // 整列消失、只剩封面和按钮就是这么来的。给一个下限宽度兜住。
+        // max 必须给：宿主传来的是 max=Infinity，只有 min 时子项仍在无界约束里测量，
+        // weight(1f) 依旧算成 0 宽（设置页右列、运行中的进度文字都会整块消失）。
+        modifier = Modifier.fillMaxWidth().widthIn(min = 560.dp, max = 1400.dp),
         shape = RoundedCornerShape(20.dp),
         color = cs.surface,
         contentColor = cs.onSurface,
@@ -219,7 +225,10 @@ private fun ReadyBlock() {
     Row(verticalAlignment = Alignment.CenterVertically) {
         CoverThumb(56.dp)
         Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(
+            modifier = Modifier.weight(1f).widthIn(min = 180.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             Text(
                 text = albumLine(),
                 style = MaterialTheme.typography.titleMedium,
