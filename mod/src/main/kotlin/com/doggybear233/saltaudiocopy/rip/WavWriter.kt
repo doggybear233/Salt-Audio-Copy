@@ -1,12 +1,51 @@
 package com.doggybear233.saltaudiocopy.rip
 
+import com.doggybear233.saltaudiocopy.Diag
 import java.io.RandomAccessFile
+import java.nio.file.Files
 import java.nio.file.Path
 
 /**
  * 流式 WAV 写入：先写 44 字节头占位，边抓边写，收尾时回填长度。
  * 规格固定为 44.1 kHz / 16 bit / 立体声 / 小端（CD-DA 原生格式）。
  */
+
+/**
+ * 续抓前必须核对「这只文件确实是这一轨」。
+ *
+ * 只看字节数是不够的：同名文件可能是另一张盘的第 3 轨、或者用户改过 gap 处理后
+ * 起点变了。把起点 LBA / 扇区数 / 采样格式写进 `.saltaudiocopy/resume-*.txt`，
+ * 不匹配就整轨重来，宁可从零抓也不要拼出半轨错音。
+ */
+data class ResumeGuard(
+    val startLba: Int,
+    val sectors: Int,
+    val sampleRate: Int = 44100,
+    val channels: Int = 2,
+    val bitsPerSample: Int = 16
+) {
+    fun encode(): String =
+        "startLba=$startLba\nsectors=$sectors\nsampleRate=$sampleRate\nchannels=$channels\nbits=$bitsPerSample\n"
+
+    companion object {
+        fun decode(text: String): ResumeGuard? {
+            val map = text.lineSequence()
+                .mapNotNull { line ->
+                    val i = line.indexOf('=')
+                    if (i <= 0) null else line.substring(0, i) to line.substring(i + 1).trim()
+                }
+                .toMap()
+            val start = map["startLba"]?.toIntOrNull() ?: return null
+            val sectors = map["sectors"]?.toIntOrNull() ?: return null
+            return ResumeGuard(
+                start, sectors,
+                map["sampleRate"]?.toIntOrNull() ?: 44100,
+                map["channels"]?.toIntOrNull() ?: 2,
+                map["bits"]?.toIntOrNull() ?: 16
+            )
+        }
+    }
+}
 /** WAV 写入的抽象：Test&amp;Copy 的「测试读取」用 [NullWavSink] 只算 CRC 不落盘。 */
 internal interface WavSink : AutoCloseable {
     fun write(bytes: ByteArray, off: Int, len: Int)
@@ -27,9 +66,12 @@ class WavWriter(
     private val channels: Int = 2,
     private val bitsPerSample: Int = 16,
     /** true 时若目标已是合法的同格式 WAV，则在其数据尾部继续写（断点续抓）。 */
-    private val append: Boolean = false
+    private val append: Boolean = false,
+    /** 非空时必须与同目录守卫文件一致，才允许续写（见 [ResumeGuard]）。 */
+    private val guard: ResumeGuard? = null
 ) : WavSink {
 
+    private val file: Path = path
     private val raf = RandomAccessFile(path.toFile(), "rw")
     private var dataBytes = 0L
     private var finished = false
@@ -38,7 +80,11 @@ class WavWriter(
     val priorDataBytes: Long
 
     init {
-        val resumed = if (append && raf.length() >= HEADER_SIZE && hasValidHeader()) {
+        val guardOk = if (guard == null) true else matchesGuard(guard)
+        if (append && !guardOk) {
+            Diag.log("resume: 守卫不匹配（同名文件不是这一轨），整轨重抓：${file.fileName}")
+        }
+        val resumed = if (append && guardOk && raf.length() >= HEADER_SIZE && hasValidHeader()) {
             val declared = declaredDataBytes()
             // 被强杀时 finish() 没跑，头部 data 长度还是 0（或被上次回填成旧值），
             // 只能按文件实际长度推断已写多少，否则续抓会从 0 重来、把整轨再写一遍。
@@ -58,7 +104,30 @@ class WavWriter(
             raf.write(header(0))
             priorDataBytes = 0
             dataBytes = 0
+            writeGuard()
         }
+    }
+
+    /** 守卫文件：放在同目录的 `.saltaudiocopy/` 里，不污染用户看到的文件列表。 */
+    private fun guardFile(): Path? {
+        val parent = file.parent ?: return null
+        return parent.resolve(".saltaudiocopy").resolve("resume-${file.fileName}.txt")
+    }
+
+    private fun matchesGuard(expected: ResumeGuard): Boolean {
+        val p = guardFile() ?: return false
+        val text = runCatching { Files.readString(p) }.getOrNull() ?: return false
+        val saved = ResumeGuard.decode(text) ?: return false
+        return saved == expected
+    }
+
+    private fun writeGuard() {
+        val g = guard ?: return
+        val p = guardFile() ?: return
+        runCatching {
+            Files.createDirectories(p.parent)
+            Files.writeString(p, g.encode())
+        }.onFailure { Diag.log("resume guard write failed", it) }
     }
 
     /** 头部 `data` 块声明的长度；读不到或长度字段越界时返回 0。 */

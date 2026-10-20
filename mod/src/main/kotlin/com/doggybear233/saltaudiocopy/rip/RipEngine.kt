@@ -242,19 +242,23 @@ object RipEngine {
                 else -> {} // append：toc 范围本身到下一轨 INDEX 01，尾部间隙已在其中
             }
 
-            val wav: WavSink = if (writeFile) WavWriter(outFile, append = resume) else NullWavSink
+            // 续抓必须核对「这只文件是这一轨」：起点 LBA 会随 gap 处理方式变化，
+            // 只比字节数会把另一张盘的半截文件接上来。
+            val guard = com.doggybear233.saltaudiocopy.rip.ResumeGuard(startLba, total)
+            val wav: WavSink = if (writeFile) WavWriter(outFile, append = resume, guard = guard) else NullWavSink
             wav.use {
                 if (writeFile && resume) {
                     val prior = (wav as? WavWriter)?.priorDataBytes ?: 0L
                     val already = (prior / 2352L).toInt()
                     when {
-                        // 同名文件里已经是一整轨（上次抓完，或覆盖策略让本次复用了同名文件）：
-                        // append 模式从文件尾继续写会变成「两遍音频」，必须先清空重抓。
+                        // 文件里已经是一整轨：不再清空，也不再读盘。
+                        // 以前这里 truncateData(0) 后重抓，一取消就只剩 44 字节，还报告「没有留下不完整文件」
+                        // ——用户的完整音轨被自己的一次误点弄没了。现在直接认定它已完成。
                         total > 0 && already >= total -> {
-                            (wav as WavWriter).truncateData(0)
-                            done = 0
+                            done = total
                             crc.reset()
-                            Diag.log("resume track=$trackNo 旧文件已完整（$prior 字节 / $total 扇区），清空重抓")
+                            crcFile(crc, outFile, total * 2352L)
+                            Diag.log("resume track=$trackNo 已有完整文件（$prior 字节 / $total 扇区），跳过读取")
                         }
 
                         already in 1 until total -> {

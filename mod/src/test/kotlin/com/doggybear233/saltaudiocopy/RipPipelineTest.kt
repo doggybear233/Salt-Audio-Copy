@@ -92,7 +92,7 @@ class RipPipelineTest {
      * 时长翻倍、CRC 全错，但日志显示 100% 完成。
      */
     @Test
-    fun resumeOnCompleteFileRewritesInsteadOfAppendingTwice() {
+    fun resumeOnCompleteFileKeepsItInsteadOfAppendingTwice() {
         val fake = FakeTrackSource(sectors = 6000)
         val out = dir.resolve("full.wav")
         val full = RipEngine.ripTrack(
@@ -100,6 +100,7 @@ class RipPipelineTest {
             cancel = { false }, onProgress = {}, source = fake
         )
         assertEquals(44L + 2000L * 2352, Files.size(out))
+        val readsAfterFirstRip = fake.reads
 
         val again = RipEngine.ripTrack(
             scan = scan(6000), trackIndex = 0, outFile = out,
@@ -108,8 +109,9 @@ class RipPipelineTest {
         assertEquals(full.crc32, again.crc32)
         assertEquals(
             44L + 2000L * 2352, Files.size(out),
-            "续抓遇到完整旧文件必须清空重抓，不能追加成两遍"
+            "续抓遇到完整旧文件不能追加成两遍"
         )
+        assertEquals(readsAfterFirstRip, fake.reads, "完整文件不该再被读一遍")
     }
 
     /**
