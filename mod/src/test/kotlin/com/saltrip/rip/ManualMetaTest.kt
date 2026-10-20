@@ -81,7 +81,9 @@ class ManualMetaTest {
         assertEquals("Some Artist", d.albumArtist)
         assertEquals("", d.albumTitle)
         assertEquals(3, d.tracks.size)
-        assertEquals("Track 01", d.tracks[0].title)
+        // 0.40.0：输入框不预填默认名（用户要能直接打字），默认名只在保存时补
+        assertEquals("", d.tracks[0].title)
+        assertEquals("Track 01", d.toAlbumMeta("X").tracks[0].title)
         assertEquals(listOf(1, 2, 3), d.tracks.map { it.number })
     }
 

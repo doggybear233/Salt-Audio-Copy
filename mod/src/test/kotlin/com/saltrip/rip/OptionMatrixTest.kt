@@ -129,16 +129,8 @@ class OptionMatrixTest {
     // ---------------- WAV 标签开关 ----------------
 
     @Test
-    fun writeWavTagsOffLeavesPlainWav() {
-        val s = settings().copy(writeWavTags = false)
-        val res = AlbumRipper.rip(scan(), s, { false }, {}, onlyTracks = setOf(1), source = fake())
-        val tags = WavTags.read(res.tracks.single().file)
-        assertTrue(tags.isEmpty(), "关掉后 WAV 里不该有 INFO/ID3 块：$tags")
-    }
-
-    @Test
     fun writeWavTagsOnAddsTags() {
-        val s = settings().copy(writeWavTags = true)
+        val s = settings()
         val res = AlbumRipper.rip(scan(), s, { false }, {}, onlyTracks = setOf(1), source = fake())
         val tags = WavTags.read(res.tracks.single().file)
         assertTrue(tags.isNotEmpty(), "默认应写入标签：$tags")
@@ -166,7 +158,7 @@ class OptionMatrixTest {
         )
         Files.write(cache.resolveSibling(cache.fileName.toString().removeSuffix(".json") + ".cover.png"), png)
 
-        val s = settings().copy(coverFileName = "folder", format = "wav", writeTags = false)
+        val s = settings().copy(coverFileName = "folder", format = "wav")
         val res = AlbumRipper.rip(scan(), s, { false }, {}, onlyTracks = setOf(1), source = fake())
         val cover = res.coverFile
         assertNotNull(cover, "有封面字节时必须落盘")
@@ -201,7 +193,7 @@ class OptionMatrixTest {
     @Test
     fun cleanRipReportsNoWarnings() {
         // 反向保护：不能把「提示性笔记」也算成问题，否则用户每抓一张盘都被警告一次
-        val s = settings().copy(format = "wav", writeTags = false, writeWavTags = false)
+        val s = settings().copy(format = "wav")
         val res = AlbumRipper.rip(scan(), s, { false }, {}, source = fake())
         assertTrue(res.warnings.isEmpty(), "顺利抓完不该有 warnings：${res.warnings}")
         assertTrue(res.notes.isNotEmpty(), "提示性信息仍要留在 notes 里")

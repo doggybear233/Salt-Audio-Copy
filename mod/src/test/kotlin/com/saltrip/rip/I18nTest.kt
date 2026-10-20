@@ -30,7 +30,10 @@ class I18nTest {
         for (m in Regex("\"on_click\"\\s*:\\s*\"[^\"]*\\.([A-Za-z0-9_]+)\"").findAll(resource)) {
             zh += m.groupValues[1]
         }
-        assertTrue(zh.size >= 60, "解析到的选项太少，正则可能失效了：${zh.size}")
+        // 期望条数跟着 SettingsSpec 走，不再写死（加/删一个选项不该改这里）
+        val expected = com.saltrip.rip.ui.SettingsSpec.settingKeys.size +
+            com.saltrip.rip.ui.SettingsSpec.actionKeys.size
+        assertTrue(zh.size >= expected, "解析到的选项太少（$zh.size < $expected），正则可能失效了")
         for (lang in listOf("en", "ja")) {
             val have = OptionText.overlayKeys(lang)
             val missing = zh - have

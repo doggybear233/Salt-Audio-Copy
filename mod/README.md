@@ -3,6 +3,16 @@
 Windows 上把 CD 精确抓成 WAV + CUE + 日志，并把专辑信息（MusicBrainz / gnudb / Cover Art Archive）一起落盘。
 算法与参数来自对 EAC 1.8 的逆向（见 `../architecture.md`、`../features.md`）。
 
+## 0.40.0
+
+- **环境自检**（8 · 诊断 → 环境自检）：打印系统语言、ANSI 代码页、`file.encoding` / `sun.jnu.encoding`、
+  临时目录与音乐目录，并真在临时目录里建一个「盐专辑-十明-変身のレシピ/01 灰かぶり - 사랑.wav」
+  写读一遍——中文版 Windows 的用户报乱码时，点这一下就能定位到代码页还是路径编码。
+- **标签开关删掉**：`writeTags` / `writeWavTags` 从配置页与代码里移除，WAV 的 INFO+ID3v2 与 FLAC 标签
+  一律写入（用户反馈「任何时候都会想加标题歌手名」）。配置页 45 键 / 14 按钮。
+- **手填曲名不用先删默认名**：输入框留空、只显示 `Track 01` 灰色占位；不填就在保存时补默认名。
+- 新增 `EnvProbeTest`、GBK 映射测试（`gbkMapsSimplifiedChineseCompletely` / `gbkDropsPureKoreanBecauseItCannotBeRepresented`）；426 tests / 0 failed。
+
 ## 0.39.4
 
 - 换输出根不再丢元数据：新增「保险副本」`<插件数据目录>/album-cache/album-<DiscID>.json`（含封面兄弟文件）。

@@ -1280,6 +1280,18 @@
     "读 CD-TEXT，再连 MusicBrainz / gnudb；这期间抓轨按钮会先锁住": [
       "Reading CD-TEXT, then MusicBrainz / gnudb. Rip buttons stay locked meanwhile.",
       "CD-TEXT を読み、MusicBrainz / gnudb に問い合わせます。その間リッピングはロックされます。"
+    ],
+    "环境自检完成": [
+      "Environment check finished",
+      "環境チェックが完了しました"
+    ],
+    "环境自检失败：": [
+      "Environment check failed: ",
+      "環境チェックに失敗しました: "
+    ],
+    "环境自检（语言 / 编码 / 路径）": [
+      "Environment check (language / encoding / paths)",
+      "環境チェック（言語 / エンコード / パス）"
     ]
   }
 }

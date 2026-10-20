@@ -57,10 +57,6 @@
       "Keep WAV after FLAC encoding",
       "Off deletes the intermediate WAV once encoding succeeded, saving disk space."
     ],
-    "writeTags": [
-      "Write FLAC tags",
-      "Title/artist/album/track/year/genre/ISRC, written as Vorbis comments by the plugin (no metaflac.exe needed)."
-    ],
     "embedCover": [
       "Embed cover into FLAC",
       "One front cover per FLAC; off keeps only the cover file in the folder."
@@ -68,10 +64,6 @@
     "coverSize": [
       "Cover size",
       "Cover Art Archive front-<size>; larger is sharper but slower."
-    ],
-    "writeWavTags": [
-      "Write WAV tags",
-      "Writes RIFF INFO (title/artist/album), visible in Explorer and players."
     ],
     "writeCue": [
       "Write CUE",
@@ -240,6 +232,10 @@
     "testNetwork": [
       "Network self-check (MusicBrainz / CDDB)",
       "Probes MusicBrainz, Cover Art Archive and the three CDDB mirrors in parallel, so you know whether a miss is 'not in the database' or 'network blocked'."
+    ],
+    "testEnvironment": [
+      "Environment check (language / encoding / paths)",
+      "Shows the system code page and whether CJK paths are writable"
     ]
   },
   "ja": {
@@ -299,10 +295,6 @@
       "FLAC 変換後に WAV を残す",
       "オフにすると変換成功後に中間 WAV を削除し、ディスクを節約します。"
     ],
-    "writeTags": [
-      "FLAC タグを書き込む",
-      "タイトル・アーティスト・アルバム・トラック番号・年・ジャンル・ISRC を Vorbis comment として直接書き込みます（metaflac.exe 不要）。"
-    ],
     "embedCover": [
       "FLAC にカバーを埋め込む",
       "各 FLAC に front cover を 1 枚。オフならフォルダ内のカバーファイルのみ。"
@@ -310,10 +302,6 @@
     "coverSize": [
       "カバーサイズ",
       "Cover Art Archive の front-<size>。大きいほど精細だが遅くなります。"
-    ],
-    "writeWavTags": [
-      "WAV にタグを書く",
-      "RIFF INFO（タイトル・アーティスト・アルバム）を書き込み、エクスプローラーやプレイヤーで見えます。"
     ],
     "writeCue": [
       "CUE を生成",
@@ -482,6 +470,10 @@
     "testNetwork": [
       "ネットワーク自己診断（MusicBrainz / CDDB）",
       "MusicBrainz・Cover Art Archive・CDDB ミラー 3 つを同時に調べ、メタデータが無いのか回線が通らないのかを切り分けます。"
+    ],
+    "testEnvironment": [
+      "環境チェック（言語 / エンコード / パス）",
+      "システムのコードページと日中韓パスが書けるかを表示します"
     ]
   }
 }

@@ -112,7 +112,7 @@ class SettingsSpecTest {
                 }
             }
         }
-        assertEquals(47, SettingsSpec.settingKeys.size, "47 个设置键（0.39.0 移除自带编码器相关 4 项）")
+        assertEquals(45, SettingsSpec.settingKeys.size, "45 个设置键（0.39.0 移除自带编码器 4 项；0.40.0 移除 2 个标签开关）")
         assertEquals(
             SettingsSpec.settingKeys.size,
             SettingsSpec.settingKeys.toSet().size,
@@ -149,9 +149,6 @@ class SettingsSpecTest {
         val p5 = SettingsSpec.page("p5")
         fun p5Visible(key: String, s: RipSettings) =
             p5.items.first { it.key == key }.visibleWhen(s)
-        assertTrue(!p5Visible("writeTags", wav), "WAV 不该出现「写入 FLAC 标签」")
-        assertTrue(p5Visible("writeTags", flac))
-        assertTrue(p5Visible("writeWavTags", wav))
         assertTrue(!p5Visible("annotateCueCrc", RipSettings(writeCue = false)))
 
         // 整盘镜像与 prepend/leaveout 间隙、部分音轨互斥：置灰而不是静默忽略
@@ -171,6 +168,6 @@ class SettingsSpecTest {
                 "$name 必须是 static"
             )
         }
-        assertEquals(13, SettingsSpec.actionKeys.size, "全站 13 个按钮（都在诊断页；目录选择器已合并进「输出目录」行）")
+        assertEquals(14, SettingsSpec.actionKeys.size, "全站 14 个按钮（都在诊断页；目录选择器已合并进「输出目录」行）")
     }
 }

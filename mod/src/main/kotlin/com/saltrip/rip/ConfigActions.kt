@@ -1382,7 +1382,6 @@ object ConfigActions {
             "fetchMetadata" -> s.copy(fetchMetadata = value)
             "detectGaps" -> s.copy(detectGaps = value)
             "embedCover" -> s.copy(embedCover = value)
-            "writeTags" -> s.copy(writeTags = value)
             else -> {
                 toast(Strings.fmt("未知设置项: %s", key), ToastType.Error)
                 return
@@ -1453,6 +1452,31 @@ object ConfigActions {
      *
      * 用户分不清「盘没记录」和「网不通」时，点一下就知道；填了代理后也能立刻验证。
      */
+    /**
+     * 环境自检：系统语言、代码页、路径编码，以及中日韩路径是否真能写入。
+     *
+     * 用户报「乱码」时，先让他点这个：一眼能分出是系统代码页、JVM 路径编码，
+     * 还是标签写入策略的问题。
+     */
+    @JvmStatic
+    fun testEnvironment() {
+        exec.execute {
+            try {
+                val report = EnvProbe.collect()
+                Diag.log("env:\n" + EnvProbe.details(report))
+                val line = EnvProbe.summary(report)
+                PanelState.set(
+                    Strings.message("环境自检完成"),
+                    EnvProbe.details(report).trim().replace("\n", "；")
+                )
+                if (report.cjkPathRoundTrip) Notify.info(line) else Notify.warn(line)
+            } catch (e: Throwable) {
+                Diag.log("env probe failed", e)
+                Notify.fail(Strings.message("环境自检失败：") + com.saltrip.rip.scsi.ScsiMessages.human(e))
+            }
+        }
+    }
+
     @JvmStatic
     fun testNetwork() {
         PanelState.set(Strings.message("正在自检网络…"), "并发探测 MusicBrainz / Cover Art Archive / 三个 CDDB 镜像")

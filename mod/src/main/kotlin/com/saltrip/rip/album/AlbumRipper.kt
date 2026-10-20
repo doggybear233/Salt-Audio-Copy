@@ -347,7 +347,7 @@ object AlbumRipper {
             // WAV 的 LIST/INFO 标签：资源管理器/播放器读它显示标题、艺术家、专辑
             //（反馈 6：抓下来的文件在资源管理器里没有标签）。追加在 data 之后，
             // 不影响 PCM 字节，因此也不影响 CRC 与编码器输入。
-            if (settings.writeWavTags && !r.cancelled) {
+            if (!r.cancelled) {
                 runCatching {
                     com.saltrip.rip.encode.WavTags.write(
                         outFile,
@@ -379,34 +379,32 @@ object AlbumRipper {
                     finalFile = flacFile
                     finalRel = flacRel
                     Diag.log("flac track=${entry.track} -> $flacFile ($size B)")
-                    if (settings.writeTags) {
-                        runCatching {
-                            val isrc = album?.track(entry.track)?.isrc
-                            // 专辑名/艺术家一律传「已解析」的值：没有元数据时用占位名，
-                            // 免得目录叫「未知专辑」而标签里根本没有 ALBUM 字段——
-                            // 播放器会把这些文件散成「未知专辑」而聚合不起来。
-                            val tags = FlacMeta.trackTags(
-                                albumTitle = albumTitle,
-                                albumArtist = albumArtist,
-                                year = album?.year,
-                                genre = album?.genre,
-                                trackNumber = entry.track,
-                                trackTitle = title,
-                                trackArtist = artist,
-                                isrc = isrc,
-                                trackTotal = availableTracks.size,
-                                discNumber = album?.discNumber,
-                                totalDiscs = album?.totalDiscs,
-                                comment = "Salt Audio Copy $APP_VERSION",
-                                composer = cdtext?.songwriters?.get(entry.track)
-                                    ?: cdtext?.albumSongwriter
-                            )
-                            FlacMeta.writeTags(flacFile, tags, "Salt Audio Copy $APP_VERSION")
-                            Diag.log("flac tags track=${entry.track}: ${tags.size}")
-                        }.onFailure {
-                            Diag.log("flac tag failed track=${entry.track}", it)
-                            warn(Strings.fmt("第 %s 轨标签写入失败（音频不受影响）: %s", entry.track, it.message))
-                        }
+                    runCatching {
+                        val isrc = album?.track(entry.track)?.isrc
+                        // 专辑名/艺术家一律传「已解析」的值：没有元数据时用占位名，
+                        // 免得目录叫「未知专辑」而标签里根本没有 ALBUM 字段——
+                        // 播放器会把这些文件散成「未知专辑」而聚合不起来。
+                        val tags = FlacMeta.trackTags(
+                            albumTitle = albumTitle,
+                            albumArtist = albumArtist,
+                            year = album?.year,
+                            genre = album?.genre,
+                            trackNumber = entry.track,
+                            trackTitle = title,
+                            trackArtist = artist,
+                            isrc = isrc,
+                            trackTotal = availableTracks.size,
+                            discNumber = album?.discNumber,
+                            totalDiscs = album?.totalDiscs,
+                            comment = "Salt Audio Copy $APP_VERSION",
+                            composer = cdtext?.songwriters?.get(entry.track)
+                                ?: cdtext?.albumSongwriter
+                        )
+                        FlacMeta.writeTags(flacFile, tags, "Salt Audio Copy $APP_VERSION")
+                        Diag.log("flac tags track=${entry.track}: ${tags.size}")
+                    }.onFailure {
+                        Diag.log("flac tag failed track=${entry.track}", it)
+                        warn(Strings.fmt("第 %s 轨标签写入失败（音频不受影响）: %s", entry.track, it.message))
                     }
                     if (!settings.keepWav) runCatching { Files.deleteIfExists(outFile) }
                 } catch (e: Throwable) {
@@ -563,8 +561,7 @@ object AlbumRipper {
                         "format" to settings.format,
                         "readCommand" to settings.readCommand,
                         "imageMode" to settings.imageMode.toString(),
-                        "writeTags" to settings.writeTags.toString(),
-                        "embedCover" to settings.embedCover.toString()
+                                        "embedCover" to settings.embedCover.toString()
                     ),
                     notes,
                     hasCdText = cdtext?.hasText

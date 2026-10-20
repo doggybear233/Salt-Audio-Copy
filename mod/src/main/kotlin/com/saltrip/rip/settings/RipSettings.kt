@@ -62,7 +62,6 @@ data class RipSettings(
     /** 抓轨前先整盘预扫 INDEX 00，避免逐轨重复扫 Q 子通道。 */
     val analyzeBeforeRip: Boolean = false,
     /** FLAC 输出时写 Vorbis 标签（需要 metaflac.exe）。 */
-    val writeTags: Boolean = true,
     /** FLAC 输出时把封面内嵌进每个文件。 */
     val embedCover: Boolean = true,
     /** 是否用 C2 位检查读取错误（驱动器不支持时自动降级）。 */
@@ -76,7 +75,6 @@ data class RipSettings(
     val testMode: Boolean = false,
 
     /** 给 WAV 写 RIFF LIST/INFO 标签（资源管理器可见的标题/艺术家/专辑）。 */
-    val writeWavTags: Boolean = true,
     /** 抓完后把解析结果写成 `<专辑目录>/album.json`，下次同盘可离线复用/手工修正。 */
     val writeAlbumJson: Boolean = false,
     /** 抓过的盘再抓时，优先用上次存下的 album.json（离线、可手改）。 */
@@ -158,7 +156,6 @@ object SettingsStore {
         const val KEY_DEFEAT_CACHE = "defeatCache"
     private const val KEY_TEST_COPY = "testAndCopy"
     private const val KEY_TEST_MODE = "testMode"
-    private const val KEY_WAV_TAGS = "writeWavTags"
     private const val KEY_DETECT_GAPS = "detectGaps"
     private const val KEY_ERROR_RECOVERY = "errorRecovery"
     private const val KEY_GAP_MODE = "gapMode"
@@ -236,7 +233,6 @@ object SettingsStore {
             defeatCache = readBool(h, KEY_DEFEAT_CACHE, d.defeatCache),
             testAndCopy = readBool(h, KEY_TEST_COPY, d.testAndCopy),
             testMode = readBool(h, KEY_TEST_MODE, d.testMode),
-            writeWavTags = readBool(h, KEY_WAV_TAGS, d.writeWavTags),
             detectGaps = readBool(h, KEY_DETECT_GAPS, d.detectGaps),
             errorRecovery = read(h, KEY_ERROR_RECOVERY, d.errorRecovery),
             gapMethod = runCatching { h.get(KEY_GAP_METHOD, d.gapMethod) }.getOrDefault(d.gapMethod),
@@ -291,7 +287,6 @@ object SettingsStore {
             h.set(KEY_DEFEAT_CACHE, s.defeatCache)
             h.set(KEY_TEST_COPY, s.testAndCopy)
             h.set(KEY_TEST_MODE, s.testMode)
-            h.set(KEY_WAV_TAGS, s.writeWavTags)
             h.set(KEY_DETECT_GAPS, s.detectGaps)
             h.set(KEY_ERROR_RECOVERY, s.errorRecovery)
             h.set(KEY_GAP_MODE, s.gapMode)

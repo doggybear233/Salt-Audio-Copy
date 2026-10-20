@@ -181,7 +181,7 @@ class FlacFormatTest {
     @Test
     fun flacRipProducesTaggedFlacAndKeepsNoWav() {
         FlacEncoder.runnerOverride = copyRunner()
-        val s = settings().copy(format = "flac", keepWav = false, writeTags = true)
+        val s = settings().copy(format = "flac", keepWav = false)
         val res = AlbumRipper.rip(scan(), s, { false }, {}, onlyTracks = setOf(1), source = fake())
 
         val track = res.tracks.single()
@@ -232,7 +232,7 @@ class FlacFormatTest {
         FlacEncoder.runnerOverride = copyRunner()
         val s = settings().copy(
             format = "flac", keepWav = false,
-            imageMode = true, writeTags = true
+            imageMode = true
         )
         val res = AlbumRipper.rip(scan(), s, { false }, {}, source = fake())
 

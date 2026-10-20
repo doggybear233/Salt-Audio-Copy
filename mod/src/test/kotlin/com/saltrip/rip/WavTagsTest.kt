@@ -169,4 +169,19 @@ class WavTagsTest {
             ((b[off + 1].toInt() and 0xFF) shl 8) or
             ((b[off + 2].toInt() and 0xFF) shl 16) or
             ((b[off + 3].toInt() and 0xFF) shl 24)
+
+    @Test
+    fun gbkMapsSimplifiedChineseCompletely() {
+        // 中文 Windows 的 ANSI 是 GBK：简体中文全部可映射，资源管理器里不会出现问号
+        val gbk = java.nio.charset.Charset.forName("GBK")
+        assertEquals("测试专辑 王菲", com.saltrip.rip.encode.WavTags.infoValue("测试专辑 王菲", gbk))
+        assertEquals("夜に駆ける", com.saltrip.rip.encode.WavTags.infoValue("夜に駆ける", gbk))
+    }
+
+    @Test
+    fun gbkDropsPureKoreanBecauseItCannotBeRepresented() {
+        val gbk = java.nio.charset.Charset.forName("GBK")
+        // 整条都映射不了、也没有 ASCII 可救 → 宁可不写这个字段，也不写一排问号
+        assertNull(com.saltrip.rip.encode.WavTags.infoValue("사랑", gbk))
+    }
 }

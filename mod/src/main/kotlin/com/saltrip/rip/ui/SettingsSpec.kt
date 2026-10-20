@@ -124,14 +124,9 @@ object SettingsSpec {
         ),
         SettingPage(
             "p5", "标签与附属文件", listOf(
-                sw("writeTags").copy(
-                    visibleWhen = { it.format == "flac" },
-                    hint = "FLAC 没有标签就只剩裸音频"
-                ),
                 sw("embedCover").copy(visibleWhen = { it.format == "flac" }),
                 opt("coverSize", "0" to "原图（推荐）", "500" to "500 px", "1200" to "1200 px"),
-                sw("writeWavTags").copy(visibleWhen = { it.format == "wav" }),
-                sw("writeCue"),
+                            sw("writeCue"),
                 sw("annotateCueCrc").copy(visibleWhen = { it.writeCue }),
                 sw("writeLog")
             )
@@ -206,7 +201,8 @@ object SettingsSpec {
                 act("probePath", "试写测试（中文路径）"),
                 act("resetDefaults", "恢复默认设置"),
                 act("openLogFolder", "打开日志文件夹"),
-            act("testNetwork", "网络自检（音乐库 / CDDB）")
+            act("testEnvironment", "环境自检（语言 / 编码 / 路径）", "看清楚系统代码页与中日韩路径能不能写"),
+        act("testNetwork", "网络自检（音乐库 / CDDB）")
             )
         )
     )
@@ -250,9 +246,7 @@ object SettingsAccess {
         "preferTrackCount" -> s.preferTrackCount
         "reuseAlbumJson" -> s.reuseAlbumJson
         "writeAlbumJson" -> s.writeAlbumJson
-        "writeTags" -> s.writeTags
         "embedCover" -> s.embedCover
-        "writeWavTags" -> s.writeWavTags
         "writeCue" -> s.writeCue
         "annotateCueCrc" -> s.annotateCueCrc
         "writeLog" -> s.writeLog
@@ -278,9 +272,7 @@ object SettingsAccess {
         "preferTrackCount" -> s.copy(preferTrackCount = v)
         "reuseAlbumJson" -> s.copy(reuseAlbumJson = v)
         "writeAlbumJson" -> s.copy(writeAlbumJson = v)
-        "writeTags" -> s.copy(writeTags = v)
         "embedCover" -> s.copy(embedCover = v)
-        "writeWavTags" -> s.copy(writeWavTags = v)
         "writeCue" -> s.copy(writeCue = v)
         "annotateCueCrc" -> s.copy(annotateCueCrc = v)
         "writeLog" -> s.copy(writeLog = v)

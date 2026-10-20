@@ -94,7 +94,9 @@ data class ManualDraft(
                 val hit = cached?.tracks?.firstOrNull { it.number == n }
                 ManualTrack(
                     number = n,
-                    title = displayable(hit?.title).ifBlank { "Track %02d".format(n) },
+                    // 不预填「Track 01」：用户要能直接打字，不用先删占位名。
+                    // 真没填的时候 [toAlbumMeta] 会补回同样的默认名，输出文件不会空。
+                    title = displayable(hit?.title),
                     artist = displayable(hit?.artist)
                 )
             }

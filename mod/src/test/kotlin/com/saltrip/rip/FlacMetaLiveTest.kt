@@ -88,7 +88,6 @@ class FlacMetaLiveTest {
             fetchMetadata = false,
             format = "flac",
                 keepWav = false,
-            writeTags = true,
             embedCover = false,
             secureMode = true,
             testAndCopy = false,
