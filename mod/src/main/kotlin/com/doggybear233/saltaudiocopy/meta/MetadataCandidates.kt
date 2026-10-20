@@ -58,8 +58,8 @@ object MetadataCandidates {
     ): Result {
         // 设置里的代理每次查询前同步一次：用户改完设置不必重启宿主。
         Http.configure(settings.proxyUrl)
-        // 上一次的取消不该影响这一次查询
-        Http.startRequest()
+        // 每次查询一个新批次：上一次的取消不该影响这一次（旧实现是全局粘性开关）。
+        val scope = Http.beginScope()
         if (Http.proxyInUse()) Diag.log("http proxy in use: ${settings.proxyUrl}")
         val notes = ArrayList<String>()
         val discId = runCatching { DiscId.musicBrainz(toc) }
@@ -77,6 +77,8 @@ object MetadataCandidates {
                 )
                 }
                 .getOrDefault(emptyList())
+            // runCatching 会把取消也吞成「查询失败」，所以每条通道后都要显式放行取消。
+            if (scope.cancelled) throw RequestCancelled()
             val ranked = MetadataService.rank(releases, toc.tracks.size, settings.preferTrackCount)
             if (releases.isEmpty()) {
                 // 区分「库里确实没有」与「服务暂时不可用」：后者要说出来，
@@ -87,7 +89,7 @@ object MetadataCandidates {
             val top = ranked.take(12)
             // 12 张封面串行下载会把候选面板拖住十几秒（共享单线程上更糟）；
             // 并行取，顺序按候选排列保持不变。
-            val covers = coverThumbs(top.map { it.releaseId })
+            val covers = coverThumbs(top.map { it.releaseId }, scope)
             top.forEachIndexed { i, m ->
                 val cover = covers.getOrNull(i)
                 out += Candidate(
@@ -167,24 +169,53 @@ object MetadataCandidates {
         return Result(discId, cddb, out, notes)
     }
 
-    /** 并行取候选缩略图（4 线程足够绕开单次往返的等待），失败当没有封面。 */
-    private fun coverThumbs(ids: List<String?>): List<Pair<ByteArray, String>?> {
+    /**
+     * 并行取候选缩略图，失败当没有封面。
+     *
+     * 三条硬约束（都是真机踩过的）：
+     * 1. **有总预算**：12 张封面各等 20 秒，候选面板能卡几分钟；[budgetMs] 到点就交卷。
+     * 2. **线程是 daemon 且命名**：以前默认线程工厂是非 daemon，`shutdownNow` 也不等，
+     *    用户关面板后 JVM 里还挂着 `pool-N-thread-M`，宿主退出时会被它们拖住。
+     * 3. **取消直达**：用户点取消时正在等封面，要立刻返回（返回 null 图，不留半截任务）。
+     */
+    private fun coverThumbs(
+        ids: List<String?>,
+        scope: Scope,
+        budgetMs: Long = 4_000
+    ): List<Pair<ByteArray, String>?> {
         if (ids.isEmpty()) return emptyList()
-        val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
+        val threads = java.util.concurrent.atomic.AtomicInteger(0)
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(4) { r ->
+            Thread(r, "saltaudiocopy-cover-${threads.incrementAndGet()}").apply { isDaemon = true }
+        }
         return try {
             val tasks = ids.map { id ->
                 java.util.concurrent.Callable {
-                    id?.let { runCatching { CoverArtClient.front(it, THUMB_SIZE) }.getOrNull() }
+                    if (scope.cancelled) return@Callable null
+                    id?.let {
+                        runCatching {
+                            CoverArtClient.front(
+                                it,
+                                THUMB_SIZE,
+                                scope = scope,
+                                retries = 0,
+                                connectMs = 1_500,
+                                readMs = 3_000
+                            )
+                        }.getOrNull()
+                    }
                 }
             }
-            pool.invokeAll(tasks).map { f ->
-                runCatching { f.get() }.getOrNull()
+            val futures = pool.invokeAll(tasks, budgetMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+            futures.map { f ->
+                if (f.isCancelled) null else runCatching { f.get() }.getOrNull()
             }
         } catch (e: Throwable) {
             Diag.log("cover thumbs failed", e)
             ids.map { null }
         } finally {
             pool.shutdownNow()
+            runCatching { pool.awaitTermination(250, java.util.concurrent.TimeUnit.MILLISECONDS) }
         }
     }
 

@@ -44,6 +44,8 @@ object NetCheck {
         deadlineMs: Long = 9_000
     ): List<Item> {
         Http.configure(proxyUrl)
+        // 自检是独立批次：用户上一次取消过抓轨，不该让自检全部报「已取消」。
+        val scope = Http.beginScope()
         val pool = Executors.newFixedThreadPool(TARGETS.size) { r ->
             Thread(r, "saltaudiocopy-netcheck").apply { isDaemon = true }
         }
@@ -51,7 +53,7 @@ object NetCheck {
             val tasks = TARGETS.map { t ->
                 Callable {
                     try {
-                        val ms = Http.ping(t.url, connectMs = connectMs, readMs = readMs)
+                        val ms = Http.ping(t.url, connectMs = connectMs, readMs = readMs, scope = scope)
                         Item(t.name, t.url, ok = true, ms = ms)
                     } catch (e: Throwable) {
                         Item(t.name, t.url, ok = false, ms = 0, note = brief(e))

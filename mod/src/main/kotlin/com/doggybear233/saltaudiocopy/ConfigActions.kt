@@ -709,6 +709,13 @@ object ConfigActions {
                         )
                     }
                 }
+            } catch (e: com.doggybear233.saltaudiocopy.meta.RequestCancelled) {
+                // 用户取消：不是失败，不要弹「查询失败」，也不要把镜像记成挂掉。
+                Diag.log("lookup cancelled by user")
+                PanelState.set(
+                    Strings.message("已取消查询"),
+                    Strings.message("需要时可以再点一次刷新元数据")
+                )
             } catch (e: Throwable) {
                 Diag.log("lookupMetadata failed", e)
                 if (interactive) toast(Strings.message("查询失败：") + com.doggybear233.saltaudiocopy.scsi.ScsiMessages.human(e), ToastType.Error)

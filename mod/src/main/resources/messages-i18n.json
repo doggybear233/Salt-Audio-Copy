@@ -1412,6 +1412,14 @@
     "宿主配置不可用，改动只在本次运行有效；详见日志": [
       "The host configuration is unavailable, so changes only apply to this session (see the log)",
       "ホストの設定を利用できないため、変更は今回の起動中のみ有効です（ログ参照）"
+    ],
+    "已取消查询": [
+      "Lookup cancelled",
+      "取得を中止しました"
+    ],
+    "需要时可以再点一次刷新元数据": [
+      "You can press Refresh metadata again whenever you need.",
+      "必要になったら「メタデータ更新」をもう一度押してください。"
     ]
   }
 }

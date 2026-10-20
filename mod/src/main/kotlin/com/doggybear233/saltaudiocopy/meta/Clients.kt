@@ -135,10 +135,23 @@ object CoverArtClient {
         if (size <= 0) "https://coverartarchive.org/release/$releaseId/front"
         else "https://coverartarchive.org/release/$releaseId/front-$size"
 
-    fun front(releaseId: String, size: Int = 0): Pair<ByteArray, String>? {
+    fun front(
+        releaseId: String,
+        size: Int = 0,
+        scope: Scope = Http.activeScope(),
+        retries: Int = 2,
+        connectMs: Int = 4_000,
+        readMs: Int = 20_000
+    ): Pair<ByteArray, String>? {
         val url = urlFor(releaseId, size)
         return try {
-            val r = Http.getBytes(url)
+            val r = Http.getBytes(
+                url,
+                scope = scope,
+                retries = retries,
+                connectMs = connectMs,
+                readMs = readMs
+            )
             if (r.status !in 200..299) {
                 Diag.log("caa: $url -> HTTP ${r.status}")
                 return null
@@ -147,6 +160,9 @@ object CoverArtClient {
                 ?: if (r.body.size > 3 && r.body[0] == 0xFF.toByte() && r.body[1] == 0xD8.toByte()) "image/jpeg" else "image/png"
             Diag.log("caa: $url -> ${r.body.size} B $mime")
             r.body to mime
+        } catch (e: RequestCancelled) {
+            // 用户取消不是「封面下载失败」，必须让上层看到取消，否则会被记成一次网络故障。
+            throw e
         } catch (e: Exception) {
             Diag.log("caa: $releaseId front($size) failed", e)
             null
@@ -194,6 +210,9 @@ object GnudbClient {
     /** 本次运行里已经证明连不上的镜像，别再每次都等一遍超时。 */
     private val deadMirrors: MutableSet<String> = java.util.Collections.synchronizedSet(HashSet())
 
+    /** 被判定「连不上」而跳过的镜像数（测试与诊断用；取消不该让它增加）。 */
+    internal fun deadMirrorCount(): Int = deadMirrors.size
+
     /** 上一次实际成功的镜像（诊断用）。 */
     @Volatile
     var lastMirror: String? = null
@@ -231,6 +250,10 @@ object GnudbClient {
                     }
                     lastMirror = host
                     return r
+                } catch (e: RequestCancelled) {
+                    // 取消不能被记成「这个镜像挂了」：以前会把 host 加进 deadMirrors，
+                    // 取消一次抓轨之后整个进程内 CDDB 就永久不可用。
+                    throw e
                 } catch (e: Throwable) {
                     lastError = e
                     deadMirrors += host
