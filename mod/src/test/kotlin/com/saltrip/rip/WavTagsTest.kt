@@ -123,6 +123,47 @@ class WavTagsTest {
         assertNotNull(WavTags.listBlock(mapOf("title" to "t")))
     }
 
+    /** INFO 只能写系统 ANSI：能对上的字照写，对不上的用 ? 顶（且连续不可映射只留一个 ?）。 */
+    @Test
+    fun infoValueMapsWhatAnsiCanRepresent() {
+        val cs = java.nio.charset.Charset.forName("windows-31j")
+        // 纯 ASCII / 日文假名 / 汉字（JIS 里有的）都能原样
+        assertEquals("灰かぶり", WavTags.infoValue("灰かぶり", cs))
+        assertEquals("王菲", WavTags.infoValue("王菲", cs))
+        // 简体「红」不在 JIS 里 → ?，其余保留
+        val cn = assertNotNull(WavTags.infoValue("红豆", cs))
+        assertTrue(cn.contains("豆"), "cn=$cn")
+        // 韩文完全映射不了 → 丢掉该字段，不写 ????
+        assertNull(WavTags.infoValue("봄날", cs))
+        // emoji 连续不可映射 → 只留一个 ?
+        val emoji = assertNotNull(WavTags.infoValue("夜に駆ける 🎧", cs))
+        assertEquals("夜に駆ける ?", emoji)
+    }
+
+    @Test
+    fun listBlockDropsUnmappableFields() {
+        val cs = java.nio.charset.Charset.forName("windows-31j")
+        val block = assertNotNull(
+            WavTags.listBlock(mapOf("title" to "봄날", "album" to "You Never Walk Alone"), charset = null)
+        )
+        val text = String(block, cs)
+        assertTrue(text.contains("IPRD"), "ASCII 字段要留下")
+        assertFalse(text.contains("INAM"), "纯韩文标题不该写成 ????")
+    }
+
+    /** INFO 整块写不出来时，仍要用 id3 保住文本（否则纯韩文专辑会连标签都没有）。 */
+    @Test
+    fun writesId3EvenWhenInfoIsImpossible() {
+        val f = wav("ko.wav", 200)
+        assertTrue(WavTags.write(f, mapOf("title" to "봄날", "artist" to "방탄소년단", "album" to "You Never Walk Alone")))
+        val tags = WavTags.read(f)
+        assertEquals("봄날", tags["title"])
+        assertEquals("방탄소년단", tags["artist"])
+        val raw = String(Files.readAllBytes(f), java.nio.charset.Charset.forName("ISO-8859-1"))
+        assertTrue(raw.contains("id3 "), "应有 id3 块")
+        assertTrue(raw.contains("IPRD"), "ASCII 专辑名仍写进 INFO")
+    }
+
     private fun le32Of(b: ByteArray, off: Int): Int =
         (b[off].toInt() and 0xFF) or
             ((b[off + 1].toInt() and 0xFF) shl 8) or

@@ -16,8 +16,9 @@ import java.nio.file.StandardCopyOption
  * 但现代播放器（foobar2000、ffmpeg 系）读 WAV 时按 **UTF-8** 解释 INFO，甚至优先读
  * WAV 里的 ID3v2 块。所以正确做法是：
  *
- * 1. `INFO` 用**系统代码页**写（全部字段都能表示时），Explorer 侧正确；
- *    有字符表示不了（例如日文系统里的西里尔文）就整体退回 UTF-8，至少不丢字符；
+ * 1. `INFO` 用**系统代码页**写：全部字段都能表示时用原文；有字符表示不了（简体中文、
+ *    韩文、阿拉伯文、emoji…）就**逐字映射**——ANSI 里有的字照原样，没有的换成 `?`，
+ *    整串都映射不了（纯韩文）干脆不写该字段，避免资源管理器里出现一串 `????`；
  * 2. 追加一个 `id3 ` 块，ID3v2.3 + UTF-16LE（带 BOM），任何语言的字符都能无损表达；
  *    它排在 INFO 后面，ffmpeg 之类「后出现的键覆盖前面的」解析顺序会拿到正确文本。
  *
@@ -69,6 +70,45 @@ object WavTags {
         return runCatching { Charset.forName("windows-31j") }.getOrDefault(Charsets.ISO_8859_1)
     }
 
+    /**
+     * 把文本尽量映射成系统 ANSI 能表示的字符串。
+     *
+     * 资源管理器只按 ANSI 解 INFO，所以中文/韩文在日文系统上无法原样显示。
+     * 与其让整串变成乱码，不如逐字映射：ANSI 里有的字（中日共用汉字、西里尔等）照原样，
+     * 没有的字换成 `?`——至少「王菲」能正确显示，「?豆」也能猜出来。
+     *
+     * @return 映射结果 + 映射成功的非 ASCII 字符数（0 表示这一串完全无法对应，调用方应丢掉该字段）
+     */
+    internal fun bestEffortAnsi(value: String, cs: Charset = ansiCharset()): Pair<String, Int> {
+        val enc = cs.newEncoder()
+        val sb = StringBuilder(value.length)
+        var mapped = 0
+        for (ch in value) {
+            if (enc.canEncode(ch.toString())) {
+                sb.append(ch)
+                if (ch.code > 0x7F) mapped++
+            } else if (sb.isEmpty() || sb.last() != '?') {
+                // 连续不可映射的字符合成一个 ?（emoji 是代理对，否则会出现「??」）
+                sb.append('?')
+            }
+        }
+        return sb.toString() to mapped
+    }
+
+    /**
+     * INFO 块实际要写的值：ANSI 能全表示就用原文，否则逐字映射；
+     * 完全映射不了（纯韩文/阿拉伯文/emoji）就返回 null，让这个字段干脆不写，
+     * 免得资源管理器里出现一串 `????`。
+     */
+    internal fun infoValue(value: String, cs: Charset = ansiCharset()): String? {
+        val enc = cs.newEncoder()
+        if (enc.canEncode(value)) return value
+        val (mapped, count) = bestEffortAnsi(value, cs)
+        // 只认「字母/数字」的 ASCII 兜底：纯空格不能救活一串阿拉伯文
+        val hasAsciiWord = value.any { it.code < 0x80 && it.isLetterOrDigit() }
+        return if (count > 0 || hasAsciiWord) mapped else null
+    }
+
     /** 全部字段都能用 [cs] 表示才用它，否则整体退回 UTF-8（避免同一块里混编码）。 */
     internal fun infoCharset(values: Collection<String>): Charset {
         val ansi = ansiCharset()
@@ -77,13 +117,16 @@ object WavTags {
     }
 
     /** 组装 `LIST(INFO ...)` 块；无标签返回 null。 */
-    fun listBlock(tags: Map<String, String>, charset: Charset = infoCharset(tags.values)): ByteArray? {
+    fun listBlock(tags: Map<String, String>, charset: Charset? = null): ByteArray? {
+        val cs = charset ?: ansiCharset()
         val entries = tags.entries
             .filter { it.value.isNotBlank() }
             .mapNotNull { (k, v) ->
                 val id = IDS[k] ?: return@mapNotNull null
+                // charset 显式指定时按调用方要求写；默认走「尽量 ANSI」
+                val text = if (charset != null) v else infoValue(v, cs) ?: return@mapNotNull null
                 // RIFF 子块字符串带结尾 NUL（长度含 NUL），否则部分播放器会读进脏字节
-                id to (v + "\u0000").toByteArray(charset)
+                id to (text + "\u0000").toByteArray(cs)
             }
         if (entries.isEmpty()) return null
 
@@ -154,16 +197,23 @@ object WavTags {
         if (bytes.size < 12) return false
         if (ascii(bytes, 0, 4) != "RIFF" || ascii(bytes, 8, 4) != "WAVE") return false
 
-        val info = listBlock(tags) ?: return false
+        // INFO 可能整块写不出来（纯韩文/阿拉伯文在日文系统上无法编码），
+        // 这时至少还有 id3 能无损保存，不能因此整份放弃。
+        val info = listBlock(tags)
         val id3 = id3Block(tags)
+        if (info == null && id3 == null) return false
 
         // 先去掉旧的 LIST/INFO 与 id3 块（重复打标签时不叠加）
         val body = stripMeta(bytes) ?: return false
 
-        val merged = ByteArray(body.size + info.size + (id3?.size ?: 0))
+        val merged = ByteArray(body.size + (info?.size ?: 0) + (id3?.size ?: 0))
         System.arraycopy(body, 0, merged, 0, body.size)
-        System.arraycopy(info, 0, merged, body.size, info.size)
-        if (id3 != null) System.arraycopy(id3, 0, merged, body.size + info.size, id3.size)
+        var off = body.size
+        if (info != null) {
+            System.arraycopy(info, 0, merged, off, info.size)
+            off += info.size
+        }
+        if (id3 != null) System.arraycopy(id3, 0, merged, off, id3.size)
         fixRiffSize(merged)
 
         val tmp = file.resolveSibling(file.fileName.toString() + ".tagtmp")
