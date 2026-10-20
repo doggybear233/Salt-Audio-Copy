@@ -33,6 +33,17 @@ object ConfigActions {
     private val exec = Executors.newSingleThreadExecutor { r ->
         Thread(r, "saltrip-worker").apply { isDaemon = true }
     }
+
+    /**
+     * 「保存手填元数据」专用线程。
+     *
+     * [exec] 是单线程串行队列：自动查元数据（CDDB 镜像连不上时要等几十秒）占着它的时候，
+     * 保存动作被排在后面，用户会以为「点保存没反应」。这条只写本地文件，
+     * 单独一条线程既不会被查询堵住，也不会和查询互相抢。
+     */
+    private val saveExec = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "saltrip-save").apply { isDaemon = true }
+    }
     private val cancelFlag = AtomicBoolean(false)
 
     @Volatile
@@ -746,11 +757,36 @@ object ConfigActions {
     }
 
     /**
+     * 保存手填元数据时「先让界面更新」的那一步要显示的摘要。
+     *
+     * 纯函数、不碰光驱：坞上立刻换成用户刚写的歌手/专辑/轨数，
+     * 时长与 DiscID 沿用盘上已有的信息（未扫描过就用空串）。
+     */
+    internal fun optimisticDisc(
+        draft: com.saltrip.rip.ui.ManualDraft,
+        before: com.saltrip.rip.ui.PanelState.DiscInfo?
+    ): com.saltrip.rip.ui.PanelState.DiscInfo {
+        val album = draft.toAlbumMeta(before?.discId.orEmpty())
+        return com.saltrip.rip.ui.PanelState.DiscInfo(
+            tracks = album.tracks.size,
+            artist = album.albumArtist,
+            album = album.albumTitle,
+            lengthText = before?.lengthText.orEmpty(),
+            discId = before?.discId.orEmpty(),
+            audio = before?.audio ?: true
+        )
+    }
+
+    /**
      * 保存手填的元数据。
      *
      * 写两份同样的 JSON：
      * - `<输出根>/.saltaudiocopy/album-<DiscID>.json`：抓轨时 `AlbumRipper` 直接沿用；
      * - `<输出根>/<DiscID>.album.json`：`MetaOverride` 认的位置，「刷新元数据」/离线查询也能读到。
+     *
+     * 分两步：**先立刻改面板状态**（用户点了保存就该马上看到名字变了），
+     * 再把写文件丢到 [saveExec]。旧实现在工作线程里先 `freshScan()`（读 TOC，
+     * 可能等上十几秒）且排在查询后面，于是"点保存没反应"。
      */
     @JvmStatic
     fun saveManualMeta() {
@@ -759,14 +795,32 @@ object ConfigActions {
             Notify.warn("至少写一个专辑名或歌名再保存")
             return
         }
-        exec.execute {
+
+        val album = draft.toAlbumMeta(PanelState.disc?.discId.orEmpty())
+        // 1) 立刻反映到坞上：轨数/歌手/专辑名都用刚填的，长度与 DiscID 沿用当前盘信息。
+        val before = PanelState.disc
+        PanelState.showDisc(optimisticDisc(draft, before))
+        PanelState.showCandidates(emptyList())
+        PanelState.lookupTried = true
+        PanelState.closeManual()
+        PanelState.set(
+            "已保存手动元数据",
+            "${album.albumArtist} — ${album.albumTitle}（${album.tracks.size} 轨）"
+        )
+        Notify.info("已保存手动元数据，抓轨会用这些名字")
+
+        // 2) 落盘（独立线程，不跟自动查询抢队）
+        saveExec.execute {
             try {
-                val scan = freshScan() ?: return@execute
+                val scan = freshScan() ?: run {
+                    Notify.fail("保存失败：读不到光盘，文件没有写入")
+                    return@execute
+                }
                 val settings = SettingsStore.load()
                 val toc = scan.toc
                 val discId = runCatching { DiscId.musicBrainz(toc) }.getOrDefault("")
-                val album = draft.toAlbumMeta(discId)
-                val json = AlbumJsonWriter.build(album, toc)
+                val finalAlbum = draft.toAlbumMeta(discId)
+                val json = AlbumJsonWriter.build(finalAlbum, toc)
                 val root = settings.effectiveRoot
                 val cachePath = manualCachePath(root, discId, toc.leadOutLba)
                 java.nio.file.Files.createDirectories(cachePath.parent)
@@ -777,23 +831,20 @@ object ConfigActions {
                 Diag.log("manual album.json saved: $cachePath")
                 saveManualCover(cachePath, root, discId)
 
-                PanelState.showDisc(
-                    PanelState.DiscInfo(
-                        tracks = album.tracks.size,
-                        artist = album.albumArtist,
-                        album = album.albumTitle,
-                        lengthText = PanelFormat.duration(
-                            (toc.leadOutLba - (toc.tracks.firstOrNull()?.lba ?: 0)).coerceAtLeast(0) * 1000L / 75L
-                        ),
-                        discId = discId,
-                        audio = toc.isAudioCd
+                // 盘的 DiscID 之前没算出来时，用真实 TOC 补上（不影响用户看到的名字）
+                if (discId.isNotBlank() && before?.discId.isNullOrBlank()) {
+                    PanelState.showDisc(
+                        PanelState.DiscInfo(
+                            tracks = finalAlbum.tracks.size,
+                            artist = finalAlbum.albumArtist,
+                            album = finalAlbum.albumTitle,
+                            lengthText = PanelState.disc?.lengthText.orEmpty(),
+                            discId = discId,
+                            audio = PanelState.disc?.audio ?: true
+                        )
                     )
-                )
-                PanelState.showCandidates(emptyList())
-                PanelState.lookupTried = true
-                PanelState.closeManual()
-                PanelState.set("已保存手动元数据", "${album.albumArtist} — ${album.albumTitle}（${album.tracks.size} 轨）")
-                Notify.info("已保存手动元数据，抓轨会用这些名字")
+                }
+                Diag.log("manual meta persisted: ${finalAlbum.tracks.size} tracks")
             } catch (e: Throwable) {
                 Diag.log("saveManualMeta failed", e)
                 toast("保存失败：" + com.saltrip.rip.scsi.ScsiMessages.human(e), ToastType.Error)
@@ -801,15 +852,26 @@ object ConfigActions {
         }
     }
 
+    /**
+     * 弹文件/目录选择框的线程。
+     *
+     * 选择框是模态的，会一直占着线程直到用户点确定或取消。放进 [exec] 的话，
+     * 一旦用户开着框发呆，后面所有任务（抓轨、查元数据）都被卡住；
+     * 放进 [saveExec] 又会挡住保存。所以每次单开一条一次性线程。
+     */
+    private fun pickerThread(name: String, block: () -> Unit) {
+        Thread(block, name).apply { isDaemon = true }.start()
+    }
+
     /** 手填元数据时导入本地封面（没有网络元数据的盘常常也没有封面）。 */
     @JvmStatic
     fun chooseManualCover() {
-        exec.execute {
+        pickerThread("saltrip-picker-cover") {
             val current = PanelState.manualCover.orEmpty()
             val picked = pickFile(current, "选择专辑封面", "图片 (jpg / jpeg / png / webp / bmp)", "jpg", "jpeg", "jpe", "jfif", "png", "webp", "bmp", "gif")
             if (picked == null) {
                 toast("已取消选择", ToastType.Warning)
-                return@execute
+                return@pickerThread
             }
             PanelState.manualCover = picked
             Notify.info("封面已选：" + picked.substringAfterLast('\\').substringAfterLast('/'))
@@ -1345,12 +1407,12 @@ object ConfigActions {
     /** 选手工元数据覆盖文件（album.json / 自定义 JSON）。 */
     @JvmStatic
     fun chooseOverrideFile() {
-        exec.execute {
+        pickerThread("saltrip-picker-override") {
             val current = runCatching { SettingsStore.load(true).overrideFile }.getOrDefault("")
             val picked = pickFile(current, "选择元数据覆盖文件", "JSON 元数据 (json)", "json")
             if (picked == null) {
                 toast("已取消选择", ToastType.Warning)
-                return@execute
+                return@pickerThread
             }
             if (PanelState.settingsOpen) {
                 PanelState.updateDraft { it.copy(overrideFile = picked) }
@@ -1371,12 +1433,12 @@ object ConfigActions {
      */
     @JvmStatic
     fun chooseOutputRoot() {
-        exec.execute {
+        pickerThread("saltrip-picker-root") {
             val current = runCatching { SettingsStore.load(true).effectiveRoot.toString() }.getOrDefault("")
             val picked = pickFolder(current)
             if (picked == null) {
                 toast("已取消选择", ToastType.Warning)
-                return@execute
+                return@pickerThread
             }
             if (PanelState.settingsOpen) {
                 PanelState.updateDraft { it.copy(outputRoot = picked) }
@@ -1422,12 +1484,12 @@ object ConfigActions {
     /** 选 flac.exe 路径（用户不想填 PATH 时用）。 */
     @JvmStatic
     fun chooseFlacExe() {
-        exec.execute {
+        pickerThread("saltrip-picker-flac") {
             val current = runCatching { SettingsStore.load(true).flacExe }.getOrDefault("flac")
             val picked = pickFile(current, "选择 flac.exe", "FLAC 编码器 (flac.exe)", "exe")
             if (picked == null) {
                 toast("已取消选择", ToastType.Warning)
-                return@execute
+                return@pickerThread
             }
             if (PanelState.settingsOpen) {
                 PanelState.updateDraft { it.copy(flacExe = picked) }
