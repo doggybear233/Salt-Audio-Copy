@@ -66,6 +66,19 @@ object Sptd {
     fun executeInto(dev: MemorySegment, cdb: ByteArray, buf: MemorySegment, bufLen: Int, timeoutSec: Int = 10): Int =
         executeRaw(dev, cdb, buf, bufLen, true, timeoutSec)
 
+    /**
+     * 执行「数据到设备」的命令（MODE SELECT 这类写参数的命令）。
+     * @return 驱动回报的传输字节数
+     */
+    fun executeOut(dev: MemorySegment, cdb: ByteArray, payload: ByteArray, timeoutSec: Int = 10): Int {
+        if (payload.isEmpty()) return executeRaw(dev, cdb, MemorySegment.NULL, 0, false, timeoutSec)
+        Arena.ofConfined().use { arena ->
+            val buf = arena.allocate(payload.size.toLong(), 8)
+            MemorySegment.copy(payload, 0, buf, JAVA_BYTE, 0L, payload.size)
+            return executeRaw(dev, cdb, buf, payload.size, false, timeoutSec)
+        }
+    }
+
     private fun executeRaw(
         dev: MemorySegment, cdb: ByteArray, buf: MemorySegment, bufLen: Int,
         dataIn: Boolean, timeoutSec: Int

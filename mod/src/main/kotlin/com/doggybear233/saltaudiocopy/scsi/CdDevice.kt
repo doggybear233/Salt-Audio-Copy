@@ -115,6 +115,7 @@ class CdDevice(
                 if (cmd == ReadCommand.MMC_C2) {
                     return C2.extractPcm(readAudioSectorsC2(lba, count), count)
                 }
+                if (cmd == ReadCommand.READ10) ensureRead10BlockSize()
                 val expected = count * sectorSize
                 return exact(cmd, expected, Sptd.execute(handle, cmd.cdb(lba, count), expected))
             } catch (e: ScsiException) {
@@ -133,6 +134,7 @@ class CdDevice(
                     MemorySegment.copy(pcm, 0, buf, java.lang.foreign.ValueLayout.JAVA_BYTE, 0L, pcm.size)
                     return pcm.size
                 }
+                if (cmd == ReadCommand.READ10) ensureRead10BlockSize()
                 val expected = count * sectorSize
                 val got = Sptd.executeInto(handle, cmd.cdb(lba, count), buf, expected)
                 if (got != expected) {
@@ -164,6 +166,32 @@ class CdDevice(
             )
         }
         return data
+    }
+
+    private var blockLengthReady = false
+
+    /**
+     * READ(10)（0x28）本身不描述扇区类型，读出来多少字节取决于驱动器当前的块长度：
+     * 音频盘默认往往是 2048（数据扇区），按 2352 收就是短读。
+     *
+     * 所以改用 READ(10) 之前先用 MODE SELECT(10) 把块长度设成 2352。
+     * 以前这里只有一句「靠 MODE SELECT 设成 2352」的注释、代码里根本没有这条命令，
+     * 于是退到 READ10 的驱动器必然短读或报 ILLEGAL REQUEST。
+     */
+    private fun ensureRead10BlockSize() {
+        if (blockLengthReady) return
+        val param = ByteArray(16)
+        param[6] = 0
+        param[7] = 8                                  // 块描述符长度
+        param[13] = ((sectorSize shr 16) and 0xFF).toByte()
+        param[14] = ((sectorSize shr 8) and 0xFF).toByte()
+        param[15] = (sectorSize and 0xFF).toByte()
+        val cdb = ByteArray(12)
+        cdb[0] = 0x55.toByte()                        // MODE SELECT(10)
+        cdb[8] = param.size.toByte()                  // 参数列表长度（低字节）
+        Sptd.executeOut(handle, cdb, param)
+        blockLengthReady = true
+        Diag.log("READ(10): block length set to $sectorSize")
     }
 
     /**

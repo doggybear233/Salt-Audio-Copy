@@ -100,4 +100,19 @@ class ScsiGuardsTest {
         val ok = ByteArray(C2.bufferSize(1))
         assertEquals(2352, C2.extractPcm(ok, 1).size)
     }
+
+    @Test
+    fun allZeroQBlockIsNotAcceptedAsValid() {
+        // 全零 Q 的 stored/computed 都是 0，以前被判「CRC 正确」，间隙检测于是扫出假间隙
+        val q = com.doggybear233.saltaudiocopy.scsi.Subchannel.parseQ(ByteArray(12))
+        assertTrue(q.blank)
+        assertFalse(q.crcValid)
+    }
+
+    @Test
+    fun gapScannerStopsOnBlankQ() {
+        val blank = com.doggybear233.saltaudiocopy.scsi.Subchannel.parseQ(ByteArray(12))
+        val gap = com.doggybear233.saltaudiocopy.scsi.GapDetector.detect(1000, 0) { blank }
+        assertEquals(0, gap.sectors, "全零子通道不能被当成 INDEX 00 间隙")
+    }
 }

@@ -65,7 +65,7 @@ class CdTextTest {
         val sjis = "松田聖子".toByteArray(charset("MS932"))
         val data = CdText.buildResponse(
             listOf(
-                Triple(0x8F, 0, byteArrayOf(0x00, 0x80.toByte())), // charset = 0x80 (Shift-JIS)
+                Triple(0x8F, 0, CdText.sizeInfoPayload(intArrayOf(0x80))), // 块 0 的字符集 = 0x80 (Shift-JIS)
                 Triple(0x81, 0, sjis),
                 Triple(0x80, 0, "Strawberry Time".toByteArray(Charsets.US_ASCII))
             )
@@ -147,5 +147,72 @@ class CdTextTest {
     fun mergeWithoutCdTextReturnsMb() {
         val mb = AlbumMeta("a", "b", null, null, "d", "c", "musicbrainz", emptyList())
         assertEquals("musicbrainz", MetadataService.mergeCdText(null, mb).source)
+    }
+
+    @Test
+    fun blocksAreNotMixedTogether() {
+        // 日文盘常见：块 0 拉丁转写、块 1 Shift-JIS。混在一起按 sequence 拼会得到乱码
+        val block0 = CdText.buildResponse(
+            listOf(
+                Triple(0x8F, 0, CdText.sizeInfoPayload(intArrayOf(0x00, 0x80))),
+                Triple(0x80, 0, latin("Transliterated")),
+                Triple(0x81, 0, latin("Artist"))
+            ),
+            block = 0
+        )
+        val block1 = CdText.buildResponse(
+            listOf(
+                Triple(0x8F, 0, CdText.sizeInfoPayload(intArrayOf(0x00, 0x80))),
+                Triple(0x80, 0, sjis("変身のレシピ")),
+                Triple(0x81, 0, sjis("十明"))
+            ),
+            block = 1
+        )
+        // 两个块的 pack 拼成一份响应（真实驱动也是这么回的）
+        val all = block0 + block1.copyOfRange(4, block1.size)
+        val info = CdText.parse(all)
+        assertNotNull(info)
+        assertEquals("Transliterated", info.albumTitle, "优先块 0，不能与块 1 混拼")
+        assertEquals("Artist", info.albumPerformer)
+        assertEquals(0x00, info.charset)
+    }
+
+    @Test
+    fun blockCharsetComesFromItsOwnSlot() {
+        // 只有块 1 有内容时，字符集要取 data[1*3]，而不是 data[1]（那是首轨号）
+        val data = CdText.buildResponse(
+            listOf(
+                Triple(0x8F, 0, CdText.sizeInfoPayload(intArrayOf(0x00, 0x80, 0, 0))),
+                Triple(0x80, 0, sjis("変身のレシピ"))
+            ),
+            block = 1
+        )
+        val info = CdText.parse(data)
+        assertNotNull(info)
+        assertEquals("変身のレシピ", info.albumTitle)
+        assertEquals(0x80, info.charset)
+    }
+
+    @Test
+    fun declaredKoreanCharsetIsNotTreatedAsJapanese() {
+        // 0x81 = KSC 5601：声明了韩文就不能再用 Shift-JIS 启发式覆盖
+        val korean = "사랑".toByteArray(charset("EUC-KR"))
+        val info = CdText.parse(
+            CdText.buildResponse(
+                listOf(
+                    Triple(0x8F, 0, CdText.sizeInfoPayload(intArrayOf(0x81))),
+                    Triple(0x80, 0, korean)
+                )
+            )
+        )
+        assertNotNull(info)
+        assertEquals(0x81, info.charset)
+        assertEquals("사랑", info.albumTitle)
+    }
+
+    @Test
+    fun unknownCharsetStillFallsBackToHeuristics() {
+        val sjis = "宇多田ヒカル".toByteArray(charset("MS932"))
+        assertEquals("宇多田ヒカル", CdText.decode(sjis, -1))
     }
 }

@@ -64,7 +64,9 @@ object Subchannel {
         val relMsf: Int,
         val absMsf: Int,
         val crcStored: Int,
-        val crcComputed: Int
+        val crcComputed: Int,
+        /** 12 字节 Q 全为 0——驱动器没真正填子通道（常见于部分 SATA 光驱）。 */
+        val blank: Boolean = false
     ) {
         /** 该扇区是否音频轨（control bit2 = 0 表示 audio）。 */
         val isAudio: Boolean get() = (control and 0x04) == 0
@@ -74,9 +76,12 @@ object Subchannel {
          *
          * CD 的 Q 数据里存的是 CRC 的**按位取反值**（实测 `stored == crcComputed xor 0xFFFF`），
          * 两种口径都接受，便于兼容不同驱动器/固件。
+         *
+         * 全零块必须判为无效：全零时 stored 与 computed 都是 0，看起来「校验通过」，
+         * 但 track/index 也都是 0——间隙检测会把它当成「到处都是 INDEX 00」，扫出假间隙。
          */
         val crcValid: Boolean
-            get() = crcStored == crcComputed || crcStored == (crcComputed xor 0xFFFF)
+            get() = !blank && (crcStored == crcComputed || crcStored == (crcComputed xor 0xFFFF))
     }
 
     /** BCD → int。 */
@@ -99,6 +104,7 @@ object Subchannel {
         val control = (q[0].toInt() and 0xF0) shr 4
         val adr = q[0].toInt() and 0x0F
         val stored = ((q[10].toInt() and 0xFF) shl 8) or (q[11].toInt() and 0xFF)
+        val blank = (0 until Q_SIZE).all { (q[it].toInt() and 0xFF) == 0 }
         return Q(
             control = control,
             adr = adr,
@@ -107,7 +113,8 @@ object Subchannel {
             relMsf = msf(q[3], q[4], q[5]),
             absMsf = msf(q[7], q[8], q[9]),
             crcStored = stored,
-            crcComputed = crc16(q, 0, 10)
+            crcComputed = crc16(q, 0, 10),
+            blank = blank
         )
     }
 

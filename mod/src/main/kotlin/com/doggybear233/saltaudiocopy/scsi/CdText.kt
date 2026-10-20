@@ -89,22 +89,29 @@ object CdText {
         while (off + PACK <= end) {
             val type = data[off].toInt() and 0xFF
             if (type and 0x80 == 0) break // 不是 pack
+            val blockAndChar = data[off + 3].toInt() and 0xFF
             packs += Pack(
                 type = type,
                 track = data[off + 1].toInt() and 0xFF,
                 seq = data[off + 2].toInt() and 0xFF,
-                charset = data[off + 3].toInt() and 0x0F,
+                block = (blockAndChar shr 4) and 0x0F,
+                charPos = blockAndChar and 0x0F,
                 data = data.copyOfRange(off + 4, off + 16)
             )
             off += PACK
         }
         if (packs.isEmpty()) return null
 
-        val charset = packs.firstOrNull { it.type == SIZE_INFO && it.data.size > 1 }
-            ?.let { it.data[1].toInt() and 0xFF } ?: -1
+        // 一张盘最多 4 个 CD-TEXT 块，每块可以有自己的字符集（日文盘常见：块 0 半角假名/拉丁、
+        // 块 1 Shift-JIS）。以前把所有 pack 混在一起按 sequence 排，等于把两种编码的字节
+        // 直接拼成一个字符串——日文盘必乱码，而且 charset 取的是全局第一个 0x8F pack。
+        val blocks = packs.groupBy { it.block }
+        val block = chooseBlock(blocks)
+        val inBlock = blocks.getValue(block)
+        val charset = charsetForBlock(block, inBlock)
 
         fun text(type: Int, track: Int): String? {
-            val chunk = packs.filter { it.type == type && it.track == track }
+            val chunk = inBlock.filter { it.type == type && it.track == track }
                 .sortedBy { it.seq }
                 .flatMap { it.data.toList() }
                 .map { it.toInt() and 0xFF }
@@ -117,7 +124,7 @@ object CdText {
         val titles = LinkedHashMap<Int, String>()
         val performers = LinkedHashMap<Int, String>()
         val songwriters = LinkedHashMap<Int, String>()
-        val maxTrack = packs.filter { it.type == TITLE || it.type == PERFORMER || it.type == SONGWRITER }
+        val maxTrack = inBlock.filter { it.type == TITLE || it.type == PERFORMER || it.type == SONGWRITER }
             .maxOfOrNull { it.track } ?: 0
         for (t in 1..maxTrack) {
             text(TITLE, t)?.let { titles[t] = it }
@@ -138,29 +145,70 @@ object CdText {
         )
     }
 
+    /**
+     * 选一个块来展示。
+     *
+     * 优先块 0（绝大多数软件都读块 0），没有块 0 时取编号最小的块；
+     * 只在这些块完全没有标题/艺术家 pack 时，才退到「pack 最多的块」。
+     */
+    private fun chooseBlock(blocks: Map<Int, List<Pack>>): Int {
+        fun hasText(list: List<Pack>) =
+            list.any { it.type == TITLE || it.type == PERFORMER || it.track != 0 }
+        blocks[0]?.let { if (hasText(it)) return 0 }
+        blocks.keys.sorted().forEach { b -> if (hasText(blocks.getValue(b))) return b }
+        return blocks.keys.min()
+    }
+
+    /**
+     * 取某个块的字符集。
+     *
+     * 0x8F（size info）pack 的 12 字节负载是 4 组「字符集 + 首轨 + 末轨」，
+     * 即块 b 的字符集在 `data[b*3]`。旧代码固定读 `data[1]`——那其实是块 0 的**首轨号**，
+     * 于是日文盘被当成 0x01=ASCII 解，全成乱码。
+     */
+    private fun charsetForBlock(block: Int, packs: List<Pack>): Int {
+        val size = packs.firstOrNull { it.type == SIZE_INFO } ?: return -1
+        val idx = block * 3
+        return if (size.data.size > idx) size.data[idx].toInt() and 0xFF else -1
+    }
+
     private data class Pack(
         val type: Int,
         val track: Int,
         val seq: Int,
-        val charset: Int,
+        val block: Int,
+        val charPos: Int,
         val data: ByteArray
     ) {
         override fun equals(other: Any?): Boolean = this === other
         override fun hashCode(): Int = System.identityHashCode(this)
     }
 
-    /** 按字符集解码；未知时先看是否像 Shift-JIS。 */
+    /**
+     * 按字符集代码解码；代码未知（-1 或未定义值）时才按内容猜 Shift-JIS。
+     *
+     * 以前即使盘上明确写了字符集，也仍会走 looksLikeShiftJis 覆盖它——
+     * 韩文/繁体盘（0x81/0x83）会被当成 Shift-JIS 解，出现半角假名乱码。
+     */
     internal fun decode(bytes: ByteArray, charset: Int): String {
         if (bytes.isEmpty()) return ""
-        val japanese = charset in 0x80..0x8F
-        if (japanese) return decodeOrRaw(bytes, SJIS)
-        if (charset >= 0) {
-            // 0x00 / 0x01 及未定义值都按 Latin-1；但若其实是 SJIS 文本，下面会被猜出来
-            if (!looksLikeShiftJis(bytes)) return decodeOrRaw(bytes, Charsets.ISO_8859_1)
-        }
+        charsetFor(charset)?.let { return decodeOrRaw(bytes, it) }
         return if (looksLikeShiftJis(bytes)) decodeOrRaw(bytes, SJIS)
         else decodeOrRaw(bytes, Charsets.ISO_8859_1)
     }
+
+    /** CD-TEXT 字符集代码 → Java 字符集；未知返回 null（交给启发式）。 */
+    internal fun charsetFor(code: Int): java.nio.charset.Charset? = when (code) {
+        0x00, 0x01 -> Charsets.ISO_8859_1          // 0 = ISO 8859-1，1 = ASCII
+        0x80 -> SJIS
+        0x81 -> byName("EUC-KR")                   // KSC 5601
+        0x82 -> byName("GBK")                      // GB 2312
+        0x83 -> byName("Big5")
+        else -> null
+    }
+
+    private fun byName(name: String): java.nio.charset.Charset? =
+        runCatching { java.nio.charset.Charset.forName(name) }.getOrNull()
 
     private fun decodeOrRaw(bytes: ByteArray, cs: java.nio.charset.Charset): String =
         runCatching { String(bytes, cs) }.getOrDefault(String(bytes, Charsets.ISO_8859_1))
@@ -191,11 +239,21 @@ object CdText {
 
     // ---- 供单测/工具构造报文 ----
     /** 把若干 (type, track, 文本字节) 打包成 READ TOC format 5 的响应。 */
-    internal fun buildResponse(packs: List<Triple<Int, Int, ByteArray>>): ByteArray {
+    internal fun buildResponse(packs: List<Triple<Int, Int, ByteArray>>, block: Int = 0): ByteArray {
         var seq = 0
         val body = ArrayList<Byte>()
         for ((type, track, bytes) in packs) {
             var i = 0
+            if (bytes.isEmpty()) {
+                body += (type or 0x80).toByte()
+                body += track.toByte()
+                body += seq.toByte()
+                body += (block shl 4).toByte()
+                repeat(12) { body += 0 }
+                body += 0; body += 0
+                seq++
+                continue
+            }
             while (i < bytes.size) {
                 val take = minOf(12, bytes.size - i)
                 val chunk = ByteArray(12)
@@ -203,7 +261,7 @@ object CdText {
                 body += (type or 0x80).toByte()
                 body += track.toByte()
                 body += seq.toByte()
-                body += 0
+                body += (block shl 4).toByte()
                 chunk.forEach { body += it }
                 body += 0; body += 0 // CRC（解析不校验）
                 seq++
@@ -215,5 +273,16 @@ object CdText {
         out[0] = ((len shr 8) and 0xFF).toByte()
         out[1] = (len and 0xFF).toByte()
         return out.also { body.toByteArray().copyInto(it, 4) }
+    }
+
+    /** 构造 0x8F size-info 负载：块 b 的字符集在 `data[b*3]`。 */
+    internal fun sizeInfoPayload(charsets: IntArray): ByteArray {
+        val out = ByteArray(12)
+        for (b in 0 until 4) {
+            out[b * 3] = (charsets.getOrElse(b) { 0 }).toByte()
+            out[b * 3 + 1] = 1
+            out[b * 3 + 2] = 1
+        }
+        return out
     }
 }
