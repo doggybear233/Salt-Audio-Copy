@@ -25,7 +25,6 @@ class C2LiveTest {
 
     @Test
     fun c2ReadMatchesPlainRead() {
-        HwGate.assumeMedia()
         val dev = deviceOrSkip() ?: return
         dev.use {
             val lba = 0

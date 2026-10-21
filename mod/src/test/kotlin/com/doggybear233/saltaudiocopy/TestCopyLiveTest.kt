@@ -28,7 +28,6 @@ class TestCopyLiveTest {
 
     @Test
     fun testPassCrcEqualsCopyPassCrc() {
-        HwGate.assumeMedia()
         val scan = scanOrSkip() ?: return
         val tmp = Files.createTempDirectory("saltac-testcopy").resolve("track1.wav")
 

@@ -23,7 +23,6 @@ class NonZeroLbaLiveTest {
 
     @Test
     fun trackTwoPcmAgreesAcrossTwoCdbPaths() {
-        HwGate.assumeMedia()
         val scan = runCatching {
             CdDevice("\\\\.\\F:").use { dev ->
                 val toc = dev.readToc()

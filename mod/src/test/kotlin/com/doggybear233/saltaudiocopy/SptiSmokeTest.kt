@@ -2,6 +2,7 @@ package com.doggybear233.saltaudiocopy
 
 import com.doggybear233.saltaudiocopy.scsi.CdDevice
 import org.junit.jupiter.api.Assumptions
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -10,6 +11,7 @@ import kotlin.test.assertTrue
  * 真机冒烟测试：需要 F: 上有音频 CD。没有设备、无介质或非音频 CD 时自动 skip。
  * 作用是在导入宿主之前，先用同一份 FFM 代码验证 SPTI 链路。
  */
+@Tag("live")
 class SptiSmokeTest {
 
     private fun open(): CdDevice? = runCatching { CdDevice("\\\\.\\F:") }.getOrNull()
@@ -22,7 +24,6 @@ class SptiSmokeTest {
 
     @Test
     fun inquiryAndToc() {
-        HwGate.assumeMedia()
         val dev = open()
         Assumptions.assumeTrue(dev != null, "F: 不可用")
         dev!!.use {
@@ -44,7 +45,6 @@ class SptiSmokeTest {
 
     @Test
     fun readOneSector() {
-        HwGate.assumeMedia()
         val dev = open()
         Assumptions.assumeTrue(dev != null, "F: 不可用")
         dev!!.use {
@@ -60,7 +60,6 @@ class SptiSmokeTest {
 
     @Test
     fun readFullChunk() {
-        HwGate.assumeMedia()
         val dev = open()
         Assumptions.assumeTrue(dev != null, "F: 不可用")
         dev!!.use {
@@ -77,7 +76,6 @@ class SptiSmokeTest {
     /** 双读校验路径：两次独立读同区一致，且 verify 返回的数据与单读一致。 */
     @Test
     fun secureVerifyAgreesWithPlainRead() {
-        HwGate.assumeMedia()
         val dev = open()
         Assumptions.assumeTrue(dev != null, "F: 不可用")
         dev!!.use {

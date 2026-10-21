@@ -50,16 +50,15 @@ mod/                     插件模块（Kotlin/JVM + Compose 桌面）
 
 ```powershell
 cd mod
-.\gradlew.bat test --rerun-tasks        # 555 个用例，真机/联网用例（@Tag("live")）默认不跑
+.\gradlew.bat test --rerun-tasks        # 551 个用例，真机/联网用例（@Tag("live")）默认不跑
 .\gradlew.bat liveTest                   # 只跑真机与联网用例（需要 F: 有音频 CD、能上网）
-$env:SALTAC_HW=1; .\gradlew.bat test     # 老写法：把硬件门控用例也带上
 ```
 
 - 纯单元：DiscID / CDDB 算法（期望值由独立 Python 实现生成）、模板引擎、JSON、CUE / 日志 / WAV 头、offset、
   FLAC 标签、路径与 Unicode、设置往返、条件显隐、文案覆盖率。
 - `PreferenceConfigTest` 校验 `preference_config.json` 与 `SettingsSpec` 一一对应，并用反射确认每个
   `on_click` 都能解析到 `ConfigActions` 的静态方法（防按钮拼错）。
-- 真机：INQUIRY / TOC、单扇区、多扇区块、双读校验、整盘落盘、元数据与封面；无盘或 `SALTAC_HW` 未设时 skip。
+- 真机：INQUIRY / TOC、单扇区、多扇区块、双读校验、整盘落盘、元数据与封面；只在 `liveTest` 里跑，缺盘或断网时跳过。
 
 ## 已知限制
 

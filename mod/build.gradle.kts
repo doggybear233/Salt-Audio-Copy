@@ -68,14 +68,7 @@ spmod {
 }
 
 tasks.withType<Test> {
-    useJUnitPlatform()
     jvmArgs("--enable-native-access=ALL-UNNAMED")
-    // 需要真光驱 / 真网络的用例打 @Tag("live")，默认不跑：
-    // 否则换一台没有 F: 盘、或者离线机器，`gradlew test` 会一片红，
-    // 而这些红跟代码质量无关，反而掩盖真正的回归。
-    useJUnitPlatform {
-        excludeTags("live")
-    }
     // 断言的期望值是中文原文；宿主语言的探测在测试里没有宿主，会落到 JVM 默认语言，
     // 而本机（以及多语言 CI）默认可能是日文/英文。钉死成中文，测的才是格式化逻辑本身。
     systemProperty("user.language", "zh")
@@ -86,15 +79,26 @@ tasks.withType<Test> {
     }
 }
 
+// 需要真光驱 / 真网络的用例打 @Tag("live")，默认套件不跑：
+// 否则换一台没有 F: 盘、或者离线机器，`gradlew test` 会一片红，
+// 而这些红跟代码质量无关，反而掩盖真正的回归。
+//
+// 注意：过滤只配在 test 任务上，不能用 tasks.withType<Test>。
+// 否则 liveTest 也会继承 excludeTags("live")，与自己 includeTags("live") 互斥，
+// Gradle 以「排除优先」处理 —— liveTest 一个用例都不跑却返回成功（第 3 轮 F-410）。
+tasks.test {
+    useJUnitPlatform { excludeTags("live") }
+}
+
 /** 真机自检：`gradlew liveTest`（需要 F: 盘音频 CD + 能上网）。 */
 tasks.register<Test>("liveTest") {
     group = "verification"
     description = "Runs tests tagged live (real CD drive / network)."
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
+    // 独立任务上的 include，不继承 test 的 exclude。
     useJUnitPlatform { includeTags("live") }
-    jvmArgs("--enable-native-access=ALL-UNNAMED")
-    systemProperty("user.language", "zh")
-    systemProperty("user.country", "CN")
-    shouldRunAfter(tasks.withType<Test>())
+    // 一个用例都没发现就失败：否则「环境没配好」会被读成「真机全部通过」。
+    filter { isFailOnNoMatchingTests = true }
+    shouldRunAfter(tasks.named("test"))
 }

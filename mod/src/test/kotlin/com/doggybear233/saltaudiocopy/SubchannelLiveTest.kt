@@ -17,7 +17,6 @@ class SubchannelLiveTest {
 
     @Test
     fun qChannelCrcValidAndAddressMatchesLba() {
-        HwGate.assumeMedia()
         val dev = runCatching { CdDevice("\\\\.\\F:") }.getOrNull()
         assumeTrue(dev != null, "没有可用光驱 F:")
         val toc = runCatching { dev!!.readToc() }.getOrNull()
