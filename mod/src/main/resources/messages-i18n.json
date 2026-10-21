@@ -1464,6 +1464,10 @@
     "封面已存在，按设置跳过：%s": [
       "Cover already exists, skipped by your setting: %s",
       "カバーが既に存在するため、設定どおりスキップしました：%s"
+    ],
+    "已保留 %s 轨可续抓的半截文件（再抓一次会接着写）": [
+      "kept %s resumable partial file(s) — the next rip continues from there",
+      "%s トラックの途中ファイルを残しました（次回は続きから書き込みます）"
     ]
   }
 }

@@ -19,6 +19,10 @@ internal object BundledFlac {
 
     private const val RESOURCE_DIR = "/native/win64"
 
+    /** 资源目录；测试里可指向不存在的目录，验证「裁剪过的包」会返回 null 而不是崩溃。 */
+    @Volatile
+    internal var resourceDir: String = RESOURCE_DIR
+
     /** flac.exe 依赖这两个 DLL，缺一个就 0xC0000135（DLL not found）。 */
     private val FILES = listOf("flac.exe", "libFLAC.dll", "libFLAC++.dll")
 
@@ -46,7 +50,7 @@ internal object BundledFlac {
             Files.createDirectories(dir)
             for (name in FILES) {
                 val target = dir.resolve(name)
-                val url = BundledFlac::class.java.getResource("$RESOURCE_DIR/$name") ?: return@runCatching
+                val url = BundledFlac::class.java.getResource("$resourceDir/$name") ?: return@runCatching
                 // 「文件存在」不等于「文件完整」：上次解压到一半被杀、磁盘写失败、
                 // 或用户/杀毒软件动了 bin 目录，都会留下一个大小不对的文件，
                 // 而 flac.exe 与 DLL 版本不匹配时会以 0xC0000135 崩掉，很难查。

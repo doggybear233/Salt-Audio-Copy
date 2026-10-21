@@ -447,13 +447,10 @@ object AlbumRipper {
             // 不影响 PCM 字节，因此也不影响 CRC 与编码器输入。
             // FLAC 模式且不保留 WAV 时，这个文件马上会被删掉：整文件重写标签纯属浪费
             //（几千万字节的读写），跳过即可。
-            val wavWillBeDeleted = settings.format.equals("flac", true) && !settings.keepWav &&
-                !(settings.imageMode && settings.gapMode.lowercase() == "append")
             // 整盘镜像模式下逐轨文件只是拼接的中间产物，随后会被删掉：
             // 给它们打标签是白写一遍几十 MB，且镜像本身反而没有标签。
             val trackIsIntermediate = settings.imageMode && settings.gapMode.lowercase() == "append"
-            if (!r.cancelled && !wavWillBeDeleted && !trackIsIntermediate) {
-                val wavTags = mapOf(
+            val wavTags = mapOf(
                     "title" to title,
                     "artist" to (album?.track(entry.track)?.artist ?: artist),
                     "albumartist" to albumArtist,
@@ -464,14 +461,8 @@ object AlbumRipper {
                     "disc" to album?.discNumber?.let { d ->
                         "%d/%d".format(d, album?.totalDiscs ?: 1)
                     }.orEmpty(),
-                    "comment" to "Salt Audio Copy $APP_VERSION"
-                )
-                val why = com.doggybear233.saltaudiocopy.encode.WavTags.writeResult(outFile, wavTags)
-                if (why != null) {
-                    Diag.log("wav tag failed track=${entry.track}: $why")
-                    warn(Strings.fmt("第 %s 轨 WAV 标签写入失败（音频不受影响）: %s", entry.track, why))
-                }
-            }
+                "comment" to "Salt Audio Copy $APP_VERSION"
+            )
             var finalFile = outFile
             var finalRel = rel
             val encodeAllowed = !r.cancelled && !(settings.imageMode && settings.gapMode.lowercase() == "append")
@@ -519,6 +510,15 @@ object AlbumRipper {
                 }
             }
             fileNames += finalRel
+            // 按「文件是否真的留下」决定打不打 WAV 标签：
+            // FLAC 成功且不保留 WAV → 文件已删，跳过；编码失败/保留 WAV/镜像中间产物 → 该文件还在。
+            if (!r.cancelled && !trackIsIntermediate && java.nio.file.Files.exists(outFile)) {
+                val why = com.doggybear233.saltaudiocopy.encode.WavTags.writeResult(outFile, wavTags)
+                if (why != null) {
+                    Diag.log("wav tag failed track=${entry.track}: $why")
+                    warn(Strings.fmt("第 %s 轨 WAV 标签写入失败（音频不受影响）: %s", entry.track, why))
+                }
+            }
             results += AlbumTrackResult(
                 number = entry.track,
                 title = title,

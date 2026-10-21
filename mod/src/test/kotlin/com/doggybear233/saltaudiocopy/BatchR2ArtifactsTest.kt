@@ -139,14 +139,24 @@ class BatchR2ArtifactsTest {
 
     @Test
     fun bundledFlacMissingResourceReportsNull() {
-        // 资源不存在时（例如裁剪过的包）必须返回 null，让上层给出「重新安装」的提示
-        val probe = object {
-            fun run(): Path? {
-                val url = BundledFlac::class.java.getResource("/native/win64/not-there.exe")
-                assertNull(url, "资源不该存在")
-                return null
-            }
+        // 资源不存在时（例如裁剪过的包）必须返回 null，让上层给出「重新安装」的提示。
+        // 以前这个用例只 assertNull 一个不存在的 URL —— 从不调用被测代码，改坏了也照样绿。
+        val savedDir = BundledFlac.resourceDir
+        val savedOverride = BundledFlac.dirOverride
+        val dir = Files.createTempDirectory("bflac-missing").also { it.toFile().deleteOnExit() }
+        try {
+            BundledFlac.resourceDir = "/native/win64-does-not-exist"
+            BundledFlac.dirOverride = dir
+            BundledFlac.resetForTest()
+            assertNull(BundledFlac.ensure(), "资源缺失时必须返回 null，而不是交出不存在的路径")
+            assertTrue(
+                Files.list(dir).use { s -> s.noneMatch { Files.isRegularFile(it) } },
+                "资源缺失时不该解压出任何文件"
+            )
+        } finally {
+            BundledFlac.resourceDir = savedDir
+            BundledFlac.dirOverride = savedOverride
+            BundledFlac.resetForTest()
         }
-        if (probe.run() != null) fail("不可能到达")
     }
 }

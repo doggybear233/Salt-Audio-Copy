@@ -63,10 +63,16 @@ object ConfigActions {
     }
 
     /** 每次用户动作开始前复位「取消 / 暂停」，避免上一次取消把这一次立刻打断。 */
+    /** 仅供测试：验证「新一次操作会换一批网络 scope」。 */
+    internal fun beginRunForTest() = beginRun()
+
     private fun beginRun() {
         userCancel = false
         PanelState.paused = false
         PanelState.cancelArmed = false
+        // 上一次抓轨点过取消会 cancel 掉那一批的网络 scope；新一次抓轨要能用网络，
+        // 必须在这里换一批。否则「取消过一次之后，封面/元数据永远查不回来」。
+        runCatching { com.doggybear233.saltaudiocopy.meta.Http.beginScope() }
     }
 
     private val cancelFlag = AtomicBoolean(false)
@@ -335,6 +341,7 @@ object ConfigActions {
      */
     @JvmStatic
     fun exportAlbumJson() {
+        runCatching { com.doggybear233.saltaudiocopy.meta.Http.beginScope() }
         onWorkerWithScan { scan ->
             if (!scan.toc.isAudioCd) {
                 toast(Strings.message("当前盘不是音频 CD"), ToastType.Warning)
@@ -804,6 +811,9 @@ object ConfigActions {
         toast(Strings.fmt("正在获取「%s」…", picked.label), ToastType.Success)
         worker().execute {
             try {
+                // 选候选会去 Cover Art Archive / MusicBrainz 取图与详情：
+                // 上次取消留下的 scope 已经作废，这里换一批新的。
+                runCatching { com.doggybear233.saltaudiocopy.meta.Http.beginScope() }
                 val scan = freshScan() ?: return@execute
                 val settings = SettingsStore.load()
                 val cdtext = runCatching {
@@ -1237,6 +1247,7 @@ object ConfigActions {
                 toast(Strings.fmt("开始抓取整张专辑（%s 轨，%s）…", count, modeTalk), ToastType.Success)
                 var lastPct = -10
                 var removedFiles = 0
+                var keptPartials = 0
                 val result = AlbumRipper.rip(
                     scan, settings, { gate() },
                     onProgress = { p: RipProgress ->
@@ -1265,18 +1276,20 @@ object ConfigActions {
                     }
                 )
                 if (result.cancelled) {
-                    // 取消时只清理「没抓完的那一轨」与半成品（CUE/日志），
-                    // 已经完整抓好的音轨是有效成果，不能连坐删掉。
+                    // 取消时清理半成品，但已经完整抓好的音轨是有效成果，不能连坐删掉。
+                    // 另外：开着续抓时，当前这轨「抓到一半」的 WAV 恰恰是下次要接着写的那份，
+                    // 删掉就等于把「断点续抓」的承诺作废（用户以为能接上，结果从头再来）。
                     val finished = result.tracks.filter { !it.skipped }
                         .map { it.file.toAbsolutePath().normalize() }.toSet()
-                    val removable = if (finished.isEmpty()) {
-                        result.createdFiles
-                    } else {
-                        result.createdFiles.filter { it.toAbsolutePath().normalize() !in finished }
-                    }
+                    val resumable = resumableOnCancel(result.createdFiles, settings.resume)
+                    val removable = removableOnCancel(result.createdFiles, finished, resumable)
+                    keptPartials = resumable.count { java.nio.file.Files.exists(it) }
                     removedFiles = deleteCreated(removable)
-                    if (removedFiles > 0) {
-                        Diag.log("cancelled: removed $removedFiles files from ${result.outDir} (kept ${finished.size} tracks)")
+                    if (removedFiles > 0 || keptPartials > 0) {
+                        Diag.log(
+                            "cancelled: removed $removedFiles files from ${result.outDir} " +
+                                "(kept ${finished.size} finished tracks, $keptPartials resumable partials)"
+                        )
                     }
                 }
                 PanelState.lastOutDir = result.outDir
@@ -1289,12 +1302,20 @@ object ConfigActions {
                 Diag.log("album result:\n$detail\nnotes:\n" + result.notes.joinToString("\n"))
                 if (result.cancelled) {
                     val doneCount = result.tracks.count { !it.skipped }
-                    val tail = when {
-                        doneCount > 0 && removedFiles > 0 ->
-                            Strings.fmt("已保留抓完的 %s 轨，清理了 %s 个半成品", doneCount, removedFiles)
-                        doneCount > 0 -> Strings.fmt("已保留抓完的 %s 轨（文件在 %s）", doneCount, result.outDir)
-                        removedFiles > 0 -> Strings.fmt("已删除本次生成的 %s 个文件", removedFiles)
-                        else -> Strings.fmt("文件保留在 %s", result.outDir)
+                    val tail = buildString {
+                        append(
+                            when {
+                                doneCount > 0 && removedFiles > 0 ->
+                                    Strings.fmt("已保留抓完的 %s 轨，清理了 %s 个半成品", doneCount, removedFiles)
+                                doneCount > 0 -> Strings.fmt("已保留抓完的 %s 轨（文件在 %s）", doneCount, result.outDir)
+                                removedFiles > 0 -> Strings.fmt("已删除本次生成的 %s 个文件", removedFiles)
+                                else -> Strings.fmt("文件保留在 %s", result.outDir)
+                            }
+                        )
+                        if (keptPartials > 0) {
+                            append("；")
+                            append(Strings.fmt("已保留 %s 轨可续抓的半截文件（再抓一次会接着写）", keptPartials))
+                        }
                     }
                     PanelState.set(Strings.message("已取消"), tail)
                     toast(Strings.fmt("已取消：完成 %s/%s 轨，%s", result.tracks.size, count, tail), ToastType.Warning)
@@ -1533,6 +1554,34 @@ object ConfigActions {
      * internal 是为了能单测：这是「取消后删文件」这类破坏性行为的唯一入口，
      * 以前没有测试，漏记或多记 createdFiles 都会删错东西或留垃圾。
      */
+    /**
+     * 取消时哪些文件算「可续抓的半截文件」。
+     *
+     * 判据刻意用「文件里已经有 PCM 数据」而不是「那一轨报了 cancelled」：
+     * 抓轨被取消时 AlbumRipper 不会为中断的那轨产出 AlbumTrackResult，
+     * 唯一能看出「这里有一份能接着写的 WAV」的就是文件本身。
+     */
+    internal fun resumableOnCancel(
+        createdFiles: List<java.nio.file.Path>,
+        resume: Boolean
+    ): Set<java.nio.file.Path> {
+        if (!resume) return emptySet()
+        return createdFiles.filter { p ->
+            p.fileName.toString().endsWith(".wav", ignoreCase = true) &&
+                (com.doggybear233.saltaudiocopy.rip.WavInfo.read(p)?.dataBytes ?: 0L) > 0L
+        }.map { it.toAbsolutePath().normalize() }.toSet()
+    }
+
+    /** 取消时要删的文件：既不是已抓完的轨，也不是可续抓的半截文件。 */
+    internal fun removableOnCancel(
+        createdFiles: List<java.nio.file.Path>,
+        finished: Set<java.nio.file.Path>,
+        resumable: Set<java.nio.file.Path>
+    ): List<java.nio.file.Path> = createdFiles.filter { p ->
+        val n = p.toAbsolutePath().normalize()
+        n !in finished && n !in resumable
+    }
+
     internal fun deleteCreated(files: List<java.nio.file.Path>): Int {
         var n = 0
         for (f in files) {

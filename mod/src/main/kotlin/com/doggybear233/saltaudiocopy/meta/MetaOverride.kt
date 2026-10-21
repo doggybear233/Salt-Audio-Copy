@@ -70,16 +70,18 @@ object MetaOverride {
             tracks += TrackMeta(
                 number = num,
                 title = Json.str(to["title"]) ?: "",
-                artist = Json.str(to["artist"]),
+                // 空串 = 「这栏没填」，不是「清空」：JSON 里留着 "artist": "" 时
+                // 以前会把 MusicBrainz 查到的艺术家覆盖成空。
+                artist = Json.str(to["artist"])?.takeIf { it.isNotBlank() },
                 lengthMs = Json.long(to["lengthMs"]),
-                isrc = Json.str(to["isrc"])
+                isrc = Json.str(to["isrc"])?.takeIf { it.isNotBlank() }
             )
         }
         AlbumMeta(
             albumArtist = Json.str(o["albumArtist"]) ?: "",
             albumTitle = Json.str(o["albumTitle"]) ?: "",
-            year = Json.str(o["year"]),
-            genre = Json.str(o["genre"]),
+            year = Json.str(o["year"])?.takeIf { it.isNotBlank() },
+            genre = Json.str(o["genre"])?.takeIf { it.isNotBlank() },
             discId = Json.str(o["discId"]) ?: "",
             cddbId = Json.str(o["cddbId"]) ?: "",
             source = "album.json",

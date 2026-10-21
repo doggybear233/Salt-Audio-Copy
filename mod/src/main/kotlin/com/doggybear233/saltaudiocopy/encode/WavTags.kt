@@ -34,7 +34,10 @@ object WavTags {
         "title" to "INAM",
         "artist" to "IART",
         "album" to "IPRD",
-        "albumartist" to "IART",
+        // 注意：WAV 的 LIST/INFO 没有「专辑艺术家」字段，只有 IART。
+        // 以前这里把 albumartist 也映射成 IART，同一个文件写出两个 IART，
+        // 读回来的 artist 变成专辑艺术家（合辑里每首歌的艺术家全被覆盖）。
+        // 专辑艺术家只走 ID3 的 TPE2（见 ID3_IDS）。
         "date" to "ICRD",
         "genre" to "IGNR",
         "comment" to "ICMT",
@@ -211,11 +214,10 @@ object WavTags {
      */
     fun writeResult(file: Path, tags: Map<String, String>): String? {
         if (!Files.isRegularFile(file)) return "文件不存在：$file"
-        val bytes = runCatching { Files.readAllBytes(file) }.getOrElse {
+        val size = runCatching { Files.size(file) }.getOrElse {
             return "读文件失败：${it.message ?: it.javaClass.simpleName}"
         }
-        if (bytes.size < 12) return "文件太短（${bytes.size} 字节），不像 WAV"
-        if (ascii(bytes, 0, 4) != "RIFF" || ascii(bytes, 8, 4) != "WAVE") return "不是 RIFF/WAVE 文件"
+        if (size < 12) return "文件太短（$size 字节），不像 WAV"
 
         // INFO 可能整块写不出来（纯韩文/阿拉伯文在日文系统上无法编码），
         // 这时至少还有 id3 能无损保存，不能因此整份放弃。
@@ -223,26 +225,85 @@ object WavTags {
         val id3 = id3Block(tags)
         if (info == null && id3 == null) return "标签里没有任何可写入的字段（全部为空或无法编码）"
 
-        // 先去掉旧的 LIST/INFO 与 id3 块（重复打标签时不叠加）
-        val body = stripMeta(bytes) ?: return "RIFF 块结构损坏，拒绝改写"
-
-        val merged = ByteArray(body.size + (info?.size ?: 0) + (id3?.size ?: 0))
-        System.arraycopy(body, 0, merged, 0, body.size)
-        var off = body.size
-        if (info != null) {
-            System.arraycopy(info, 0, merged, off, info.size)
-            off += info.size
-        }
-        if (id3 != null) System.arraycopy(id3, 0, merged, off, id3.size)
-        fixRiffSize(merged)
-
         val tmp = file.resolveSibling(file.fileName.toString() + ".tagtmp")
         return runCatching {
-            Files.write(tmp, merged)
+            // 流式重写：整盘镜像可能接近 1 GB，readAllBytes 会同时持有「原文件 + 去标签副本 + 合并副本」，
+            // 峰值约为 3 倍文件大小——全盘抓完才 OOM，标签静默丢失。这里按块搬运，峰值只有缓冲区。
+            java.nio.channels.FileChannel.open(file, java.nio.file.StandardOpenOption.READ).use { src ->
+                java.nio.channels.FileChannel.open(
+                    tmp,
+                    java.nio.file.StandardOpenOption.CREATE,
+                    java.nio.file.StandardOpenOption.WRITE,
+                    java.nio.file.StandardOpenOption.TRUNCATE_EXISTING
+                ).use { dst ->
+                    val head = readAt(src, 0, 12)
+                    if (ascii(head, 0, 4) != "RIFF" || ascii(head, 8, 4) != "WAVE") {
+                        throw IllegalStateException("不是 RIFF/WAVE 文件")
+                    }
+                    dst.write(java.nio.ByteBuffer.wrap(head))
+                    var pos = 12L
+                    while (pos + 8 <= size) {
+                        val hdr = readAt(src, pos, 8)
+                        val id = ascii(hdr, 0, 4)
+                        val len = le32(hdr, 4)
+                        val body = len.toLong() + (len.toLong() and 1L)
+                        val span = 8L + body
+                        // 旧标签块直接丢掉（重复打标签时不叠加）
+                        if (id != "LIST" && id != "id3 ") copyRange(src, dst, pos, span)
+                        pos += span
+                    }
+                    if (info != null) dst.write(java.nio.ByteBuffer.wrap(info))
+                    if (id3 != null) dst.write(java.nio.ByteBuffer.wrap(id3))
+                    // RIFF size = 文件长度 - 8
+                    val total = dst.size()
+                    val riff = java.nio.ByteBuffer.allocate(4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                        .putInt((total - 8).toInt())
+                    riff.flip()
+                    dst.write(riff, 4)
+                }
+            }
             Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING)
-        }.exceptionOrNull()?.let {
+            null
+        }.getOrElse {
             runCatching { Files.deleteIfExists(tmp) }
-            "写临时文件失败：${it.message ?: it.javaClass.simpleName}"
+            when (it) {
+                is IllegalStateException -> it.message ?: "不是 RIFF/WAVE 文件"
+                else -> "写临时文件失败：${it.message ?: it.javaClass.simpleName}"
+            }
+        }
+    }
+
+    /** 从 [src] 的 [pos] 处读 [n] 字节（文件尾不足时返回实际读到的部分）。 */
+    private fun readAt(src: java.nio.channels.FileChannel, pos: Long, n: Int): ByteArray {
+        val buf = java.nio.ByteBuffer.allocate(n)
+        var at = pos
+        while (buf.hasRemaining()) {
+            val got = src.read(buf, at)
+            if (got <= 0) break
+            at += got
+        }
+        return buf.array().copyOf(buf.position())
+    }
+
+    /** 把 [src] 的 [pos] 起 [n] 字节搬到 [dst] 当前位置，缓冲 1 MiB。 */
+    private fun copyRange(
+        src: java.nio.channels.FileChannel,
+        dst: java.nio.channels.FileChannel,
+        pos: Long,
+        n: Long
+    ) {
+        val buf = java.nio.ByteBuffer.allocate(1 shl 20)
+        var at = pos
+        var left = n
+        while (left > 0) {
+            buf.clear()
+            buf.limit(minOf(buf.capacity().toLong(), left).toInt())
+            val got = src.read(buf, at)
+            if (got <= 0) break
+            buf.flip()
+            while (buf.hasRemaining()) dst.write(buf)
+            at += got
+            left -= got
         }
     }
 
