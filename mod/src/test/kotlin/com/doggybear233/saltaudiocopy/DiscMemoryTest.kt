@@ -62,6 +62,20 @@ class DiscMemoryTest {
         assertTrue(PanelState.ripDone, "已抓完的盘放回来仍应是「已抓完」")
     }
 
+
+    /**
+     * F-338：抽盘那一刻 TOC 指纹可能已经是 null（上一轮读失败刚清过），
+     * 这时 remember 只能拿 DiscID 当键；放回来时上游给的是 TOC 指纹。
+     * 只有两个键都存、都认，记忆才命中。
+     */
+    @Test
+    fun rememberFallsBackToDiscIdAndStillMatchesByFingerprint() {
+        PanelState.showDisc(info("jCz7JPOv0e14IuzcyS.StppLPio-", "変身のレシピ"))
+        DiscMemory.remember(null)                      // 抽盘时没有 TOC 指纹
+        assertTrue(DiscMemory.find("jCz7JPOv0e14IuzcyS.StppLPio-") != null, "DiscID 当键时要能查回来")
+        assertTrue(DiscMemory.find("jCz7JPOv0e14IuzcyS.StppLPio-")!!.discId.isNotBlank())
+    }
+
     @Test
     fun differentDiscHasNoMemory() {
         PanelState.showDisc(info("abc", "GREATEST HITS"))

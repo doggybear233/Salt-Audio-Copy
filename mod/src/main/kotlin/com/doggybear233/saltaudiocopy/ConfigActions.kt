@@ -25,6 +25,7 @@ import com.xuncorp.spw.workshop.api.WorkshopApi
 import com.xuncorp.spw.workshop.api.WorkshopApi.Ui.ToastType
 import java.nio.file.Path
 import java.util.concurrent.Executors
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -33,8 +34,39 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 object ConfigActions {
 
-    private val exec = Executors.newSingleThreadExecutor { r ->
+    private fun newWorker(): ExecutorService = Executors.newSingleThreadExecutor { r ->
         Thread(r, "saltac-worker").apply { isDaemon = true }
+    }
+
+    /**
+     * 执行器是可替换的：卸载插件时 [shutdown] 会关掉它，而宿主可能在同一进程里再次启用
+     * （改完设置重启插件、或切回页面重新装载）。原先它是 `val`，关掉后就永久是 shutdown 状态，
+     * 之后每个按钮都抛 `RejectedExecutionException`。
+     */
+    @Volatile
+    private var exec = newWorker()
+
+    @Volatile
+    private var closed = false
+
+    /** 取当前可用的执行器；[closed] 为真时重建一条。 */
+    private fun worker(): ExecutorService {
+        if (!closed) return exec
+        synchronized(this) {
+            if (closed) {
+                exec = newWorker()
+                closed = false
+                Diag.log("worker recreated after shutdown")
+            }
+        }
+        return exec
+    }
+
+    /** 每次用户动作开始前复位「取消 / 暂停」，避免上一次取消把这一次立刻打断。 */
+    private fun beginRun() {
+        userCancel = false
+        PanelState.paused = false
+        PanelState.cancelArmed = false
     }
 
     private val cancelFlag = AtomicBoolean(false)
@@ -133,7 +165,7 @@ object ConfigActions {
      * 空盘/驱动挂起时能阻塞十几秒，放在入口里直接调用就是「点一下界面冻住」。
      */
     private fun onWorkerWithScan(block: (com.doggybear233.saltaudiocopy.rip.ScanResult) -> Unit) {
-        exec.execute {
+        worker().execute {
             val scan = freshScan() ?: return@execute
             block(scan)
         }
@@ -144,7 +176,22 @@ object ConfigActions {
         userCancel = true
         cancelFlag.set(true)
         runCatching { exec.shutdownNow() }
+        closed = true
         Diag.log("ConfigActions shutdown")
+    }
+
+    /** 测试缝：确认 [beginRun] 会把上一次的取消/暂停状态清掉。 */
+    internal fun resetStateForTest(): Boolean {
+        userCancel = true
+        PanelState.paused = true
+        beginRun()
+        return !userCancel && !PanelState.paused
+    }
+
+    /** 测试缝：卸载后再取执行器必须能拿到可用的新队列（不能是 shutdown 过的那个）。 */
+    internal fun workerAfterShutdownForTest(): ExecutorService {
+        shutdown()
+        return worker()
     }
 
     /**
@@ -173,7 +220,7 @@ object ConfigActions {
         // 配置页按钮在宿主 UI 线程上被反射调用，任何 SCSI I/O 都必须挪到工作线程，
         // 否则 INQUIRY / READ TOC 期间界面会整段卡死（用户看到的就是"死机"）。
         toast(Strings.message("正在扫描光驱，请稍候…"), ToastType.Success)
-        exec.execute {
+        worker().execute {
             try {
                 val drives = CdDevice.scanDrives()
                 if (drives.isEmpty()) {
@@ -345,7 +392,7 @@ object ConfigActions {
             toast(Strings.message("请先点「扫描驱动器」"), ToastType.Warning)
             return
         }
-        exec.execute {
+        worker().execute {
             try {
                 val info = CdDevice(scan.path).use { it.readCdText() }
                 if (info == null || !info.hasText) {
@@ -376,7 +423,7 @@ object ConfigActions {
             toast(Strings.message("请先点「扫描驱动器」"), ToastType.Warning)
             return
         }
-        exec.execute {
+        worker().execute {
             try {
                 val table = CdDevice(scan.path).use { dev ->
                     val gaps = com.doggybear233.saltaudiocopy.album.DiscAnalysis.gapsFor(scan.toc, dev) { Diag.log(it) }
@@ -395,7 +442,7 @@ object ConfigActions {
     /** 导出诊断包（纯文本）：版本、系统、设置、日志尾部，便于用户直接回传。不触碰光驱。 */
     @JvmStatic
     fun exportDiagnostics() {
-        exec.execute {
+        worker().execute {
             try {
                 val st = SettingsStore.load(force = true)
                 val root = st.effectiveRoot.resolve("Salt Audio Copy")
@@ -445,7 +492,7 @@ object ConfigActions {
      */
     fun probeReadCommands() {
         toast(Strings.message("正在探测读命令（只读，1 扇区）…"), ToastType.Success)
-        exec.execute {
+        worker().execute {
             try {
                 val scan = ScanResultHolder.get() ?: CdDevice.scanDrives().firstOrNull()?.let {
                     com.doggybear233.saltaudiocopy.rip.ScanResult(it.first, it.second, CdDevice(it.first).use { d -> d.readToc() })
@@ -637,7 +684,7 @@ object ConfigActions {
             Strings.message("元数据正在加载…"),
             Strings.message("读 CD-TEXT，再连 MusicBrainz / gnudb；这期间抓轨按钮会先锁住")
         )
-        exec.execute {
+        worker().execute {
             try {
                 val scan = freshScan() ?: return@execute
                 val fp = com.doggybear233.saltaudiocopy.scsi.DiscFingerprint.of(scan.toc)
@@ -755,7 +802,7 @@ object ConfigActions {
         val previous = PanelState.selectedCandidate
         PanelState.set(Strings.fmt("正在获取「%s」…", picked.label), Strings.message("取到后才会切换到这个版本"))
         toast(Strings.fmt("正在获取「%s」…", picked.label), ToastType.Success)
-        exec.execute {
+        worker().execute {
             try {
                 val scan = freshScan() ?: return@execute
                 val settings = SettingsStore.load()
@@ -821,7 +868,7 @@ object ConfigActions {
         PanelState.manualOpen = true
         PanelState.settingsOpen = false
         PanelState.set(Strings.message("正在准备手动填写…"), "读取曲目数与本机缓存")
-        exec.execute {
+        worker().execute {
             try {
                 val scan = freshScan() ?: return@execute
                 if (!scan.toc.isAudioCd) {
@@ -953,7 +1000,7 @@ object ConfigActions {
         )
 
         // 2) 落盘（独立线程，不跟自动查询抢队）
-        exec.execute {
+        worker().execute {
             try {
                 // freshScan() 内部会 Discs.publish()：此刻 JSON 还没写，缓存是空的，
                 // 面板会被重新刷成「未知艺术家」。所以扫描后立刻把乐观值再盖回去，
@@ -1062,7 +1109,7 @@ object ConfigActions {
     /** 把盘上的 CD-TEXT 抄进手填草稿（有的盘只有 CD-TEXT，网络没收录）。 */
     @JvmStatic
     fun fillManualFromCdText() {
-        exec.execute {
+        worker().execute {
             try {
                 val scan = freshScan() ?: return@execute
                 val info = runCatching {
@@ -1140,6 +1187,7 @@ object ConfigActions {
     /** 抓取整张专辑：元数据 → 模板命名 → 逐轨双读校验 → 封面/CUE/日志。 */
     @JvmStatic
     fun ripAlbum() {
+        beginRun()
         if (busy) {
             toast(Strings.message("已有抓轨任务在进行"), ToastType.Warning)
             return
@@ -1171,7 +1219,7 @@ object ConfigActions {
         PanelState.reRipArmed = false
         PanelState.begin("准备中…")
         toast(Strings.message("正在读取光盘信息…"), ToastType.Success)
-        exec.execute {
+        worker().execute {
             try {
                 // 读盘放到工作线程：入口是宿主 UI 线程调用的，空盘/挂起时 freshScan 能阻塞十几秒。
                 val scan = freshScan() ?: return@execute
@@ -1317,6 +1365,7 @@ object ConfigActions {
     /** 只抓第 1 轨到临时目录，用于快速验证驱动器状态。 */
     @JvmStatic
     fun testDisc() {
+        beginRun()
         if (busy) {
             toast(Strings.message("已有任务在进行"), ToastType.Warning)
             return
@@ -1327,7 +1376,7 @@ object ConfigActions {
         cancelFlag.set(false)
         PanelState.begin("只测不写（Test only）")
         toast(Strings.message("开始测试读取，不会写任何文件…"), ToastType.Success)
-        exec.execute {
+        worker().execute {
             try {
                 val scan = freshScan() ?: return@execute
                 if (!scan.toc.isAudioCd) {
@@ -1372,6 +1421,7 @@ object ConfigActions {
 
     @JvmStatic
     fun ripFirstTrack() {
+        beginRun()
         if (busy) {
             toast(Strings.message("已有抓轨任务在进行"), ToastType.Warning)
             return
@@ -1380,7 +1430,7 @@ object ConfigActions {
         busy = true
         cancelFlag.set(false)
         toast(Strings.message("开始抓取第 1 轨…"), ToastType.Success)
-        exec.execute {
+        worker().execute {
             try {
                 val scan = freshScan() ?: return@execute
                 val settings = SettingsStore.load(true)
@@ -1698,7 +1748,7 @@ object ConfigActions {
      */
     @JvmStatic
     fun testEnvironment() {
-        exec.execute {
+        worker().execute {
             try {
                 val report = EnvProbe.collect()
                 Diag.log("env:\n" + EnvProbe.details(report))
@@ -1718,7 +1768,7 @@ object ConfigActions {
     @JvmStatic
     fun testNetwork() {
         PanelState.set(Strings.message("正在自检网络…"), "并发探测 MusicBrainz / Cover Art Archive / 三个 CDDB 镜像")
-        exec.execute {
+        worker().execute {
             val settings = runCatching { SettingsStore.load() }.getOrDefault(RipSettings())
             val items = runCatching { NetCheck.run(settings.proxyUrl) }.getOrElse { e ->
                 Diag.log("netcheck failed", e)
@@ -1738,7 +1788,7 @@ object ConfigActions {
     /** 打开日志所在的文件夹（诊断页用；找不到就退回输出根目录）。 */
     @JvmStatic
     fun openLogFolder() {
-        exec.execute {
+        worker().execute {
             val dir = runCatching { java.nio.file.Path.of(Diag.logPath()).parent }.getOrNull()
             val target = dir ?: runCatching { SettingsStore.load(true).effectiveRoot }.getOrNull()
             if (target == null) {
@@ -1896,7 +1946,7 @@ object ConfigActions {
      */
     @JvmStatic
     fun checkOutput() {
-        exec.execute {
+        worker().execute {
             try {
                 val settings = SettingsStore.load(true)
                 val dir = settings.effectiveRoot
@@ -1918,7 +1968,7 @@ object ConfigActions {
     /** 清空 MusicBrainz 磁盘缓存（改了 DiscID 相关设置、或想强制刷新元数据时用）。 */
     @JvmStatic
     fun clearMetadataCache() {
-        exec.execute {
+        worker().execute {
             val n = com.doggybear233.saltaudiocopy.meta.MbCache.clear()
             toast(Strings.fmt("已清除 %s 个元数据缓存文件", n), ToastType.Success)
             Diag.log("mb cache cleared: $n")
@@ -1931,7 +1981,7 @@ object ConfigActions {
      */
     @JvmStatic
     fun probePath() {
-        exec.execute {
+        worker().execute {
             val settings = SettingsStore.load(true)
             val vars = mapOf(
                 "albumartist" to "宇多田ヒカル",

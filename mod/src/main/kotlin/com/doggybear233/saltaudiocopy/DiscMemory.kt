@@ -15,6 +15,7 @@ internal object DiscMemory {
 
     data class Snapshot(
         val fingerprint: String,
+        val discId: String,
         val info: PanelState.DiscInfo,
         val cover: ByteArray?,
         val candidates: List<PanelState.Candidate>,
@@ -38,6 +39,10 @@ internal object DiscMemory {
         if (fp.isBlank()) return
         last = Snapshot(
             fingerprint = fp,
+            // 两个键都存：抽盘那一刻 TOC 指纹有时已经是 null（上一轮读失败刚清过），
+            // 这时只能拿 DiscID 当键，而放回来时上游给的是 TOC 指纹。以前只存一个键，
+            // 两条路径的键不同 → 记忆永远命中不了，B6「同一张盘放回来接着抓」形同虚设。
+            discId = info.discId,
             info = info,
             cover = PanelState.discCover,
             candidates = PanelState.candidates,
@@ -49,7 +54,8 @@ internal object DiscMemory {
     }
 
     /** 取出并**不**清除记忆：用户可能来回抽放同一张盘好几次。 */
-    fun find(fingerprint: String): Snapshot? = last?.takeIf { it.fingerprint == fingerprint }
+    fun find(fingerprint: String): Snapshot? =
+        last?.takeIf { it.fingerprint == fingerprint || (it.discId.isNotBlank() && it.discId == fingerprint) }
 
     /** 换盘时清掉，防止 A 盘的记忆被当成 B 盘。 */
     fun forget() {
