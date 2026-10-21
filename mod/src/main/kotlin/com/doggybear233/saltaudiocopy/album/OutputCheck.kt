@@ -40,8 +40,14 @@ object OutputCheck {
         if (!Files.isDirectory(dir)) {
             return Report(dir, 0, 0, 0, listOf(Problem("", Strings.fmt("目录不存在：%s", dir))))
         }
-        val files = runCatching {
-            Files.list(dir).use { s -> s.filter { Files.isRegularFile(it) }.toList() }
+        // 递归三层：多碟/自定义模板可能把音轨放在 CD1、CD2 子目录里，
+        // 旧实现只看顶层，会把整张盘判成「没有音频」。
+        val files: List<Path> = runCatching {
+            java.util.ArrayList<Path>().also { acc ->
+                Files.walk(dir, 3).use { s ->
+                    s.filter { Files.isRegularFile(it) }.forEach { acc.add(it) }
+                }
+            }
         }.getOrDefault(emptyList())
 
         val problems = ArrayList<Problem>()

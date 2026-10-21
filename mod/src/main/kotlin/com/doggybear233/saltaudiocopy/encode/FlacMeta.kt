@@ -100,7 +100,8 @@ object FlacMeta {
     // ---------------- PICTURE ----------------
 
     fun pictureBlock(image: ByteArray, mime: String, type: Int = 3, description: String = ""): ByteArray {
-        val (w, h, depth) = imageSize(image, mime)
+        val (w, h) = imageSize(image, mime)
+        val depth = bitsPerPixel(image, mime)
         val out = java.io.ByteArrayOutputStream()
         out.write(be32(type))
         val m = mime.toByteArray(Charsets.US_ASCII)
@@ -118,14 +119,33 @@ object FlacMeta {
         return out.toByteArray()
     }
 
-    /** 只解析宽/高/色深，解析不出来就写 0（结构仍合法，播放器照常显示）。 */
-    fun imageSize(image: ByteArray, mime: String): Triple<Int, Int, Int> {
+    /**
+     * PICTURE 块的「色深」按规范是**每像素位数**（24/32），不是 PNG 的位深（8）。
+     *
+     * 以前把 IHDR 的 bit depth（8）直接写进去，播放器与校验工具会认为图像是 8bpp 灰度图。
+     * 这里按 PNG 颜色类型换算：灰度 → 位深，真彩 → 3×位深，带 alpha → 4×位深，索引 → 位深。
+     */
+    fun bitsPerPixel(image: ByteArray, mime: String): Int {
+        if (image.size > 25 && image[0] == 0x89.toByte() && image[1] == 'P'.code.toByte()) {
+            val bitDepth = image[24].toInt() and 0xFF
+            val colorType = image[25].toInt() and 0xFF
+            return when (colorType) {
+                0, 3 -> bitDepth
+                2 -> bitDepth * 3
+                4 -> bitDepth * 2
+                6 -> bitDepth * 4
+                else -> bitDepth * 3
+            }
+        }
+        if (image.size > 2 && image[0] == 0xFF.toByte() && image[1] == 0xD8.toByte()) return 24
+        return 0
+    }
+
+    /** 只解析宽/高，解析不出来就写 0（结构仍合法，播放器照常显示）。 */
+    fun imageSize(image: ByteArray, mime: String): Pair<Int, Int> {
         if (image.size > 24 && image[0] == 0x89.toByte() && image[1] == 'P'.code.toByte()) {
             // PNG: IHDR 从 16 开始，宽高各 4 字节大端；位深 1 字节，颜色类型 1 字节
-            val w = be32At(image, 16)
-            val h = be32At(image, 20)
-            val depth = image[24].toInt() and 0xFF
-            return Triple(w, h, depth)
+            return be32At(image, 16) to be32At(image, 20)
         }
         if (image.size > 4 && image[0] == 0xFF.toByte() && image[1] == 0xD8.toByte()) {
             var i = 2
@@ -136,13 +156,12 @@ object FlacMeta {
                 if (marker in 0xC0..0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC) {
                     val h = ((image[i + 5].toInt() and 0xFF) shl 8) or (image[i + 6].toInt() and 0xFF)
                     val w = ((image[i + 7].toInt() and 0xFF) shl 8) or (image[i + 8].toInt() and 0xFF)
-                    val depth = image[i + 4].toInt() and 0xFF
-                    return Triple(w, h, depth)
+                    return w to h
                 }
                 i += 2 + len
             }
         }
-        return Triple(0, 0, 0)
+        return 0 to 0
     }
 
     // ---------------- 写回 ----------------

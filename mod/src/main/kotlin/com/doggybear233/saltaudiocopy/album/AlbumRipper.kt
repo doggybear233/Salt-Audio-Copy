@@ -155,10 +155,16 @@ object AlbumRipper {
         }
         // 记录抓轨前专辑目录里已有的文件名：结束时差集就是「本次新建」，
         // 取消时只删这些，绝不碰用户之前抓好的文件。
-        val beforeRun: Set<String> = runCatching {
-            java.nio.file.Files.list(dir).use { s -> s.map { it.fileName.toString() }.toList().toSet() }
-        }.getOrDefault(emptySet())
         Files.createDirectories(dir)
+        // 列不出来就当「未知」（null）：以前 runCatching 吞成空集，等于「目录里原本什么都没有」，
+        // 一旦权限/占用导致列举失败，取消清理就会把用户上一批抓好的音轨一起删掉。
+        val beforeRun: Set<String>? = try {
+            java.nio.file.Files.list(dir).use { s -> s.map { it.fileName.toString() }.toList().toSet() }
+        } catch (e: Throwable) {
+            Diag.log("cannot list output dir before run: $dir", e)
+            warn(Strings.fmt("无法读取输出目录（清理时会保守处理）: %s", e.message ?: e.javaClass.simpleName))
+            null
+        }
         Diag.log("album outDir=$dir (template=${settings.folderTemplate})")
 
         // 轨选择：显式参数优先，其次是设置里的 "1-5,8" 规则
@@ -401,6 +407,12 @@ object AlbumRipper {
                     )
                 )
             }
+            if (r.droppedExisting) {
+                warn(Strings.fmt("第 %s 轨的旧文件不是这一轨（续抓校验不符），已整轨重抓", entry.track))
+            }
+            if (r.finishFailed) {
+                warn(Strings.fmt("第 %s 轨的 WAV 头部回填失败，文件可能打不开", entry.track))
+            }
             if (settings.testAndCopy && !r.cancelled) {
                 val expected = testCrc[entry.track]
                 if (expected != null && expected != r.crc32) {
@@ -573,11 +585,11 @@ object AlbumRipper {
                         throw ImageSplicer.SpliceCancelled()
                     }
                     Diag.log("image spliced: $imgTarget data=${res.dataBytes} sectors=${res.sectors} parts=${res.parts}")
-                    for (k in results.indices) {
-                        val part = results[k].file
-                        results[k] = results[k].copy(file = imgTarget)
-                        runCatching { Files.deleteIfExists(part) }
-                    }
+                    // 中间产物先留着：等镜像确实转成 FLAC、标签也写好之后再删。
+                    // 以前一拼完就删，随后 FLAC 编码或打标失败时用户只剩一个没标签的 WAV，
+                    // 逐轨源文件已经找不回来了。
+                    val parts = results.map { it.file }
+                    for (k in results.indices) results[k] = results[k].copy(file = imgTarget)
                     imageRel = imgTarget.fileName.toString()
                     var finalImage: java.nio.file.Path = imgTarget
                     if (settings.format.equals("flac", true)) {
@@ -605,6 +617,10 @@ object AlbumRipper {
                             Diag.log("image tag failed", it)
                             warn(Strings.fmt("整盘镜像标签写入失败（音频不受影响）: %s", it.message))
                         }
+                    // 镜像（或其 FLAC）已经落盘：这时才删逐轨中间产物
+                    if (Files.exists(finalImage)) {
+                        parts.forEach { part -> runCatching { Files.deleteIfExists(part) } }
+                    }
                 }.onFailure {
                     if (it is ImageSplicer.SpliceCancelled) {
                         cancelled = true
@@ -748,7 +764,10 @@ object AlbumRipper {
         // 只有出现错误/重试/失败备注时才落错误报告，正常抓轨保持目录干净
         val badTracks = results.filter { it.errors > 0 }
         if ((badTracks.isNotEmpty() || warnings.isNotEmpty()) && results.isNotEmpty()) {
-            val p = dir.resolve("$baseName.errors.txt")
+            val errSuffix = Overwrite.pickSuffix(
+                dir, baseName, listOf(".errors.txt"), settings.overwritePolicy
+            ) ?: ""
+            val p = dir.resolve("$baseName$errSuffix.errors.txt")
             runCatching {
                 ErrReport.write(p, ErrReport.build("$albumArtist - $albumTitle", toc, results, notes))
                 notes += Strings.fmt("错误报告: %s", p.fileName)
@@ -773,7 +792,9 @@ object AlbumRipper {
             java.nio.file.Files.list(dir).use { s ->
                 // 只看普通文件：`.saltaudiocopy/` 是放续抓守卫的目录，取消清理时
                 // 既删不掉（非空目录）也不该出现在「本次新建」清单里。
-                s.filter { java.nio.file.Files.isRegularFile(it) && it.fileName.toString() !in beforeRun }.toList()
+                val known = beforeRun
+                if (known == null) emptyList()
+                else s.filter { java.nio.file.Files.isRegularFile(it) && it.fileName.toString() !in known }.toList()
             }
         }.getOrDefault(emptyList())
         return AlbumRipResult(

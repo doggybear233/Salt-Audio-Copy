@@ -67,7 +67,13 @@ data class RipResult(
      * 调用方据此跳过「事后处理」——尤其是 offset 校正：那个文件在上一轮已经偏移过一次，
      * 再应用一次就等于把整轨音频又挪了一遍，而日志里不会出现任何异常。
      */
-    val completedBefore: Boolean = false
+    val completedBefore: Boolean = false,
+
+    /** 续抓守卫不匹配，旧文件内容被丢弃（用户以为会续写，实际整轨重来） */
+    val droppedExisting: Boolean = false,
+
+    /** 收尾回填 WAV 头部失败：文件可能打不开，必须提示 */
+    val finishFailed: Boolean = false
 )
 
 /**
@@ -171,6 +177,8 @@ object RipEngine {
         if (writeFile) outFile.parent?.let { Files.createDirectories(it) }
 
         val crc = CRC32()
+        // 写盘对象放在外层：use{} 结束后才读得到它的告警标志（droppedExisting / finishFailed）
+        var wavHolder: WavWriter? = null
         var done = 0
         var retries = 0
         var unstableChunks = 0
@@ -260,6 +268,7 @@ object RipEngine {
             // 只比字节数会把另一张盘的半截文件接上来。
             val guard = com.doggybear233.saltaudiocopy.rip.ResumeGuard(startLba, total)
             val wav: WavSink = if (writeFile) WavWriter(outFile, append = resume, guard = guard) else NullWavSink
+            wavHolder = wav as? WavWriter
             wav.use {
                 if (writeFile && resume) {
                     val prior = (wav as? WavWriter)?.priorDataBytes ?: 0L
@@ -342,10 +351,13 @@ object RipEngine {
         }
 
         val elapsed = (System.nanoTime() - t0) / 1_000_000
+        val writer = wavHolder
         val result = RipResult(
             trackNo, outFile, done, done.toLong() * 2352, crc.value, elapsed, cancelled, retries,
             gapSectors = gapSectors, peakLevel = peak, retried = retried.toList(),
-            unstableChunks = unstableChunks, completedBefore = completedBefore
+            unstableChunks = unstableChunks, completedBefore = completedBefore,
+            droppedExisting = writer?.droppedExisting == true,
+            finishFailed = writer?.finishFailed == true
         )
         Diag.log(
             "rip track=$trackNo sectors=$done/$total crc32=0x${java.lang.Long.toHexString(crc.value)} " +

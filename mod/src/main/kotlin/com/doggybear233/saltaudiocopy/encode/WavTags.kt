@@ -88,13 +88,18 @@ object WavTags {
         val enc = cs.newEncoder()
         val sb = StringBuilder(value.length)
         var mapped = 0
+        // 只有「刚刚插入的那个 ? 本身是替换出来的」才合并，否则真实问号会被吃掉
+        // （例如「夜に駆ける?」里原本的 ? 与后面的 emoji 曾经合成一个）
+        var lastWasReplaced = false
         for (ch in value) {
             if (enc.canEncode(ch.toString())) {
                 sb.append(ch)
                 if (ch.code > 0x7F) mapped++
-            } else if (sb.isEmpty() || sb.last() != '?') {
+                lastWasReplaced = false
+            } else if (!lastWasReplaced) {
                 // 连续不可映射的字符合成一个 ?（emoji 是代理对，否则会出现「??」）
                 sb.append('?')
+                lastWasReplaced = true
             }
         }
         return sb.toString() to mapped

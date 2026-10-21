@@ -22,7 +22,9 @@ object DiscTest {
         val errors: Int,
         val elapsedMs: Long,
         /** 用尽重试仍未达到一致读的块数：>0 表示这轨音频不可全信 */
-        val unstable: Int = 0
+        val unstable: Int = 0,
+        /** 这一轨没测成的原因（划伤/驱动器拒绝等）；null 表示正常测完 */
+        val failure: String? = null
     )
 
     /**
@@ -60,7 +62,10 @@ object DiscTest {
             if (cancel()) { cancelled = true; break }
             val entry = toc.tracks[i]
             onStage(Strings.fmt("测试读取第 %s 轨…", entry.track))
-            val r = RipEngine.ripTrack(
+            // 单轨读失败（划伤、驱动器抽风）不该让整份报告作废：记一行失败继续下一轨。
+            // 以前异常直接抛穿，ConfigActions 收到的是「测试失败」，前面测过的轨全丢。
+            val r = try {
+                RipEngine.ripTrack(
                 scan, i, SCRATCH, cancel, {},
                 verify = verify,
                 maxRetries = maxRetries,
@@ -72,8 +77,13 @@ object DiscTest {
                 errorRecovery = errorRecovery,
                 gapMode = gapMode,
                 speedKbps = speedKbps,
-                source = source
-            )
+                    source = source
+                )
+            } catch (e: Throwable) {
+                val why = com.doggybear233.saltaudiocopy.scsi.ScsiMessages.human(e)
+                rows += Row(entry.track, toc.sectorsOf(i).second, 0L, 0, 0L, 0, failure = why)
+                continue
+            }
             if (r.cancelled) { cancelled = true; break }
             rows += Row(entry.track, r.sectors, r.crc32, r.readErrors, r.elapsedMs, r.unstableChunks)
         }
@@ -91,6 +101,10 @@ object DiscTest {
             if (r.errors > 0) { sb.append("  ⚠ " + Strings.message("有无法读取的扇区")); bad++ }
             if (r.unstable > 0) {
                 sb.append("  ⚠ " + Strings.fmt("%s 个块读不稳", r.unstable))
+                bad++
+            }
+            if (r.failure != null) {
+                sb.append("  ✗ " + Strings.fmt("这一轨没测成：%s", r.failure))
                 bad++
             }
             sb.append("\r\n")

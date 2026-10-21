@@ -1532,6 +1532,26 @@
     "宿主配置不可用，改动只在本次运行有效": [
       "Host configuration is unavailable; changes apply only to this session",
       "ホスト設定が使えないため、変更は今回の起動中だけ有効です"
+    ],
+    "第 %s 轨的旧文件不是这一轨（续抓校验不符），已整轨重抓": [
+      "Track %s had an unrelated file at the target name (resume check failed); the track was ripped again from scratch",
+      "トラック %s の既存ファイルはこのトラックのものではないため（再開チェック不一致）、最初から取り込み直しました"
+    ],
+    "第 %s 轨的 WAV 头部回填失败，文件可能打不开": [
+      "Track %s: failed to finalize the WAV header; the file may not open",
+      "トラック %s: WAV ヘッダーの書き戻しに失敗しました。ファイルが開けない可能性があります"
+    ],
+    "无法读取输出目录（清理时会保守处理）: %s": [
+      "Cannot read the output folder (cleanup will be conservative): %s",
+      "出力フォルダーを読めません（後片付けは安全側で行います）: %s"
+    ],
+    "输出目录层级很深（%d 字符），文件名会被自动截短以免超过 Windows 的 260 字符限制": [
+      "The output path is very deep (%d characters); file names will be shortened to stay under the Windows 260-character limit",
+      "出力パスが深すぎます（%d 文字）。Windows の 260 文字制限を超えないようファイル名を短縮します"
+    ],
+    "这一轨没测成：%s": [
+      "This track could not be tested: %s",
+      "このトラックはテストできませんでした: %s"
     ]
   }
 }

@@ -79,9 +79,19 @@ class WavWriter(
     /** 续写前文件里已有的数据字节数（0 表示新文件）。 */
     val priorDataBytes: Long
 
+    /** 因为守卫不匹配而丢弃了旧文件内容（调用方要提示用户，不能悄悄删）。 */
+    var droppedExisting: Boolean = false
+        private set
+
+    /** 收尾回填头部失败（文件会留下 data=0 的假 WAV，调用方必须提示）。 */
+    var finishFailed: Boolean = false
+        private set
+
     init {
         val guardOk = if (guard == null) true else matchesGuard(guard)
         if (append && !guardOk) {
+            // 以前只在日志里留一行，用户看到的是「续抓」实际却是整轨重来、旧内容被清零
+            droppedExisting = raf.length() > HEADER_SIZE
             Diag.log("resume: 守卫不匹配（同名文件不是这一轨），整轨重抓：${file.fileName}")
         }
         val resumed = if (append && guardOk && raf.length() >= HEADER_SIZE && hasValidHeader()) {
@@ -236,7 +246,14 @@ class WavWriter(
     )
 
     override fun close() {
-        runCatching { finish() }
+        // finish() 以前完全被 runCatching 吞掉：回填失败会留下 data=0 的假 WAV，
+        // 用户看到「抓完」但实际上文件打不开，也没有任何日志。
+        try {
+            finish()
+        } catch (e: Throwable) {
+            finishFailed = true
+            Diag.log("WAV 头部回填失败（文件可能打不开）: $file", e)
+        }
         raf.close()
     }
 }

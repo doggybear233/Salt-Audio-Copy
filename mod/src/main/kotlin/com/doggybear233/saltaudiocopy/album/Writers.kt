@@ -28,14 +28,20 @@ data class AlbumTrackResult(
     /** 因校验不一致而重读过的扇区区间 */
     val retried: List<IntRange> = emptyList()
 ) {
+    /** 有重读过的扇区数：优先用区间，退化成重试次数（每次至少 1 个扇区）。 */
+    internal val suspectSectors: Int
+        get() = if (retried.isEmpty()) errors else retried.sumOf { it.last - it.first + 1 }
+
     /**
-     * 轨道质量（EAC 风格百分数）：按「重试次数 / 扇区数」估算一次通过率。
+     * 轨道质量（EAC 风格百分数）：一次读对的扇区占比。
      *
-     * EAC 的 quality 是「一次读对的扇区占比」；我们只在块级别知道重试，
-     * 所以这里是最坏情况估计（每次都当作整块坏），数字只会比 EAC 更悲观。
+     * 以前是 `1 - errors/sectors`，把**块级重试次数**除以扇区数——27 扇区一块时
+     * 重试一次的代价被低算了 27 倍，看起来仍接近 100%。现在按真正重读过的扇区算，
+     * 与注释承诺的「最坏情况」一致。
      */
     val qualityPct: Double
-        get() = if (sectors <= 0) 100.0 else (100.0 * (1.0 - errors.toDouble() / sectors)).coerceIn(0.0, 100.0)
+        get() = if (sectors <= 0) 100.0
+        else (100.0 * (1.0 - suspectSectors.toDouble() / sectors)).coerceIn(0.0, 100.0)
 
     val lengthMs: Long get() = sectors * 1000L / 75
 }

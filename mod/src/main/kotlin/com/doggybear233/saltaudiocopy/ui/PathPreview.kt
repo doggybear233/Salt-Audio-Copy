@@ -35,7 +35,10 @@ internal object PathPreview {
         TemplateEngine.expandToSegments(settings.folderTemplate, vars).forEach { dir = dir.resolve(it) }
         val totalDiscs = settings.totalDiscsOverride.takeIf { it > 0 } ?: meta?.totalDiscs ?: 1
         if (totalDiscs > 1 && !settings.folderTemplate.contains("%discnumber%")) {
-            TemplateEngine.expandToSegments(settings.multiDiscFolder, vars).forEach { dir = dir.resolve(it) }
+            // 和 RipPlan.build 一样：模板留空时用 CD%discnumber% 兜底。
+            // 以前预览直接展开空串，用户看到的路径比真实路径少一层 CD1/CD2。
+            val md = settings.multiDiscFolder.ifBlank { "CD%discnumber%" }
+            TemplateEngine.expandToSegments(md, vars).forEach { dir = dir.resolve(it) }
         }
         return dir.toString()
     }

@@ -139,7 +139,7 @@ class FlacMetaTest {
 
     @Test
     fun imageSizeHandlesUnknownData() {
-        val (w, h, _) = FlacMeta.imageSize(ByteArray(10), "image/jpeg")
+        val (w, h) = FlacMeta.imageSize(ByteArray(10), "image/jpeg")
         assertEquals(0, w)
         assertEquals(0, h)
     }

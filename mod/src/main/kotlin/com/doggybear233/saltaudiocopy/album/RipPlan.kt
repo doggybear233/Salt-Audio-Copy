@@ -20,6 +20,13 @@ import java.nio.file.Path
  */
 object RipPlan {
 
+    /** Windows 上资源管理器与多数播放器的心理上限（含盘符、分隔符与结尾的 \0）。 */
+    private const val MAX_PATH = 250
+    private const val MIN_NAME = 24
+
+    /** 同一轨的两种可能产物名：判断「已存在」时必须都看。 */
+    private val AUDIO_EXTS = listOf(".wav", ".flac")
+
     data class TrackPlan(
         val track: Int,
         val title: String,
@@ -124,6 +131,9 @@ object RipPlan {
         }
 
         val warnings = ArrayList<String>()
+        if (dir.toString().length > MAX_PATH - 60) {
+            warnings += "输出目录层级很深（%d 字符），文件名会被自动截短以免超过 Windows 的 260 字符限制".format(dir.toString().length)
+        }
         if (settings.overwritePolicy.equals("overwrite", true)) warnings += "覆盖策略是「直接覆盖」，同名文件会被写掉"
         if (!settings.fileTemplate.contains("%tracknr") && !settings.fileTemplate.contains("%title")) {
             warnings += "文件名模板既没有轨号也没有标题，所有音轨会撞名"
@@ -152,7 +162,10 @@ object RipPlan {
                 "tracklength" to mmss(sectors)
             )
             val base = TemplateEngine.expand(settings.fileTemplate, vars).ifBlank { "%02d".format(entry.track) }
-            val baseName = TemplateEngine.sanitizeSegment(base, 150)
+            // Windows 的资源管理器/多数播放器仍然受 260 字符限制：
+            // 目录本身很长时，150 字符的文件名会让整条路径超限（写盘失败但日志只有 IOException）。
+            val room = (MAX_PATH - dir.toString().length - ext.length - 1).coerceAtLeast(MIN_NAME)
+            val baseName = TemplateEngine.sanitizeSegment(base, minOf(150, room))
             val gapBefore = gaps[entry.track] ?: 0
             val gapAfter = if (gaps.isEmpty()) 0 else {
                 val nextIdx = toc.tracks.indexOfFirst { it.track == entry.track + 1 }
@@ -165,7 +178,9 @@ object RipPlan {
             }
             val bytes = expectedSectors.toLong() * 2352L
             val resolved = Overwrite.resolve(dir, baseName, ext, settings.overwritePolicy)
-            val exists = Files.exists(dir.resolve(baseName + ext))
+            // 同名判断要看两种扩展名：上一轮抓成 WAV、这一轮选 FLAC 时，
+            // 只查 .flac 会显示「写入」，实际覆盖策略却已经撞上了那份 WAV。
+            val exists = AUDIO_EXTS.any { Files.exists(dir.resolve(baseName + it)) }
             val action = when {
                 resolved == null -> "跳过（已存在）"
                 resolved.fileName.toString() != baseName + ext -> "另存为 ${resolved.fileName}"
