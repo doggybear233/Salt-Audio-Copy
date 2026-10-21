@@ -99,6 +99,22 @@ tasks.register<Test>("liveTest") {
     // 独立任务上的 include，不继承 test 的 exclude。
     useJUnitPlatform { includeTags("live") }
     // 一个用例都没发现就失败：否则「环境没配好」会被读成「真机全部通过」。
+    // 注意 `filter.isFailOnNoMatchingTests` 只管按名字过滤，对 tag 过滤无效（R4-02 / F-518），
+    // 所以这里直接数结果文件：全部 skip 也视为没执行。
     filter { isFailOnNoMatchingTests = true }
+    doLast {
+        val dir = reports.junitXml.outputLocation.asFile.get()
+        val ran = dir.listFiles { f -> f.isFile && f.name.endsWith(".xml") }
+            .orEmpty()
+            .sumOf { f ->
+                val text = runCatching { f.readText() }.getOrDefault("")
+                val tests = Regex("<testsuite[^>]*\\btests=\"(\\d+)\"").find(text)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                val skipped = Regex("<testsuite[^>]*\\bskipped=\"(\\d+)\"").find(text)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                (tests - skipped).coerceAtLeast(0)
+            }
+        if (ran == 0) {
+            throw GradleException("liveTest 没有成功执行任何用例（tag/设备/网络没就绪），不能当作通过")
+        }
+    }
     shouldRunAfter(tasks.named("test"))
 }
