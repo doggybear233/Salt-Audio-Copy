@@ -8,6 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/doggybear233/Salt-Audio-Copy/releases/latest"><img src="https://img.shields.io/github/v/release/doggybear233/Salt-Audio-Copy?label=Release" alt="Release"></a>
+  <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3823853865"><img src="https://img.shields.io/badge/Steam%20Workshop-订阅-1b2838?logo=steam&logoColor=white" alt="Steam Workshop"></a>
   <a href="#系统要求"><img src="https://img.shields.io/badge/Windows-10%20%2F%2011%20x64-0078D4?logo=windows" alt="Windows 10 / 11 x64"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT%20%2B%20GPL%20binary-blue" alt="License MIT + GPL binary"></a>
 </p>
