@@ -184,7 +184,7 @@ object RipPlan {
         // 注意单位：FreeSpace 要的是扇区数，以前把字节总量传进去了，
         // 结果 1.15 倍后变成一个离谱的数字（动不动就报「需要 200 GB」）。
         val totalSectors = tracks.sumOf { it.sectors.toLong() + it.gapBefore }
-        FreeSpace.check(free, totalSectors, tracks.size, settings.keepWav, settings.format, settings.imageMode)
+        FreeSpace.check(free, totalSectors, tracks.size, settings.format, settings.imageMode)
             ?.let { warnings += it }
 
         return Plan(

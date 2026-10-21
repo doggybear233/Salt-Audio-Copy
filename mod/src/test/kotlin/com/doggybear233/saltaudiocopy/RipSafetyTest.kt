@@ -85,14 +85,14 @@ class RipSafetyTest {
     @Test
     fun requirementAddsSlack() {
         val audio = FreeSpace.estimateBytes(340_448, 21)
-        val need = FreeSpace.requiredBytes(340_448, 21)
+        val need = FreeSpace.peakBytes(340_448, 21)
         assertTrue(need > audio, "应该有 15% + 8MB 的余量")
     }
 
     @Test
     fun checkReportsShortageAndPassesWhenPlenty() {
-        assertNull(FreeSpace.check(50L * 1024 * 1024 * 1024, 340_448, 21, keepWav = true))
-        val msg = FreeSpace.check(10L * 1024 * 1024, 340_448, 21, keepWav = true)
+        assertNull(FreeSpace.check(50L * 1024 * 1024 * 1024, 340_448, 21))
+        val msg = FreeSpace.check(10L * 1024 * 1024, 340_448, 21)
         assertNotNull(msg)
         assertTrue(msg.contains("磁盘空间不足"))
     }
@@ -106,8 +106,8 @@ class RipSafetyTest {
         assertTrue(flac > wav, "FLAC 编码期间 WAV 与 FLAC 同时存在，峰值更大")
         assertTrue(image > wav, "镜像模式还要多一份拼接产物")
         // 保不保留 WAV 只影响最终占用，不影响峰值
-        assertNull(FreeSpace.check(wav + 1, sectors, 21, keepWav = false))
-        assertNotNull(FreeSpace.check(wav + 1, sectors, 21, keepWav = false, format = "flac"))
+        assertNull(FreeSpace.check(wav + 1, sectors, 21))
+        assertNotNull(FreeSpace.check(wav + 1, sectors, 21, format = "flac"))
     }
 
     // ---------- DiscGuard ----------

@@ -16,12 +16,6 @@ object FreeSpace {
     fun estimateBytes(totalSectors: Long, trackCount: Int): Long =
         totalSectors * 2352L + trackCount.toLong() * 44L
 
-    /** 需求 = 峰值占用 × 1.15 + 8 MB（CUE/日志/封面/文件系统开销）。 */
-    fun requiredBytes(totalSectors: Long, trackCount: Int): Long {
-        val audio = estimateBytes(totalSectors, trackCount)
-        return (audio * 115L / 100L) + 8L * 1024 * 1024
-    }
-
     /**
      * 峰值占用（字节）。
      *
@@ -45,18 +39,24 @@ object FreeSpace {
         return (peak * 115L / 100L) + 8L * 1024 * 1024
     }
 
-    /** @return 可用空间不足时返回提示文案；足够返回 null。 */
+    /**
+     * @return 可用空间不足时返回提示文案；足够返回 null。
+     *
+     * `usableBytes < 0` 表示「问不到磁盘信息」（网络盘、权限不足、路径还不存在）。
+     * 这种情况返回 null：宁可让抓轨继续、真的写满时报写盘错误，也不要因为一个
+     * 读不到的数值把用户挡在门外（以前会显示「可用 -0.0 GB」这种看不懂的话）。
+     */
     fun check(
         usableBytes: Long,
         totalSectors: Long,
         trackCount: Int,
-        keepWav: Boolean,
         format: String = "wav",
         imageMode: Boolean = false
     ): String? {
+        if (usableBytes < 0) return null
         val need = peakBytes(totalSectors, trackCount, format, imageMode)
         if (usableBytes >= need) return null
-        return Strings.fmt("磁盘空间不足：需要约 %s，可用 %s", mb(need), mb(usableBytes))
+        return Strings.fmt("磁盘空间不足：需要约 %s，可用 %s", gb(need), gb(usableBytes))
     }
 
     fun usableBytes(dir: Path): Long = runCatching {
@@ -65,5 +65,5 @@ object FreeSpace {
         java.nio.file.Files.getFileStore(p).usableSpace
     }.getOrDefault(-1L)
 
-    private fun mb(b: Long): String = "%.1f GB".format(b / 1024.0 / 1024.0 / 1024.0)
+    private fun gb(b: Long): String = "%.1f GB".format(b / 1024.0 / 1024.0 / 1024.0)
 }

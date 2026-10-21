@@ -49,7 +49,7 @@ class Batch09Test {
         val b = wav("02.wav", 100)
         WavTags.write(a, mapOf("title" to "标签不该进镜像"))
         val out = dir.resolve("image.wav")
-        val r = ImageSplicer.splice(listOf(a, b), out)
+        val r = ImageSplicer.splice(listOf(a, b), out)!!
         assertEquals(200L * 2352, r.dataBytes)
         assertEquals(44L + 200L * 2352, Files.size(out), "镜像里只应有 PCM，不含 LIST/id3")
     }

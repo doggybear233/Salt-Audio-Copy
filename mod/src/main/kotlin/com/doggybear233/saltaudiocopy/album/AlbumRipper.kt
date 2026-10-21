@@ -204,7 +204,8 @@ object AlbumRipper {
 
         // 余量检查放在写第一个字节之前：写到一半空间耗尽留下的半截 WAV 无法续抓（大小不合法）
         FreeSpace.check(
-            FreeSpace.usableBytes(dir), totalAll.toLong(), selected.size, settings.keepWav
+            FreeSpace.usableBytes(dir), totalAll.toLong(), selected.size,
+            settings.format, settings.imageMode
         )?.let {
             Diag.log("free space check failed: $it")
             error(it)
@@ -566,7 +567,11 @@ object AlbumRipper {
                 notes += Strings.message("整盘镜像目标已存在，按设置跳过拼接（逐轨文件保留）")
             } else {
                 runCatching {
-                    val res = ImageSplicer.splice(results.map { it.file }, imgTarget)
+                    val res = ImageSplicer.splice(results.map { it.file }, imgTarget) { cancel() }
+                    if (res == null) {
+                        // 拼接中途取消：`.part` 已由 splice 自己清掉，上一次的镜像原样保留。
+                        throw ImageSplicer.SpliceCancelled()
+                    }
                     Diag.log("image spliced: $imgTarget data=${res.dataBytes} sectors=${res.sectors} parts=${res.parts}")
                     for (k in results.indices) {
                         val part = results[k].file
@@ -601,8 +606,15 @@ object AlbumRipper {
                             warn(Strings.fmt("整盘镜像标签写入失败（音频不受影响）: %s", it.message))
                         }
                 }.onFailure {
-                    Diag.log("image splice failed", it)
-                    warn(Strings.fmt("整盘镜像拼接失败（逐轨文件保留）: %s", it.message))
+                    if (it is ImageSplicer.SpliceCancelled) {
+                        cancelled = true
+                        Diag.log("image splice cancelled by user")
+                        // 这里不碰面板状态：AlbumRipper 是纯逻辑层，取消由调用方统一呈现
+
+                    } else {
+                        Diag.log("image splice failed", it)
+                        warn(Strings.fmt("整盘镜像拼接失败（逐轨文件保留）: %s", it.message))
+                    }
                 }
             }
         }

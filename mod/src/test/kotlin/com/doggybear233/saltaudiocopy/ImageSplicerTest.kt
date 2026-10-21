@@ -49,7 +49,7 @@ class ImageSplicerTest {
         val b = part("b.wav", 3, 2)
         val c = part("c.wav", 1, 3)
         val out = dir.resolve("image.wav")
-        val r = ImageSplicer.splice(listOf(a, b, c), out)
+        val r = ImageSplicer.splice(listOf(a, b, c), out)!!
 
         assertEquals(6L * 2352, r.dataBytes)
         assertEquals(6L, r.sectors)
@@ -73,7 +73,7 @@ class ImageSplicerTest {
         val a = part("ta.wav", 2, 1, tagged = true)
         val b = part("tb.wav", 3, 2, tagged = true)
         val out = dir.resolve("image2.wav")
-        val r = ImageSplicer.splice(listOf(a, b), out)
+        val r = ImageSplicer.splice(listOf(a, b), out)!!
 
         assertEquals(5L * 2352, r.dataBytes)
         assertEquals(44L + 5 * 2352, Files.size(out), "镜像只应有头 + 纯音频")
