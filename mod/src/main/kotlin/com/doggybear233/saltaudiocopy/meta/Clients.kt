@@ -225,6 +225,9 @@ object GnudbClient {
 
     private val THROTTLE_MS = 500L
 
+    /** 一次 CDDB 查询的总预算：3 镜像 × 3 hello 不能各等满 60 秒。 */
+    private const val CDDB_BUDGET_MS = 45_000L
+
     /** 本次运行里已经证明连不上的镜像，别再每次都等一遍超时。 */
     private val deadMirrors: MutableSet<String> = java.util.Collections.synchronizedSet(HashSet())
 
@@ -250,8 +253,10 @@ object GnudbClient {
     private fun request(cmd: String): HttpResult {
         var lastError: Throwable? = null
         val mirrors = mirrorsOverride ?: MIRRORS
+        val budgetEnd = System.currentTimeMillis() + CDDB_BUDGET_MS
         for (host in mirrors) {
             if (host in deadMirrors) continue
+            if (System.currentTimeMillis() >= budgetEnd) break
             var tried500: HttpResult? = null
             for (hello in HELLOS) {
                 try {
@@ -259,7 +264,14 @@ object GnudbClient {
                         listOf("cmd" to cmd, "hello" to hello, "proto" to "6")
                     )
                     Http.throttle(java.net.URI(host).host ?: host, THROTTLE_MS)
-                    val r = Http.get("$host?$q", accept = "text/plain", connectMs = 2_500, maxBytes = 1L * 1024 * 1024)
+                    val left = (budgetEnd - System.currentTimeMillis()).coerceAtLeast(1)
+                    val r = Http.get(
+                        "$host?$q",
+                        accept = "text/plain",
+                        connectMs = 2_500,
+                        maxBytes = 1L * 1024 * 1024,
+                        deadlineMs = left
+                    )
                     val first = r.text.lineSequence().firstOrNull().orEmpty()
                     if (first.startsWith("500")) {
                         Diag.log("cddb 500 from $host (hello=\"$hello\"): ${first.take(80)}")
@@ -272,6 +284,11 @@ object GnudbClient {
                     // 取消不能被记成「这个镜像挂了」：以前会把 host 加进 deadMirrors，
                     // 取消一次抓轨之后整个进程内 CDDB 就永久不可用。
                     throw e
+                } catch (e: ResponseTooLarge) {
+                    // 单个条目超过 1 MB 是平台异常，换 hello 也不会变小；镜像本身没挂，不能拉黑。
+                    lastError = e
+                    Diag.log("cddb response too large: $host -> ${e.message}")
+                    break
                 } catch (e: Throwable) {
                     lastError = e
                     deadMirrors += host

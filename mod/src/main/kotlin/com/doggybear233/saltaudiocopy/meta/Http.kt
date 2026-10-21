@@ -21,10 +21,38 @@ data class HttpResult(val status: Int, val body: ByteArray, val contentType: Str
 class Scope internal constructor() {
     private val flag = java.util.concurrent.atomic.AtomicBoolean(false)
     val cancelled: Boolean get() = flag.get()
+
+    /**
+     * 正在阻塞的连接。取消时直接断开它——`responseCode` 与 `read` 都会在 socket 上阻塞，
+     * 单靠标志位要等满 readTimeout（默认 20 秒）才能回到调用方。
+     */
+    @Volatile
+    private var connection: HttpURLConnection? = null
+
+    internal fun attach(c: HttpURLConnection?) {
+        connection = c
+    }
+
+    /** 正在读的响应体。阻塞 read 无法被 interrupt，关闭流才能真正叫醒它。 */
+    @Volatile
+    private var body: java.io.Closeable? = null
+
+    internal fun attachBody(c: java.io.Closeable?) {
+        body = c
+    }
+
     fun cancel() {
         flag.set(true)
+        runCatching { body?.close() }
+        connection?.let { runCatching { it.disconnect() } }
     }
 }
+
+/**
+ * 服务端响应超过调用方上限。单独成类型：这是「这张图太大」而不是「镜像挂了」，
+ * 不能被当成重试理由，也不能把镜像记进 deadMirrors。
+ */
+class ResponseTooLarge(message: String) : java.io.IOException(message)
 
 /**
  * 用户取消导致的失败。
@@ -149,6 +177,14 @@ object Http {
         }
     }
 
+    /**
+     * 阻塞 I/O 放在独立守护线程里跑，调用线程每 100ms 检查一次取消。
+     *
+     * 为什么不在读循环里查标志就行：`InputStream.read` 阻塞在 socket 上，另一线程
+     * `close`/`disconnect` 都不能保证立刻唤醒它（实测要等到服务端发完或 readTimeout）。
+     * 因此取消语义只能由外层等待来实现——用户点取消后 100ms 内返回，
+     * 被丢下的守护线程最多在 readTimeout 后自行结束。
+     */
     fun get(
         url: String,
         headers: Map<String, String> = emptyMap(),
@@ -159,6 +195,61 @@ object Http {
         maxBytes: Long = Long.MAX_VALUE,
         scope: Scope = current,
         deadlineMs: Long = DEFAULT_DEADLINE_MS
+    ): HttpResult {
+        val task = java.util.concurrent.FutureTask {
+            getBlocking(url, headers, retries, accept, connectMs, readMs, maxBytes, scope, deadlineMs)
+        }
+        val worker = Thread(task, "saltaudiocopy-http").apply {
+            isDaemon = true
+            start()
+        }
+        try {
+            while (true) {
+                try {
+                    return task.get(100, java.util.concurrent.TimeUnit.MILLISECONDS)
+                } catch (_: java.util.concurrent.TimeoutException) {
+                    if (scope.cancelled) {
+                        worker.interrupt()
+                        task.cancel(true)
+                        throw RequestCancelled()
+                    }
+                } catch (e: java.util.concurrent.ExecutionException) {
+                    when (val cause = e.cause) {
+                        is RequestCancelled -> throw cause
+                        is ResponseTooLarge -> throw cause
+                        is java.io.IOException -> throw cause
+                        is InterruptedException -> {
+                            Thread.currentThread().interrupt()
+                            throw RequestCancelled()
+                        }
+                        is RuntimeException -> throw cause
+                        else -> throw java.io.IOException(cause?.message ?: "网络请求失败", cause)
+                    }
+                } catch (e: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    worker.interrupt()
+                    task.cancel(true)
+                    throw RequestCancelled()
+                }
+            }
+        } finally {
+            if (!task.isDone) {
+                worker.interrupt()
+                task.cancel(true)
+            }
+        }
+    }
+
+    private fun getBlocking(
+        url: String,
+        headers: Map<String, String>,
+        retries: Int,
+        accept: String,
+        connectMs: Int,
+        readMs: Int,
+        maxBytes: Long,
+        scope: Scope,
+        deadlineMs: Long
     ): HttpResult {
         val startedAt = System.currentTimeMillis()
         var attempt = 0
@@ -191,6 +282,7 @@ object Http {
                     setRequestProperty("Accept-Encoding", "gzip")
                     for ((k, v) in headers) setRequestProperty(k, v)
                 }
+                scope.attach(conn)
                 val code = conn.responseCode
                 if ((code == 503 || code == 429) && attempt <= retries) {
                     // Retry-After 可能是「3600」这种离谱值（甚至远超一次查询的耐心），
@@ -210,11 +302,18 @@ object Http {
                 val declared = conn.contentLengthLong
                 if (declared > maxBytes) {
                     runCatching { stream?.close(); conn.disconnect() }
-                    throw java.io.IOException("响应过大: 声明 $declared 字节，上限 $maxBytes 字节")
+                    throw ResponseTooLarge("响应过大: 声明 $declared 字节，上限 $maxBytes 字节")
                 }
                 val bytes = stream?.let { s ->
                     val raw = if (conn.contentEncoding?.contains("gzip", true) == true) GZIPInputStream(s) else s
-                    raw.use { readCapped(it, maxBytes, scope) }
+                    raw.use {
+                        scope.attachBody(it)
+                        try {
+                            readCapped(it, maxBytes, scope)
+                        } finally {
+                            scope.attachBody(null)
+                        }
+                    }
                 } ?: ByteArray(0)
                 val ct = conn.contentType
                 runCatching { conn.disconnect() }
@@ -223,7 +322,19 @@ object Http {
                 // 用户取消：不要重试、不要包装成「网络请求失败」，也不要被上层当成镜像挂掉。
                 Diag.log("http cancelled by user: $url")
                 throw e
+            } catch (e: InterruptedException) {
+                // 线程被中断等价于用户取消：恢复中断位再上抛，绝不降级成可重试的网络错误。
+                Thread.currentThread().interrupt()
+                Diag.log("http interrupted: $url")
+                throw RequestCancelled()
+            } catch (e: ResponseTooLarge) {
+                // 体积超限是调用方给的上限，换镜像/重试都不会变小。
+                Diag.log("http response too large: $url -> ${e.message}")
+                throw e
             } catch (e: Exception) {
+                // 取消时 socket 会被主动断开，读线程收到的是 SocketException；
+                // 必须按 scope 还原成「已取消」，否则上层会把取消记成镜像故障。
+                if (scope.cancelled) throw RequestCancelled()
                 // 连不上（拒绝连接 / 无路由 / connect timed out / UnknownHost）重试也没用，只会把面板卡更久。
                 val unreachable = e is java.net.UnknownHostException ||
                     e is java.net.ConnectException ||
@@ -237,6 +348,8 @@ object Http {
                 val left = (deadlineMs - (System.currentTimeMillis() - startedAt)).coerceAtLeast(0)
                 sleepCancellable(minOf(backoff, left), scope)
                 backoff = (backoff * 2).coerceAtMost(8000)
+            } finally {
+                scope.attach(null)
             }
         }
     }
@@ -267,7 +380,7 @@ object Http {
             val n = stream.read(buf)
             if (n < 0) break
             total += n
-            if (total > maxBytes) throw java.io.IOException("响应过大: 超过上限 $maxBytes 字节")
+            if (total > maxBytes) throw ResponseTooLarge("响应过大: 超过上限 $maxBytes 字节")
             out.write(buf, 0, n)
         }
         return out.toByteArray()

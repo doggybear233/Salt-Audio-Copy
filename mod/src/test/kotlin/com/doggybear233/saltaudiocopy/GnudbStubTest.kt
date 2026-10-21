@@ -48,6 +48,8 @@ class GnudbStubTest {
         CddbCache.dirOverride = cacheDir
         GnudbClient.resetForTest()
         Http.configure("")
+        // 取消标志是进程级状态：前一个用例 abort 过，这里要换新 scope 才会真的发请求。
+        Http.startRequest()
 
         server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/~cddb/cddb.cgi") { ex -> handle(ex) }
