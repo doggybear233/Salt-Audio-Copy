@@ -1,4 +1,4 @@
-package com.doggybear233.saltaudiocopy.album
+﻿package com.doggybear233.saltaudiocopy.album
 
 import com.doggybear233.saltaudiocopy.ui.Strings
 import com.doggybear233.saltaudiocopy.Diag
@@ -631,6 +631,9 @@ object AlbumRipper {
                         Diag.log("image splice failed", it)
                         warn(Strings.fmt("整盘镜像拼接失败（逐轨文件保留）: %s", it.message))
                     }
+                    // 镜像没成，逐轨 WAV 会留下来：它们此前按「中间产物」跳过了标签，
+                    // 现在必须补上，否则保留下来的文件在播放器里没有专辑信息（R4-10）。
+                    tagRetainedParts(results, album, albumArtist, albumTitle, availableTracks.size)
                 }
             }
         }
@@ -810,6 +813,41 @@ object AlbumRipper {
      * 逐轨标签一律跳过；最终留下的那一个镜像文件必须自己带专辑信息，
      * 否则整盘抓轨的产物在播放器里没有专辑名/艺术家，会被散成「未知专辑」。
      */
+    /**
+     * 镜像没拼成/被取消时，逐轨 WAV 会留在输出目录里。
+     *
+     * 抓轨循环按「整盘镜像模式」跳过了逐轨标签，所以这些文件必须在这里补写；
+     * 只处理真实存在的 .wav（FLAC 已在编码时写入标签）。
+     */
+    internal fun tagRetainedParts(
+        results: List<AlbumTrackResult>,
+        album: AlbumMeta?,
+        albumArtist: String,
+        albumTitle: String,
+        totalTracks: Int
+    ) {
+        for (r in results) {
+            val f = r.file
+            if (!Files.isRegularFile(f)) continue
+            if (!f.fileName.toString().lowercase().endsWith(".wav")) continue
+            val why = com.doggybear233.saltaudiocopy.encode.WavTags.writeResult(
+                f,
+                mapOf(
+                    "title" to r.title,
+                    "artist" to (album?.track(r.number)?.artist ?: r.artist ?: albumArtist),
+                    "albumartist" to albumArtist,
+                    "album" to albumTitle,
+                    "date" to (album?.year?.toString() ?: ""),
+                    "genre" to (album?.genre ?: ""),
+                    "track" to "%d/%d".format(r.number, totalTracks),
+                    "disc" to album?.discNumber?.let { d -> "%d/%d".format(d, album?.totalDiscs ?: 1) }.orEmpty(),
+                    "comment" to "Salt Audio Copy $APP_VERSION"
+                )
+            )
+            if (why != null) Diag.log("retag retained part failed ${f.fileName}: $why")
+        }
+    }
+
     private fun tagImage(file: java.nio.file.Path, title: String, artist: String, album: AlbumMeta?) {
         val name = file.fileName.toString().lowercase()
         if (name.endsWith(".flac")) {
