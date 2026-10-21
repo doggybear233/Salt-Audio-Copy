@@ -184,6 +184,7 @@ object RipEngine {
 
         var gapSectors = 0
         var detectedGap = 0
+        var subchannelUnavailable = false
         val ownSource = source == null
         val dev: TrackSource = source ?: CdTrackSource(CdDevice(scan.path))
         // 每次开新句柄都重设一次读速：驱动器在句柄关闭后往往恢复默认速度。
@@ -222,12 +223,17 @@ object RipEngine {
                     val g = runCatching { GapDetector.detect(startLba, floor) { lba -> dev.readQ(lba) } }
                         .onFailure { Diag.log("gap detect failed lba=$startLba", it) }
                         .getOrNull()
-                    if (g != null && g.sectors > 0) {
+                    if (g != null && g.failed) {
+                        // 读不到子通道 ≠ 没有间隙：要说清楚，否则用户以为这张盘是「无间隙压盘」
+                        Diag.log("gap track=$trackNo 子通道读取失败，间隙按 0 处理（本轨）")
+                        subchannelUnavailable = true
+                    } else if (g != null && g.sectors > 0) {
                         detectedGap = g.sectors
                         Diag.log("gap track=$trackNo index00=${g.sectors} sectors (${g.msf}) startLba=${g.startLba}")
                     }
                 }
             }
+            if (subchannelUnavailable) Diag.log("gap track=$trackNo 已降级：本驱动器不支持 Q 子通道")
             // 间隙归属决定音轨边界：对应 EAC 的三种 gap 处理方式
             when (gapMode.lowercase()) {
                 "prepend" -> if (detectedGap > 0) {

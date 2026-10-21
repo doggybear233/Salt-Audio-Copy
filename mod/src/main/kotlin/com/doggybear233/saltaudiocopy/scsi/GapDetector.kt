@@ -20,7 +20,14 @@ object GapDetector {
         /** INDEX 00 扇区数（0 表示无预间隙）。 */
         val sectors: Int,
         /** INDEX 00 的起始 LBA（无间隙时等于音轨起始 LBA）。 */
-        val startLba: Int
+        val startLba: Int,
+        /**
+         * 读子通道失败过（驱动器不支持 / 命令被拒）。
+         *
+         * 必须与「确实没有间隙」区分：以前 `runCatching … ?: break` 把两者合成
+         * `sectors = 0`，用户看到的是「这张盘没有 INDEX 00」，实际是根本没读到。
+         */
+        val failed: Boolean = false
     ) {
         val msf: String
             get() {
@@ -41,15 +48,17 @@ object GapDetector {
         readQ: (Int) -> Subchannel.Q
     ): Gap {
         var count = 0
+        var failed = false
         val floor = maxOf(lowerBound, trackStart - maxScan)
         var lba = trackStart - 1
         while (lba >= floor) {
-            val q = runCatching { readQ(lba) }.getOrNull() ?: break
+            val q = runCatching { readQ(lba) }.getOrNull()
+            if (q == null) { failed = true; break }
             if (!q.crcValid) break
             if (q.index != 0) break
             count++
             lba--
         }
-        return Gap(count, trackStart - count)
+        return Gap(count, trackStart - count, failed)
     }
 }

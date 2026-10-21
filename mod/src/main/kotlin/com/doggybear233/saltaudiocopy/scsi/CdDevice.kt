@@ -193,6 +193,12 @@ class CdDevice private constructor(
     private fun ensureRead10BlockSize() {
         if (blockLengthReady) return
         val param = ByteArray(16)
+        // MODE SELECT(10) 参数头 [0..1] = Mode Data Length = 参数总长 − 2。
+        // 以前留 0：严格实现的驱动器（部分 USB/SATA 桥）会只消费 2 字节、丢掉块描述符，
+        // 块长仍是 2048，于是第一个 READ(10) 就短读，而且 blockLengthReady 已经置位，
+        // 后续重试全都跳过 MODE SELECT —— 整张盘在 READ10 模式下永久失败。
+        param[0] = 0
+        param[1] = (param.size - 2).toByte()
         param[6] = 0
         param[7] = 8                                  // 块描述符长度
         param[13] = ((sectorSize shr 16) and 0xFF).toByte()
@@ -202,26 +208,34 @@ class CdDevice private constructor(
         cdb[0] = 0x55.toByte()                        // MODE SELECT(10)
         cdb[8] = param.size.toByte()                  // 参数列表长度（低字节）
         transport.executeOut(cdb, param)
+
+        // 回读确认改为「决定流程」：读回来不是 2352 就不要声称准备好了，
+        // 让上层回退到 D8；以前只在日志里写一句，然后按已生效继续，最终表现为短读/CRC 全错。
+        val len = runCatching { readBackBlockLength() }.getOrNull()
+        if (len != null && len != sectorSize) {
+            Diag.log("READ(10): 块长设置未生效（回读 $len，期望 $sectorSize），本次改用下一条读命令")
+            throw ScsiException(
+                "驱动器没有接受 2352 字节块长（回读 $len）",
+                senseKey = 0x05, asc = 0x26
+            )
+        }
         blockLengthReady = true
-        Diag.log("READ(10): block length set to $sectorSize")
-        // 回读确认：有的驱动器静默忽略 MODE SELECT，然后按 2048 回数据，
-        // 表现为「短读」或「CRC 全错」。这里读回来记日志，不改流程（部分 ATAPI 不回报块长）。
-        runCatching {
-            val sense = ByteArray(12)
-            sense[0] = 0x5A.toByte()                  // MODE SENSE(10)
-            sense[2] = 0x3F.toByte()                  // 所有页
-            sense[7] = (64 shr 8).toByte()
-            sense[8] = (64 and 0xFF).toByte()
-            val back = transport.execute(sense, 64)
-            val bdl = (((back[6].toInt() and 0xFF) shl 8) or (back[7].toInt() and 0xFF))
-            if (bdl >= 8 && back.size >= 16) {
-                val len = ((back[13].toInt() and 0xFF) shl 16) or
-                    ((back[14].toInt() and 0xFF) shl 8) or (back[15].toInt() and 0xFF)
-                if (len != sectorSize) {
-                    Diag.log("READ(10): 驱动器回报块长 $len 而不是 $sectorSize（读回的数据长度会不符）")
-                }
-            }
-        }.onFailure { Diag.log("READ(10): 回读块长失败（部分驱动器不支持）", it) }
+        Diag.log("READ(10): block length set to $sectorSize" + if (len == null) "（驱动器不支持回读）" else "")
+    }
+
+    /** MODE SENSE(10) 读回当前块长；驱动器不支持时返回 null。 */
+    private fun readBackBlockLength(): Int? {
+        val sense = ByteArray(12)
+        sense[0] = 0x5A.toByte()                      // MODE SENSE(10)
+        sense[2] = 0x3F.toByte()                      // 所有页
+        sense[7] = (64 shr 8).toByte()
+        sense[8] = (64 and 0xFF).toByte()
+        val back = transport.execute(sense, 64)
+        if (back.size < 16) return null
+        val bdl = (((back[6].toInt() and 0xFF) shl 8) or (back[7].toInt() and 0xFF))
+        if (bdl < 8) return null
+        return ((back[13].toInt() and 0xFF) shl 16) or
+            ((back[14].toInt() and 0xFF) shl 8) or (back[15].toInt() and 0xFF)
     }
 
     /**
@@ -247,11 +261,14 @@ class CdDevice private constructor(
     }
 
     /**
-     * 读 [count] 个扇区的用户数据 + **Q-only 子通道**（每扇区 2352 + 16 = 2368 字节）。
+     * 读 [count] 个扇区的用户数据 + **Q 子通道**。
      *
-     * CDB[9] = `0xF8`（用户数据 + Sync + Header），**CDB[10] = 2 表示只取 Q 子通道**。
-     * 实测本驱动：`CDB[10]=1`（raw 96 字节，需位平面反交织）返回的多为 0，不可用；
-     * `CDB[10]=2` 直接给出 16 字节记录，前 12 字节就是 Q（后 4 字节填充），无需反交织。
+     * CDB[9] 的 bit2（0x04）是「要子通道」的总开关，CDB[10] 只选格式：
+     * 这里用 `0xFC`（0xF8 | 0x04 = 用户数据 + Sync + Header + 子通道）+ `CDB[10]=0x02`（Q-only）。
+     * 以前写 `0xF8`，等于按规范声明「不要子通道」，只在本机那台「只看 CDB[10]」的驱动器上成立。
+     *
+     * 步长不写死：用实际传输字节数反推 2352 / 2368 / 2448 三种情况，
+     * 统一规整成 Q-only 布局返回（每扇区 2352 + 16）。
      */
     fun readSectorsWithQSubchannel(lba: Int, count: Int): ByteArray {
         require(count in 1..maxSectorsPerRequest) { "count=$count 超出单次上限 $maxSectorsPerRequest" }
@@ -263,10 +280,30 @@ class CdDevice private constructor(
         cdb[4] = ((lba ushr 8) and 0xFF).toByte()
         cdb[5] = (lba and 0xFF).toByte()
         cdb[8] = count.toByte()
-        cdb[9] = 0xF8.toByte()
+        cdb[9] = 0xFC.toByte()                 // 用户数据 + Sync + Header + 子通道
         cdb[10] = 0x02.toByte()                // Q-only subchannel
-        // 子通道也是「请求 N 只要到 M」的受害者：短读会让 Q 帧错位，间隙检测静默失效
-        return exact(ReadCommand.MMC, count * Subchannel.Q_STRIDE, transport.execute(cdb, count * Subchannel.Q_STRIDE))
+        val capacity = count * Subchannel.Q_STRIDE
+        val buf = MemorySegment.ofArray(ByteArray(capacity))
+        val got = transport.executeInto(cdb, buf, capacity)
+        // 传输长度必须能被扇区数整除，且至少是「用户数据」的大小：
+        // 否则后面按 stride 切包会越界（短读必须报成可读的错误，不是 ArrayIndexOutOfBounds）
+        if (got < count * 2352 || got % count != 0) {
+            throw ScsiException(
+                "子通道短读：请求 $count 扇区，只回了 $got 字节" +
+                    "（至少需要 ${count * 2352} 字节）",
+                senseKey = 0x03, asc = 0x11
+            )
+        }
+        val stride = got / count
+        if (stride == 2352) {
+            throw ScsiException(
+                "驱动器没有返回子通道数据（Q 子通道不可用）：请求 $count 扇区，只回了 $got 字节",
+                senseKey = 0x05, asc = 0x20
+            )
+        }
+        val raw = ByteArray(got)
+        MemorySegment.copy(buf, 0L, MemorySegment.ofArray(raw), 0L, got.toLong())
+        return Subchannel.normalizeToQOnly(raw, count, stride)
     }
 
     /** 读单个扇区的 Q 子通道（gap 探测用）。 */

@@ -33,6 +33,33 @@ object Subchannel {
     const val Q_STRIDE = 2352 + 16
 
     /** 从 Q-only 块里取第 [sectorIndex] 个扇区的 12 字节 Q（前 12 字节，后 4 字节是填充）。 */
+    /**
+     * 把「用户数据 + 子通道」的原始响应规整成 Q-only 布局（每扇区 2352 + 16）。
+     *
+     * 不同驱动器对同一个 READ CD 请求回的步长不一样：
+     * - `2352`：完全没带子通道（我们要的东西没拿到，调用方必须报错而不是当「无间隙」）；
+     * - `2368`：2352 数据 + 16 字节 Q-only；
+     * - `2448`：2352 数据 + 96 字节 raw 子通道（Q 需要按位平面反交织）。
+     *
+     * 以前写死 2368 并用 `exact()` 强校验：换一台按规范处理 bit2 的驱动器就会抛「短读」，
+     * 而间隙探测把异常吞成「这张盘没有 INDEX 00」。
+     */
+    fun normalizeToQOnly(raw: ByteArray, count: Int, stride: Int): ByteArray {
+        if (stride == Q_STRIDE) return raw
+        val out = ByteArray(count * Q_STRIDE)
+        for (i in 0 until count) {
+            val src = i * stride
+            System.arraycopy(raw, src, out, i * Q_STRIDE, 2352)
+            val q = when (stride) {
+                2352 + 96 -> extractChannel(raw, 0x01, src + 2352)
+                2352 -> throw IllegalArgumentException("驱动器没有返回子通道数据")
+                else -> throw IllegalArgumentException("未知的子通道步长 $stride")
+            }
+            System.arraycopy(q, 0, out, i * Q_STRIDE + 2352, 12)
+        }
+        return out
+    }
+
     fun qOnlySlice(buf: ByteArray, sectorIndex: Int): ByteArray {
         val off = sectorIndex * Q_STRIDE + 2352
         require(buf.size >= off + Q_SIZE) { "Q-only 缓冲太短: ${buf.size}" }
