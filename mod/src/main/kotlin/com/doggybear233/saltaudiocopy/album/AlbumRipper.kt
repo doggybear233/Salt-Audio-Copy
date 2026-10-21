@@ -422,7 +422,7 @@ object AlbumRipper {
                     }
                 }
             }
-            if (settings.offsetSamples != 0 && !r.cancelled) {
+            if (settings.offsetSamples != 0 && !r.cancelled && !r.completedBefore) {
                 runCatching { PcmOffset.apply(outFile, settings.offsetSamples) }
                     .onSuccess {
                         // 偏移把采样整体挪了几十个字节：文件内容变了，CRC 与峰值必须重算，
@@ -432,6 +432,12 @@ object AlbumRipper {
                             .onFailure { Diag.log("recompute crc after offset failed", it) }
                     }
                     .onFailure { Diag.log("offset shift failed on $outFile", it); warn(Strings.fmt("offset 校正失败: %s", it.message)) }
+            } else if (r.completedBefore) {
+                // 断点续抓命中「上一轮已经抓完」的文件：这次没读盘，peak 是 0，
+                // 日志会把它写成 -inf dBFS（看起来像整轨静音）。按文件重算一遍统计值。
+                runCatching { wavStats(outFile) }
+                    .onSuccess { (crc, peak) -> r = r.copy(crc32 = crc, peakLevel = peak) }
+                    .onFailure { Diag.log("recompute stats for completed file failed", it) }
             }
             // WAV 的 LIST/INFO 标签：资源管理器/播放器读它显示标题、艺术家、专辑
             //（反馈 6：抓下来的文件在资源管理器里没有标签）。追加在 data 之后，
@@ -744,7 +750,9 @@ object AlbumRipper {
         )
         val created: List<java.nio.file.Path> = runCatching {
             java.nio.file.Files.list(dir).use { s ->
-                s.filter { it.fileName.toString() !in beforeRun }.toList()
+                // 只看普通文件：`.saltaudiocopy/` 是放续抓守卫的目录，取消清理时
+                // 既删不掉（非空目录）也不该出现在「本次新建」清单里。
+                s.filter { java.nio.file.Files.isRegularFile(it) && it.fileName.toString() !in beforeRun }.toList()
             }
         }.getOrDefault(emptyList())
         return AlbumRipResult(

@@ -102,16 +102,19 @@ class RipPipelineTest {
         assertEquals(44L + 2000L * 2352, Files.size(out))
         val readsAfterFirstRip = fake.reads
 
+        var progress = -1
         val again = RipEngine.ripTrack(
             scan = scan(6000), trackIndex = 0, outFile = out,
-            cancel = { false }, onProgress = {}, resume = true, source = fake
+            cancel = { false }, onProgress = { progress = it.sectorsDone }, resume = true, source = fake
         )
         assertEquals(full.crc32, again.crc32)
+        assertTrue(again.completedBefore, "命中「上一轮已抓完」要标记出来，调用方据此跳过 offset 二次校正")
         assertEquals(
             44L + 2000L * 2352, Files.size(out),
             "续抓遇到完整旧文件不能追加成两遍"
         )
         assertEquals(readsAfterFirstRip, fake.reads, "完整文件不该再被读一遍")
+        assertEquals(2000, progress, "整轨跳过的续抓也要发一次进度，否则进度条停在上一轨")
     }
 
     /**

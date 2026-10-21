@@ -60,7 +60,14 @@ data class RipResult(
     /** 因校验不一致而重读过的扇区区间（诊断用，最多保留 64 段） */
     val retried: List<IntRange> = emptyList(),
     /** 用尽重试仍未达到一致读的块数（>0 说明这轨的音频不是 100% 可信） */
-    val unstableChunks: Int = 0
+    val unstableChunks: Int = 0,
+    /**
+     * 本次没有读盘：同名文件在续抓时就已经是完整的。
+     *
+     * 调用方据此跳过「事后处理」——尤其是 offset 校正：那个文件在上一轮已经偏移过一次，
+     * 再应用一次就等于把整轨音频又挪了一遍，而日志里不会出现任何异常。
+     */
+    val completedBefore: Boolean = false
 )
 
 /**
@@ -167,6 +174,7 @@ object RipEngine {
         var done = 0
         var retries = 0
         var unstableChunks = 0
+        var completedBefore = false
         val retried = ArrayList<IntRange>()
         var c2Active = useC2
         var c2Errors = 0
@@ -256,8 +264,11 @@ object RipEngine {
                         // ——用户的完整音轨被自己的一次误点弄没了。现在直接认定它已完成。
                         total > 0 && already >= total -> {
                             done = total
+                            completedBefore = true
                             crc.reset()
                             crcFile(crc, outFile, total * 2352L)
+                            // 整轨都没读，进度回调一次都不发的话进度条会停在上一轨
+                            onProgress(RipProgress(done, total, done.toLong() * 2352, 0L, retries))
                             Diag.log("resume track=$trackNo 已有完整文件（$prior 字节 / $total 扇区），跳过读取")
                         }
 
@@ -328,7 +339,7 @@ object RipEngine {
         val result = RipResult(
             trackNo, outFile, done, done.toLong() * 2352, crc.value, elapsed, cancelled, retries,
             gapSectors = gapSectors, peakLevel = peak, retried = retried.toList(),
-            unstableChunks = unstableChunks
+            unstableChunks = unstableChunks, completedBefore = completedBefore
         )
         Diag.log(
             "rip track=$trackNo sectors=$done/$total crc32=0x${java.lang.Long.toHexString(crc.value)} " +
