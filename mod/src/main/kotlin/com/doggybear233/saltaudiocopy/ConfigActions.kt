@@ -70,6 +70,9 @@ object ConfigActions {
     internal fun beginRunForTest() = beginRun()
 
     private fun beginRun() {
+        // 抓轨中再点别的入口时，先到的 beginRun 不能把用户刚点的取消/暂停清掉：
+        // 入口自己的 busy 检查会挡住重复启动，这里只需保持现有状态（R4-04）。
+        if (busy) return
         userCancel = false
         PanelState.paused = false
         PanelState.cancelArmed = false

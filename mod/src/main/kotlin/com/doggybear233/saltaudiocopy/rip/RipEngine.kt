@@ -303,6 +303,9 @@ object RipEngine {
                     SectorBuffer(chunk).use { second ->
                         val a = ByteArray(first.size)
                         val b = ByteArray(second.size)
+                        // 本轮是否已经成功写过数据：续抓时 done 从几十扇区起步，
+                        // 用 done==0 判「首块」会让续抓永远退不回 16 扇区（R4-04）。
+                        var wroteThisRun = false
                         while (done < total) {
                             if (cancel()) { cancelled = true; break }
                             val n = minOf(chunk, total - done)
@@ -317,7 +320,7 @@ object RipEngine {
                                     onUnstable = { unstableChunks++ }
                                 )
                             } catch (e: com.doggybear233.saltaudiocopy.scsi.ScsiException) {
-                                if (chunk > 16 && done == 0) {
+                                if (chunk > 16 && !wroteThisRun) {
                                     Diag.log("read chunk $chunk rejected, falling back to 16: ${e.message}")
                                     chunk = 16
                                     continue
@@ -337,6 +340,7 @@ object RipEngine {
                                 if (c2 > 0) c2Errors += c2
                             }
                             wav.write(a, 0, len)
+                            wroteThisRun = true
                             crc.update(a, 0, len)
                             done += n
                             onProgress(

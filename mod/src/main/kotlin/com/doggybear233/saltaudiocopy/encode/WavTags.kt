@@ -251,10 +251,18 @@ object WavTags {
                         val hdr = readAt(src, pos, 8)
                         val id = ascii(hdr, 0, 4)
                         val len = le32(hdr, 4)
+                        // 长度高位为 1（>=2 GiB）时 le32 变成负数：span 也会是负数，
+                        // pos 往回走就是死循环。直接报错，别把损坏文件当成功（R4-04）。
+                        if (len < 0) {
+                            throw IllegalStateException("WAV 块 $id 的长度异常（$len）")
+                        }
                         val body = len.toLong() + (len.toLong() and 1L)
                         val span = 8L + body
-                        // 旧标签块直接丢掉（重复打标签时不叠加）
-                        if (id != "LIST" && id != "id3 ") copyRange(src, dst, pos, span)
+                        // 旧 INFO 标签块直接丢掉（重复打标签时不叠加）；LIST/adtl 等其它
+                        // LIST 子类型原样保留，不能见 LIST 就删。
+                        val drop = id == "id3 " ||
+                            (id == "LIST" && len >= 4 && ascii(readAt(src, pos + 8, 4), 0, 4) == "INFO")
+                        if (!drop) copyRange(src, dst, pos, span)
                         pos += span
                     }
                     if (info != null) dst.write(java.nio.ByteBuffer.wrap(info))
