@@ -110,7 +110,7 @@ def dock(pal, label):
     d.text((x + 432, top + 60), "第 7/20 轨 · 62%", font=f(13, True), fill=pal["title"])
 
     # 输出预览
-    d.text((x, top + 84), "C:\\Users\\62426\\Music\\Def Tech — GREATEST HITS\\05 Lovin' You.wav",
+    d.text((x, top + 84), "C:\\Users\\user\\Music\\Def Tech — GREATEST HITS\\05 Lovin' You.wav",
            font=f(12), fill=pal["faint"])
 
     # 右侧：速度/剩余 + 按钮

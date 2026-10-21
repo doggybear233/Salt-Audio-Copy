@@ -198,7 +198,7 @@ def design_b():
     x += button(d, x, 750, "暂停") + 10
     x += button(d, x, 750, "取消") + 10
     x += button(d, x, 750, "打开输出目录") + 10
-    d.text((1220, 760), "输出：C:\\Users\\62426\\Music\\Def Tech — GREATEST HITS", font=f(13), fill=FAINT)
+    d.text((1220, 760), "输出：C:\\Users\\user\\Music\\Def Tech — GREATEST HITS", font=f(13), fill=FAINT)
 
     caption(d, [("B. 侧边栏独立页面「盐专辑」", 24, True, TITLE),
                 ("最接近 EAC 的布局：左封面候选、右音轨表、底部操作栏；与 CD 工具箱并列，互不遮挡", 16, False, BODY)])
@@ -229,7 +229,7 @@ def design_c():
 
     d.line((846, 416, 1394, 416), fill=LINE)
     d.text((846, 432), "输出目录", font=f(13), fill=BODY)
-    d.text((940, 432), "C:\\Users\\62426\\Music", font=f(13), fill=TITLE)
+    d.text((940, 432), "C:\\Users\\user\\Music", font=f(13), fill=TITLE)
     d.text((1300, 430), "选择", font=f(13), fill=ACCENT)
 
     d.text((846, 466), "专辑目录模板", font=f(12), fill=FAINT)
@@ -330,7 +330,7 @@ def design_f():
     d.text((214, 366), "输出与命名", font=f(15, True), fill=TITLE)
     d.text((214, 394), "输出目录", font=f(12), fill=FAINT)
     d.rounded_rectangle((214, 412, 1140, 446), radius=8, fill=CARD2, outline=LINE)
-    d.text((226, 420), "C:\\Users\\62426\\Music", font=f(13), fill=TITLE)
+    d.text((226, 420), "C:\\Users\\user\\Music", font=f(13), fill=TITLE)
     d.text((300, 462), "专辑目录模板  %albumartist% / %albumtitle%", font=f(13), fill=BODY)
     d.text((300, 488), "文件名模板    %tracknr2% %title%", font=f(13), fill=BODY)
 

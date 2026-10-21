@@ -117,7 +117,7 @@ def scene(pal, label):
     d.text((tx + 312, y + 42), "第 7/20 轨 · 62%", font=f(13, True), fill=pal["title"])
     d.text((tx + 460, y + 43), "5.1x · 剩余 1 分 12 秒", font=f(13), fill=pal["body"])
 
-    d.text((tx, y + 68), "C:\\Users\\62426\\Music\\Def Tech — GREATEST HITS\\05 Lovin' You.wav",
+    d.text((tx, y + 68), "C:\\Users\\user\\Music\\Def Tech — GREATEST HITS\\05 Lovin' You.wav",
            font=f(12), fill=pal["faint"])
 
     # 右侧动作
