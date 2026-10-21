@@ -1,4 +1,4 @@
-package com.doggybear233.saltaudiocopy
+﻿package com.doggybear233.saltaudiocopy
 
 import com.doggybear233.saltaudiocopy.encode.FlacEncoder
 import com.doggybear233.saltaudiocopy.rip.WavWriter
@@ -6,6 +6,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertFalse
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -58,5 +59,18 @@ class FlacEncoderTest {
         assertTrue(err != null)
         assertContains(err!!.message ?: "", "FLAC")
         assertTrue(!Files.exists(dir.resolve("o.flac")))
+    }
+
+    @Test
+    fun `failed encode never deletes the previous good flac`() {
+        val dir = TempDirs.create("saltac-flac-keep")
+        val wav = dir.resolve("in.wav")
+        WavWriter(wav).use { w -> w.write(ByteArray(2352), 0, 2352) }
+        val out = dir.resolve("out.flac")
+        java.nio.file.Files.write(out, byteArrayOf(1, 2, 3, 4))
+        runCatching { FlacEncoder.encode("definitely-not-a-real-encoder-xyz", wav, out, 5, 5) }
+        assertTrue(java.nio.file.Files.exists(out), "编码失败却把上一版 FLAC 删了")
+        assertEquals(4L, java.nio.file.Files.size(out))
+        assertFalse(java.nio.file.Files.exists(dir.resolve("out.flac.part")), "半成品 .part 没清掉")
     }
 }

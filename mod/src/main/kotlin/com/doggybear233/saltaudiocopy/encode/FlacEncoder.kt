@@ -34,26 +34,36 @@ object FlacEncoder {
     ): Long {
         require(Files.exists(input)) { "输入 WAV 不存在: $input" }
         Files.createDirectories(output.parent)
+        // 先编码到 .part：失败时只删自己的半成品，绝不碰同名旧文件。
+        // 以前直接写 output 再在失败分支 deleteIfExists(output)：重抓一轨失败，
+        // 上一版完好的 FLAC 就没了（R4-11）。
+        val temp = output.resolveSibling(output.fileName.toString() + ".part")
+        runCatching { Files.deleteIfExists(temp) }
         val cmd = ArrayList<String>()
         cmd += exe
-        cmd += buildArgs(input, output, level)
+        cmd += buildArgs(input, temp, level)
         Diag.log("flac: " + cmd.joinToString(" "))
         val res = try {
             runner.run(cmd, timeoutSec)
         } catch (e: TimeoutException) {
-            runCatching { Files.deleteIfExists(output) }
+            runCatching { Files.deleteIfExists(temp) }
             error("FLAC 编码超时（${timeoutSec}s）：$exe")
         } catch (e: java.io.IOException) {
-            runCatching { Files.deleteIfExists(output) }
+            runCatching { Files.deleteIfExists(temp) }
             error("无法启动内置 FLAC 编码器 $exe：${e.message}（插件包可能损坏，重新安装一次）")
         }
         if (res.exitCode != 0) {
-            runCatching { Files.deleteIfExists(output) }
+            runCatching { Files.deleteIfExists(temp) }
             error("FLAC 编码失败（exit=${res.exitCode}）${res.output.take(400)}")
         }
-        if (!Files.exists(output) || Files.size(output) == 0L) {
-            runCatching { Files.deleteIfExists(output) }
+        if (!Files.exists(temp) || Files.size(temp) == 0L) {
+            runCatching { Files.deleteIfExists(temp) }
             error("FLAC 编码器没有产出文件：$exe")
+        }
+        runCatching {
+            Files.move(temp, output, java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE)
+        }.onFailure {
+            Files.move(temp, output, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
         }
         return Files.size(output)
     }
