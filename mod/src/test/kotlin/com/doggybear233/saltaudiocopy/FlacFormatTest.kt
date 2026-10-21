@@ -1,4 +1,4 @@
-package com.doggybear233.saltaudiocopy
+﻿package com.doggybear233.saltaudiocopy
 
 import com.doggybear233.saltaudiocopy.album.AlbumJsonWriter
 import com.doggybear233.saltaudiocopy.album.AlbumRipper
@@ -107,7 +107,7 @@ class FlacFormatTest {
         assertTrue(cmd.contains("-f"), "必须带 -f 覆盖：$cmd")
         assertTrue(cmd.contains("-s"), "必须带 -s 静默：$cmd")
         assertTrue(cmd.contains("-8"), "压缩级别要按设置传：$cmd")
-        assertEquals("o.flac", outOf(cmd).fileName.toString())
+        assertEquals("o.flac.part", outOf(cmd).fileName.toString(), "先写 .part 再原子改名（R4-11）")
     }
 
     @Test

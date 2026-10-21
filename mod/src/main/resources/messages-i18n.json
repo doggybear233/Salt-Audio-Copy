@@ -1,6 +1,26 @@
-{
+﻿{
   "_note": "键是代码里的中文原文；值是 [en, ja]。查不到就原样显示中文。新增文案后请跑 I18nTest 检查覆盖率。",
   "entries": {
+    "会用备份覆盖当前全部设置；当前值会先另存到插件数据目录": [
+      "The backup will overwrite all current settings; current values are saved to the plugin data folder first",
+      "バックアップで現在の設定をすべて上書きします。現在の値は先にプラグインデータフォルダーへ保存されます"
+    ],
+    "再点一次「恢复上次备份」确认": [
+      "Click \"Restore last backup\" again to confirm",
+      "もう一度「前回のバックアップを復元」で確認"
+    ],
+    "再点一次「恢复上次备份」确认：会覆盖当前设置": [
+      "Click \"Restore last backup\" again to confirm: current settings will be overwritten",
+      "もう一度「前回のバックアップを復元」で確認：現在の設定を上書きします"
+    ],
+    "已从备份恢复 %s 项设置，忽略 %s 个未知键：%s": [
+      "Restored %s settings from the backup; ignored %s unknown keys: %s",
+      "バックアップから %s 項目の設定を復元しました。不明なキー %s 個を無視しました：%s"
+    ],
+    "扫描完成，但没有一台光驱能读出光盘信息": [
+      "Scan finished, but no drive could read the disc information",
+      "スキャン完了。ただしディスク情報を読み取れるドライブはありませんでした"
+    ],
     "当前没有抓轨任务": [
       "No rip is running",
       "実行中のリッピングはありません"

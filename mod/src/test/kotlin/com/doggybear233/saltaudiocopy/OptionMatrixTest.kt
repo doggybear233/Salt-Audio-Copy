@@ -1,4 +1,4 @@
-package com.doggybear233.saltaudiocopy
+﻿package com.doggybear233.saltaudiocopy
 
 import com.doggybear233.saltaudiocopy.album.AlbumJsonWriter
 import com.doggybear233.saltaudiocopy.album.AlbumRipper
@@ -216,7 +216,9 @@ class OptionMatrixTest {
         AlbumRipper.rip(scan(), s, { false }, {}, onlyTracks = setOf(1), source = fake())
         val cmd = captured.single()
         assertTrue(cmd.contains("-8"), "压缩级别必须传给 flac.exe：$cmd")
-        val out = Path.of(cmd[cmd.indexOf("-o") + 1])
+        val temp = Path.of(cmd[cmd.indexOf("-o") + 1])
+        assertTrue(temp.fileName.toString().endsWith(".flac.part"), "先写 .part：$temp")
+        val out = temp.resolveSibling(temp.fileName.toString().removeSuffix(".part"))
         assertTrue(Files.isRegularFile(out), "假编码器应产出文件：$out")
         assertTrue(Files.size(out) > 0, "假编码器必须真的产出文件：${Files.size(out)}")
     }
