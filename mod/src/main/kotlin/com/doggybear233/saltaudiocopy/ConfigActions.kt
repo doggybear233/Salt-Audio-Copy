@@ -265,9 +265,9 @@ object ConfigActions {
                 // 盘符语义统一走 DriveSelect：设置里可能存 `F`、`f:`、`\\.\F:`，
                 // 以前这里直接 uppercase 后与 chip 的裸字母比较，配成 `F:` 就永远选不中。
                 val scans = found.map { it.second }
+                // 兜底顺序与 DiscWatcher 必须完全一致，否则「扫描」选中的音乐 CD
+                // 会在两秒后被轮询换成第一台数据盘（同一台机器两种结论）。
                 val chosenScan = DriveSelect.pick(scans, SettingsStore.load(true).driveLetter)
-                    ?: scans.firstOrNull { it.toc.isAudioCd }
-                    ?: scans.firstOrNull()
                 val chosen = chosenScan?.let { s -> found.firstOrNull { it.second === s } }
                 PanelState.selectedDrive = chosen?.first ?: chips.firstOrNull()?.letter ?: ""
                 chosen?.second?.let { publishScanned(it) }
@@ -449,6 +449,10 @@ object ConfigActions {
     /** 导出诊断包（纯文本）：版本、系统、设置、日志尾部，便于用户直接回传。不触碰光驱。 */
     @JvmStatic
     fun exportDiagnostics() {
+        if (busy) {
+            toast(Strings.message("抓轨进行中，等这次抓轨结束再导出诊断"), ToastType.Warning)
+            return
+        }
         worker().execute {
             try {
                 val st = SettingsStore.load(force = true)
@@ -875,6 +879,12 @@ object ConfigActions {
      */
     @JvmStatic
     fun openManualMeta() {
+        // 抓轨中打开手填面板会把进度条与状态行整块顶掉（面板同一时刻只显示一个区块），
+        // 用户看不到进度，容易以为卡死。这里先挡住，等这次抓轨结束再进来。
+        if (busy) {
+            toast(Strings.message("抓轨进行中，等这次抓轨结束再改元数据"), ToastType.Warning)
+            return
+        }
         PanelState.manualOpen = true
         PanelState.settingsOpen = false
         PanelState.set(Strings.message("正在准备手动填写…"), "读取曲目数与本机缓存")
@@ -1454,13 +1464,29 @@ object ConfigActions {
         worker().execute {
             try {
                 val scan = freshScan() ?: return@execute
+                if (!scan.toc.isAudioCd) {
+                    PanelState.set(Strings.message("当前盘不是音频 CD"), Strings.message("数据盘没有音轨可抓"))
+                    toast(Strings.message("当前盘不是音频 CD（数据盘不能抓轨）"), ToastType.Warning)
+                    return@execute
+                }
                 val settings = SettingsStore.load(true)
+                PanelState.begin(Strings.message("正在抓取第 1 轨…"))
                 val dir = settings.effectiveRoot.resolve("disc-${scan.toc.leadOutLba}")
                 val out = dir.resolve("01.wav")
                 var lastReport = 0
                 val result = RipEngine.ripTrack(
                     scan, 0, out, { gate() },
                     { p: RipProgress ->
+                        // RipProgress → 面板用的 Progress（面板不依赖 rip 包）
+                        PanelState.onProgress(
+                            PanelState.Progress(
+                                fraction = p.fraction,
+                                speedX = p.speedX,
+                                etaSec = if (p.etaMs < 0) -1 else (p.etaMs / 1000).toInt(),
+                                trackNo = 1,
+                                trackTotal = 1
+                            )
+                        )
                         val pct = (p.fraction * 100).toInt()
                         if (pct >= lastReport + 10) {
                             lastReport = pct / 10 * 10
@@ -1804,7 +1830,8 @@ object ConfigActions {
                 val line = EnvProbe.summary(report)
                 PanelState.set(
                     Strings.message("环境自检完成"),
-                    EnvProbe.details(report).trim().replace("\n", "；")
+                    EnvProbe.details(report).trim()
+                        .replace("\r\n", "；").replace("\n", "；").replace("\r", "；")
                 )
                 if (report.cjkPathRoundTrip) Notify.info(line) else Notify.warn(line)
             } catch (e: Throwable) {
@@ -1909,9 +1936,14 @@ object ConfigActions {
                     }
                 }.onFailure { Diag.log("root change: 迁移元数据缓存失败", it) }
             }
-            // 名字立刻按新根重算（Discs 会带上内存/保险副本里的歌手与专辑）
+            // 名字立刻按新根重算（Discs 会带上内存/保险副本里的歌手与专辑）。
+            // 这一步会读盘：放到工作线程，且抓轨时不抢光驱（否则与抓轨线程并发 SCSI）。
             runCatching {
-                com.doggybear233.saltaudiocopy.Discs.sync(SettingsStore.load().driveLetter, quiet = false)
+                if (!busy) worker().execute {
+                    runCatching {
+                        com.doggybear233.saltaudiocopy.Discs.sync(SettingsStore.load().driveLetter, quiet = false)
+                    }.onFailure { Diag.log("root change: 刷新光驱信息失败", it) }
+                }
             }.onFailure { Diag.log("root change: 面板刷新失败", it) }
             toast(Strings.fmt("输出目录已改为：%s", picked), ToastType.Success)
             Diag.log("outputRoot set to $picked")

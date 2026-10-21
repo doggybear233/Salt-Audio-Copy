@@ -1468,6 +1468,22 @@
     "已保留 %s 轨可续抓的半截文件（再抓一次会接着写）": [
       "kept %s resumable partial file(s) — the next rip continues from there",
       "%s トラックの途中ファイルを残しました（次回は続きから書き込みます）"
+    ],
+    "抓轨进行中，等这次抓轨结束再导出诊断": [
+      "A rip is running — export diagnostics when it finishes",
+      "取り込み中です。終わってから診断を書き出してください"
+    ],
+    "抓轨进行中，等这次抓轨结束再改元数据": [
+      "A rip is running — edit metadata when it finishes",
+      "取り込み中です。終わってからメタデータを編集してください"
+    ],
+    "数据盘没有音轨可抓": [
+      "This is a data disc: it has no audio tracks to rip",
+      "データディスクです。取り込める音声トラックがありません"
+    ],
+    "正在抓取第 1 轨…": [
+      "Ripping track 1…",
+      "1 曲目を取り込み中…"
     ]
   }
 }

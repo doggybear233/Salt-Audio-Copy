@@ -86,9 +86,7 @@ object Discs {
                 Strings.message("找到了光驱，但读不到光盘信息") + (why?.let { "：" + com.doggybear233.saltaudiocopy.scsi.ScsiMessages.human(it) } ?: Strings.message("：可能是空盘或光盘还没转起来"))
             )
         }
-        val want = DriveSelect.normalize(preferred)
-        val chosen = if (want.isBlank()) candidates.first()
-        else candidates.firstOrNull { DriveSelect.normalize(it.path) == want }
+        val chosen = DriveSelect.pick(candidates, preferred)
             ?: throw IllegalStateException(
                 Strings.fmt("设置里指定了光驱 %s，但没找到它（已发现: ", DriveSelect.describe(preferred)) +
                     candidates.joinToString { it.path } + "）"

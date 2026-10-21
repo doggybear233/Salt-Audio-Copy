@@ -19,8 +19,10 @@ object DriveSelect {
     fun pick(scans: List<ScanResult>, preferred: String): ScanResult? {
         if (scans.isEmpty()) return null
         val want = normalize(preferred)
-        if (want.isEmpty()) return scans.first()
-        return scans.firstOrNull { normalize(it.path) == want }
+        if (want.isNotEmpty()) return scans.firstOrNull { normalize(it.path) == want }
+        // 自动模式优先「有音频 CD 的那台」：多光驱机器上按枚举顺序取第一台，
+        // 常见结果是内置数据用 BD/DVD 顶掉外置音频盘，插了盘却显示「没有光盘」。
+        return scans.firstOrNull { it.toc.isAudioCd } ?: scans.first()
     }
 
     /** `\\.\F:` / `F:` / `f` 统一成 `f`。 */
