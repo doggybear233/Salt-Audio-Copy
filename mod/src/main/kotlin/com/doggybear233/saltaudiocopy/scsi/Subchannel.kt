@@ -26,13 +26,9 @@ object Subchannel {
     /** 每扇区 Q 通道字节数。 */
     const val Q_SIZE = 12
 
-    /** 带子通道读取时每扇区的总字节数（2352 用户数据 + 96 子通道）。 */
-    const val STRIDE = 2352 + SIZE
-
     /** Q-only 模式下每扇区的总字节数（2352 用户数据 + 16 字节 Q 记录）。 */
     const val Q_STRIDE = 2352 + 16
 
-    /** 从 Q-only 块里取第 [sectorIndex] 个扇区的 12 字节 Q（前 12 字节，后 4 字节是填充）。 */
     /**
      * 把「用户数据 + 子通道」的原始响应规整成 Q-only 布局（每扇区 2352 + 16）。
      *
@@ -160,10 +156,4 @@ object Subchannel {
 
     /** 把 12 字节 Q 里的绝对地址换算成 LBA（MSF 以 00:02:00 为 LBA 0）。 */
     fun absToLba(absMsf: Int): Int = absMsf - 150
-
-    /** 从带子通道的整块缓冲里取第 [sectorIndex] 个扇区的 Q。 */
-    fun qOfBlock(buf: ByteArray, sectorIndex: Int): Q {
-        val off = sectorIndex * STRIDE + 2352
-        return parseQ(extractChannel(buf, 1, off))
-    }
 }

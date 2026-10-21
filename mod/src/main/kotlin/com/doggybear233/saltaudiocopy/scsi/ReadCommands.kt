@@ -103,6 +103,8 @@ class ReadCommandPlan(
 ) {
 
     private val order: List<ReadCommand> = ReadCommand.order(preferred)
+    // UI 线程读 readCommand、抓轨线程 advanceAfter：不加 @Volatile 会读到旧值（JMM 不保证可见性）
+    @Volatile
     private var index = 0
 
     val current: ReadCommand get() = order[index]

@@ -44,10 +44,11 @@ private class RecordingTransport(
         return onExecute(cdb, size)
     }
 
-    override fun executeOut(cdb: ByteArray, payload: ByteArray) {
+    override fun executeOut(cdb: ByteArray, payload: ByteArray): Int {
         commands += "%02X-out".format(cdb[0].toInt() and 0xFF)
         this.payloadCdb = cdb.copyOf()
         this.payload = payload.copyOf()
+        return payload.size
     }
 
     override fun executeInto(cdb: ByteArray, buf: MemorySegment, size: Int, timeoutSec: Int): Int {

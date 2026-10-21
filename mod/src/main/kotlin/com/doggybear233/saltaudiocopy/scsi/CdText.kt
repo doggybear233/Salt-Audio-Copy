@@ -152,8 +152,9 @@ object CdText {
      * 只在这些块完全没有标题/艺术家 pack 时，才退到「pack 最多的块」。
      */
     private fun chooseBlock(blocks: Map<Int, List<Pack>>): Int {
-        fun hasText(list: List<Pack>) =
-            list.any { it.type == TITLE || it.type == PERFORMER || it.track != 0 }
+        // 只看真正的曲名/艺术家 pack：genre(0x87)/UPC(0x86) 也带 track 字段，
+        // 以前「有 genre 的块 0」会压过「真有标题的块 1」，于是日文盘显示了错的块。
+        fun hasText(list: List<Pack>) = list.any { it.type == TITLE || it.type == PERFORMER }
         blocks[0]?.let { if (hasText(it)) return 0 }
         blocks.keys.sorted().forEach { b -> if (hasText(blocks.getValue(b))) return b }
         return blocks.keys.min()

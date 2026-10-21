@@ -17,7 +17,8 @@ internal interface ScsiTransport : AutoCloseable {
     fun execute(cdb: ByteArray, size: Int): ByteArray
 
     /** 下发只写的 CDB（MODE SELECT 等），[payload] 放在数据输出方向。 */
-    fun executeOut(cdb: ByteArray, payload: ByteArray)
+    /** 返回驱动实际写入的字节数（MODE SELECT 部分写入要求 == payload.size）。 */
+    fun executeOut(cdb: ByteArray, payload: ByteArray): Int
 
     /** 读进调用方缓冲，返回实际传输字节数（可能小于 [size]，由调用方判短读）。 */
     fun executeInto(cdb: ByteArray, buf: MemorySegment, size: Int, timeoutSec: Int = 10): Int
@@ -29,9 +30,8 @@ internal interface ScsiTransport : AutoCloseable {
 internal class SptiTransport(private val handle: MemorySegment) : ScsiTransport {
     override fun execute(cdb: ByteArray, size: Int): ByteArray = Sptd.execute(handle, cdb, size)
 
-    override fun executeOut(cdb: ByteArray, payload: ByteArray) {
+    override fun executeOut(cdb: ByteArray, payload: ByteArray): Int =
         Sptd.executeOut(handle, cdb, payload)
-    }
 
     override fun executeInto(cdb: ByteArray, buf: MemorySegment, size: Int, timeoutSec: Int): Int =
         Sptd.executeInto(handle, cdb, buf, size, timeoutSec)

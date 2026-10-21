@@ -28,8 +28,9 @@ private class FakeScsiTransport(
         return reply(cdb, size)
     }
 
-    override fun executeOut(cdb: ByteArray, payload: ByteArray) {
+    override fun executeOut(cdb: ByteArray, payload: ByteArray): Int {
         commands += "%02X-out".format(cdb[0])
+        return payload.size
     }
 
     override fun executeInto(cdb: ByteArray, buf: MemorySegment, size: Int, timeoutSec: Int): Int {

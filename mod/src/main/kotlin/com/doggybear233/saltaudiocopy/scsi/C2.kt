@@ -23,6 +23,14 @@ object C2 {
     fun bufferSize(count: Int): Int = count * STRIDE
 
     /**
+     * 实际可接受的缓冲长度。
+     *
+     * MMC 规定第一个扇区的 C2 块带 2 字节头部，有的驱动器把头部算进 294 里（共 2646×n），
+     * 有的把头部额外加上（2646×n + 2）。以前只认前者，后者会被判成短读并**永久关掉 C2**。
+     */
+    fun acceptedSizes(count: Int): IntArray = intArrayOf(bufferSize(count), bufferSize(count) + 2)
+
+    /**
      * 统计每扇区 C2 区里的非零字节数。
      *
      * @param buf 按「每扇区 2352 数据 + 294 C2」交错排布（与 READ CD 返回一致）
@@ -54,7 +62,7 @@ object C2 {
     /** 从带 C2 的缓冲里拷出纯 PCM（连续 2352×count）。 */
     fun extractPcm(buf: ByteArray, count: Int): ByteArray {
         require(count >= 0)
-        require(buf.size >= bufferSize(count)) {
+        require(acceptedSizes(count).any { buf.size >= it }) {
             "带 C2 的缓冲太短: ${buf.size} < ${bufferSize(count)}（0xFA 每扇区 $STRIDE 字节，不是 2352）"
         }
         val out = ByteArray(count * DATA)

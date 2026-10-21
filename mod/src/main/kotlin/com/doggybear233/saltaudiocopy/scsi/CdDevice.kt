@@ -138,10 +138,32 @@ class CdDevice private constructor(
 
     /** 复用缓冲区读取，避免每块分配。返回实际字节数。 */
     override fun readAudioSectorsInto(lba: Int, count: Int, buf: MemorySegment): Int {
+        require(count in 1..maxSectorsPerRequest) { "count=$count 超出单次上限 $maxSectorsPerRequest" }
+        // 以前不校验容量：缓冲比请求小的时候 SPTI 会写到边界外，或者 COPY 抛 IndexOutOfBounds
+        val need = count.toLong() * sectorSize
+        require(buf.byteSize() >= need) {
+            "目标缓冲太小：需要 $need 字节，只有 ${buf.byteSize()} 字节（count=$count）"
+        }
         while (true) {
             val cmd = plan.current
             try {
                 if (cmd == ReadCommand.MMC_C2) {
+                    // 带 C2 时先读进缓冲（每扇区 2646），再原地把 PCM 挪到前部，避免多一次整块分配
+                    val c2Size = C2.bufferSize(count).toLong()
+                    if (buf.byteSize() >= c2Size) {
+                        val got = transport.executeInto(cmd.cdb(lba, count), buf, c2Size.toInt())
+                        if (got < c2Size.toInt()) {
+                            throw ScsiException(
+                                "短读：命令 ${cmd.id} 期望 $c2Size 字节，驱动只回了 $got 字节（盘面或线缆问题）",
+                                senseKey = 0x03, asc = 0x11
+                            )
+                        }
+                        val raw = ByteArray(c2Size.toInt())
+                        MemorySegment.copy(buf, java.lang.foreign.ValueLayout.JAVA_BYTE, 0L, raw, 0, raw.size)
+                        val pcm = C2.extractPcm(raw, count)
+                        MemorySegment.copy(pcm, 0, buf, java.lang.foreign.ValueLayout.JAVA_BYTE, 0L, pcm.size)
+                        return pcm.size
+                    }
                     val pcm = C2.extractPcm(readAudioSectorsC2(lba, count), count)
                     MemorySegment.copy(pcm, 0, buf, java.lang.foreign.ValueLayout.JAVA_BYTE, 0L, pcm.size)
                     return pcm.size
@@ -207,7 +229,13 @@ class CdDevice private constructor(
         val cdb = ByteArray(12)
         cdb[0] = 0x55.toByte()                        // MODE SELECT(10)
         cdb[8] = param.size.toByte()                  // 参数列表长度（低字节）
-        transport.executeOut(cdb, param)
+        val written = transport.executeOut(cdb, param)
+        // 部分写入（written < 参数长度）说明块描述符没送到，块长仍是 2048
+        if (written < param.size) {
+            throw IllegalStateException(
+                "MODE SELECT(10) 只写入 $written / ${param.size} 字节，块长没有设置成功"
+            )
+        }
 
         // 回读确认改为「决定流程」：读回来不是 2352 就不要声称准备好了，
         // 让上层回退到 D8；以前只在日志里写一句，然后按已生效继续，最终表现为短读/CRC 全错。
