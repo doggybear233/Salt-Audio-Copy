@@ -58,6 +58,51 @@ object Overwrite {
     }
 
     /**
+     * 音频轨的目标路径：**同时**看 `.wav` 与 `.flac`。
+     *
+     * 只按 `.wav` 判定是不够的：FLAC 模式的实际产物是 `.flac`，上一次抓完留下的
+     * `01 x.flac` 不会让 `01 x.wav` 存在，于是这一轨会被判成「没有同名文件」，
+     * 然后编码时把上一版 FLAC 原地覆盖掉——用户选的是「加 (2) 另存」。
+     *
+     * @return 应写入的 WAV 路径（FLAC 模式最终的 `.flac` 由它改名得到）；skip 且已存在时 null
+     */
+    fun resolveAudio(
+        dir: Path,
+        base: String,
+        policy: String,
+        resumeExpectedBytes: Long? = null
+    ): Path? {
+        val wav = dir.resolve("$base.wav")
+        val flac = dir.resolve("$base.flac")
+        val wavThere = Files.exists(wav)
+        val flacThere = Files.exists(flac)
+        if (!wavThere && !flacThere) return wav
+        if (resumeExpectedBytes != null && resumeExpectedBytes > 0 && wavThere) {
+            val facts = runCatching {
+                com.doggybear233.saltaudiocopy.rip.WavInfo.read(wav)
+            }.getOrNull()
+            if (facts != null && facts.headerOk && facts.dataBytes in 1 until resumeExpectedBytes) {
+                // 半截 WAV：续写；但如果同名 flac 已经存在，续写出来的还是会被覆盖
+                if (!flacThere) return wav
+            }
+        }
+        return when (policy.lowercase()) {
+            OVERWRITE -> wav
+            SKIP -> null
+            else -> {
+                var n = 2
+                while (n < 1000) {
+                    val w = dir.resolve("$base ($n).wav")
+                    val f = dir.resolve("$base ($n).flac")
+                    if (!Files.exists(w) && !Files.exists(f)) return w
+                    n++
+                }
+                null
+            }
+        }
+    }
+
+    /**
      * 给「一组必须同名的附属文件」选一个统一后缀。
      *
      * 以前只有音频走 [resolve]，CUE/日志/封面/album.json 全是原地覆盖：

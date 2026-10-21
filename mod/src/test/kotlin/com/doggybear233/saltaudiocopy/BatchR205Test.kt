@@ -81,4 +81,51 @@ class BatchR205Test {
         val r = OutputCheck.check(dir)
         assertTrue(r.problems.any { it.detail.contains("引用的文件不存在") })
     }
+
+    /** FLAC 模式的实际产物是 .flac：只看 .wav 会把上一版 FLAC 原地覆盖。 */
+    @Test
+    fun audioTargetAlsoConsidersAnExistingFlac() {
+        val dir = Files.createTempDirectory("saltac-ovw")
+        try {
+            Files.write(dir.resolve("01 x.flac"), byteArrayOf(1, 2, 3))
+            assertNull(Overwrite.SKIP.let { Overwrite.resolveAudio(dir, "01 x", it) })
+            assertEquals(
+                dir.resolve("01 x (2).wav"),
+                Overwrite.resolveAudio(dir, "01 x", Overwrite.SUFFIX),
+                "suffix 策略必须顺延到 .wav/.flac 都空着的名字"
+            )
+            assertEquals(
+                dir.resolve("01 x.wav"),
+                Overwrite.resolveAudio(dir, "01 x", Overwrite.OVERWRITE)
+            )
+        } finally {
+            runCatching { Files.walk(dir).sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) } }
+        }
+    }
+
+    /** 半截 WAV 仍然要能续写：不能因为「同时看 .flac」就把续抓挡掉。 */
+    @Test
+    fun audioTargetStillResumesAPartialWav() {
+        val dir = Files.createTempDirectory("saltac-ovw")
+        try {
+            val wav = dir.resolve("01 x.wav")
+            // 用真实字段拼一个合法 WAV 头（全零头会被 hasValidHeader 挡掉，测不到续抓）
+            val data = 1000
+            val header = java.nio.ByteBuffer.allocate(44).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            header.put("RIFF".toByteArray()).putInt(36 + data)
+                .put("WAVE".toByteArray())
+                .put("fmt ".toByteArray()).putInt(16).putShort(1).putShort(2)
+                .putInt(44_100).putInt(176_400).putShort(4).putShort(16)
+                .put("data".toByteArray()).putInt(data)
+            Files.write(wav, header.array() + ByteArray(data))
+
+            assertEquals(
+                wav,
+                Overwrite.resolveAudio(dir, "01 x", Overwrite.SUFFIX, resumeExpectedBytes = 10_000),
+                "半截文件应当续写同名文件，而不是另存 (2)"
+            )
+        } finally {
+            runCatching { Files.walk(dir).sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) } }
+        }
+    }
 }

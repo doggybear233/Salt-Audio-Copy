@@ -1460,6 +1460,10 @@
     "发现 %s 个问题（共 %s 个音频，%s 个 CUE）": [
       "Found %s problem(s) (%s audio file(s), %s CUE file(s))",
       "%s 件の問題（音声 %s 件、CUE %s 件）"
+    ],
+    "封面已存在，按设置跳过：%s": [
+      "Cover already exists, skipped by your setting: %s",
+      "カバーが既に存在するため、設定どおりスキップしました：%s"
     ]
   }
 }

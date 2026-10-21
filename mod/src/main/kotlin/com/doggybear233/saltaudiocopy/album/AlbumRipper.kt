@@ -334,8 +334,10 @@ object AlbumRipper {
                 else -> sectors
             }
             val expectedData = expectedSectors.toLong() * 2352L
-            val target = Overwrite.resolve(
-                dir, baseName, ".wav", settings.overwritePolicy,
+            // 同时看 .wav 和 .flac：FLAC 模式的产物是 .flac，只看 .wav 会把上一版
+            // FLAC 判成「不存在同名文件」然后原地覆盖（与用户选的 suffix 策略相反）。
+            val target = Overwrite.resolveAudio(
+                dir, baseName, settings.overwritePolicy,
                 resumeExpectedBytes = if (settings.resume) expectedData else null
             )
             if (target == null) {
@@ -618,11 +620,18 @@ object AlbumRipper {
             }
             // 封面也遵守覆盖策略：以前同名就原地覆盖，用户选「另存」却丢了上一张封面。
             val coverBase = TemplateEngine.sanitizeSegment(settings.coverFileName)
-            val coverSuffix = Overwrite.pickSuffix(dir, coverBase, listOf(ext), settings.overwritePolicy) ?: ""
-            val p = dir.resolve(coverBase + coverSuffix + ext)
-            runCatching { Files.write(p, cover) }
-                .onSuccess { coverFile = p; Diag.log("cover written: $p (${cover.size} B)") }
-                .onFailure { Diag.log("cover write failed", it); warn(Strings.fmt("封面写入失败: %s", it.message)) }
+            val coverSuffix = Overwrite.pickSuffix(dir, coverBase, listOf(ext), settings.overwritePolicy)
+            // 策略=skip 且同名封面已存在时 pickSuffix 返回 null：这时必须**不写**，
+            // 以前的 `?: ""` 会退化成原地覆盖，正好是 skip 想避免的事。
+            if (coverSuffix == null) {
+                warn(Strings.fmt("封面已存在，按设置跳过：%s", dir.resolve(coverBase + ext).fileName))
+                Diag.log("cover skipped by policy: $coverBase$ext")
+            } else {
+                val p = dir.resolve(coverBase + coverSuffix + ext)
+                runCatching { Files.write(p, cover) }
+                    .onSuccess { coverFile = p; Diag.log("cover written: $p (${cover.size} B)") }
+                    .onFailure { Diag.log("cover write failed", it); warn(Strings.fmt("封面写入失败: %s", it.message)) }
+            }
         }
 
         // 封面内嵌放在封面落盘之后：抓轨阶段 mp3/flac 标签已写好，这里只补 picture 块。
