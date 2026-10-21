@@ -3,10 +3,10 @@ package com.doggybear233.saltaudiocopy.ui
 import com.doggybear233.saltaudiocopy.settings.RipSettings
 
 /**
- * 设置页的结构表：9 个二级页、每页有哪些条目、每条是什么控件。
+ * 设置页的结构表：8 个二级页、每页有哪些条目、每条是什么控件。
  *
  * 为什么单独放一份而不是直接写 Compose：
- * 1. 面板（左列导航）和宿主配置页（`preference_config.json`，扁平 9 组）必须同源，
+ * 1. 面板（左列导航）和宿主配置页（`preference_config.json`，扁平 8 组）必须同源，
  *    否则两边迟早漂移——[SettingsSpecTest] 会拿这张表和 JSON 对账。
  * 2. 控件类型、可选项、显隐条件都是可断言的纯数据，不需要起 Compose 才能测。
  *

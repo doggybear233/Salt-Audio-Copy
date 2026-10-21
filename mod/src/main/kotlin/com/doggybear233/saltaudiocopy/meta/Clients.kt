@@ -37,7 +37,7 @@ object MusicBrainzClient {
         }
         val url = "$BASE/discid/$discId?fmt=json&inc=artists+recordings+release-groups+labels+isrcs&cdstubs=no"
         Http.throttle("musicbrainz.org", MB_THROTTLE_MS)
-        val r = Http.get(url)
+        val r = Http.get(url, maxBytes = 4L * 1024 * 1024)
         return interpret(r.status, r.text, toc, discId, DiscId.cddb(toc))
     }
 
@@ -259,7 +259,7 @@ object GnudbClient {
                         listOf("cmd" to cmd, "hello" to hello, "proto" to "6")
                     )
                     Http.throttle(java.net.URI(host).host ?: host, THROTTLE_MS)
-                    val r = Http.get("$host?$q", accept = "text/plain", connectMs = 2_500)
+                    val r = Http.get("$host?$q", accept = "text/plain", connectMs = 2_500, maxBytes = 1L * 1024 * 1024)
                     val first = r.text.lineSequence().firstOrNull().orEmpty()
                     if (first.startsWith("500")) {
                         Diag.log("cddb 500 from $host (hello=\"$hello\"): ${first.take(80)}")

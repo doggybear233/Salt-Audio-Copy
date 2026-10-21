@@ -605,10 +605,6 @@
       "Save failed: ",
       "保存に失敗しました："
     ],
-    "保存失败：读不到光盘，文件没有写入": [
-      "Save failed: the disc could not be read, nothing was written",
-      "保存に失敗しました。ディスクを読めないため、ファイルは書き込まれていません"
-    ],
     "打开手动填写失败：": [
       "Could not open the manual editor: ",
       "手入力画面を開けませんでした："
@@ -1093,18 +1089,6 @@
       "%s tracks / %s / %s of them have a pregap",
       "%s トラック / %s / %s トラックにプリギャップ"
     ],
-    "目录里没有 WAV/CUE：%s": [
-      "No WAV/CUE in the folder: %s",
-      "フォルダに WAV/CUE がありません：%s"
-    ],
-    "检查通过：%s 个 WAV，%s 个 CUE": [
-      "Check passed: %s WAV, %s CUE",
-      "チェック通過：WAV %s 個、CUE %s 個"
-    ],
-    "发现 %s 个问题（共 %s 个 WAV，%s 个 CUE）": [
-      "Found %s problems (%s WAV, %s CUE)",
-      "%s 件の問題（WAV %s 個、CUE %s 個）"
-    ],
     "目录不存在：%s": [
       "The folder does not exist: %s",
       "フォルダが存在しません：%s"
@@ -1524,10 +1508,6 @@
     "恢复上次备份设置": [
       "Restore last settings backup",
       "前回の設定バックアップを復元"
-    ],
-    "把上次「恢复默认设置」前的设置读回来（固定文件 settings.backup.txt）": [
-      "Read back the settings saved before the last “reset to defaults” (fixed file settings.backup.txt)",
-      "前回「既定に戻す」の直前に保存した設定を読み戻します（固定ファイル settings.backup.txt）"
     ],
     "宿主配置不可用，改动只在本次运行有效": [
       "Host configuration is unavailable; changes apply only to this session",

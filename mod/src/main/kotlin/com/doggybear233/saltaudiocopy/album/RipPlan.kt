@@ -177,13 +177,33 @@ object RipPlan {
                 else -> sectors
             }
             val bytes = expectedSectors.toLong() * 2352L
-            val resolved = Overwrite.resolve(dir, baseName, ext, settings.overwritePolicy)
             // 同名判断要看两种扩展名：上一轮抓成 WAV、这一轮选 FLAC 时，
             // 只查 .flac 会显示「写入」，实际覆盖策略却已经撞上了那份 WAV。
             val exists = AUDIO_EXTS.any { Files.exists(dir.resolve(baseName + it)) }
+            val existingWav = dir.resolve(baseName + ".wav")
+            val existingData = runCatching {
+                com.doggybear233.saltaudiocopy.rip.WavInfo.read(existingWav)?.dataBytes ?: 0L
+            }.getOrDefault(0L)
+            // 续抓开关打开且已有一份「写了一半」的同名 WAV 时，真实行为是接着写，
+            // 既不是「覆盖」也不是「跳过」——预览必须说清楚，否则用户以为这一轨要重抓。
+            val resumable = settings.resume && existingData > 0 && existingData < bytes
+            val targetWav = Overwrite.resolveAudio(
+                dir, baseName, settings.overwritePolicy,
+                resumeExpectedBytes = if (resumable) bytes else null
+            )
+            // resolveAudio 给的是「先写哪个 WAV」；FLAC 模式最终文件名是 .flac。
+            // 续抓时仍写 WAV，所以只在非续抓时换扩展名。
+            val resolved = targetWav?.let {
+                if (ext == ".flac" && !resumable) {
+                    it.resolveSibling(it.fileName.toString().removeSuffix(".wav") + ".flac")
+                } else {
+                    it
+                }
+            }
             val action = when {
                 resolved == null -> "跳过（已存在）"
                 resolved.fileName.toString() != baseName + ext -> "另存为 ${resolved.fileName}"
+                resumable -> "续抓（接着已有的 %d 扇区写）".format(existingData / 2352)
                 exists -> "覆盖"
                 else -> "写入"
             }

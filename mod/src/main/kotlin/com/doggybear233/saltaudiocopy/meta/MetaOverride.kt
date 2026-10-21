@@ -30,6 +30,9 @@ import java.nio.file.Path
  */
 object MetaOverride {
 
+    /** 封面文件上限：超过这个尺寸一定是误放的扫描件，读进来只会把堆撑爆。 */
+    internal const val MAX_COVER_BYTES = 16L * 1024 * 1024
+
     fun resolvePath(settingsRoot: Path, discId: String?, explicit: String): Path? {
         if (explicit.isNotBlank()) {
             val p = runCatching { Path.of(explicit) }.getOrNull() ?: return null
@@ -69,21 +72,21 @@ object MetaOverride {
             if (num <= 0) continue
             tracks += TrackMeta(
                 number = num,
-                title = Json.str(to["title"]) ?: "",
+                title = Json.text(to["title"]) ?: "",
                 // 空串 = 「这栏没填」，不是「清空」：JSON 里留着 "artist": "" 时
                 // 以前会把 MusicBrainz 查到的艺术家覆盖成空。
-                artist = Json.str(to["artist"])?.takeIf { it.isNotBlank() },
+                artist = Json.text(to["artist"])?.takeIf { it.isNotBlank() },
                 lengthMs = Json.long(to["lengthMs"]),
-                isrc = Json.str(to["isrc"])?.takeIf { it.isNotBlank() }
+                isrc = Json.text(to["isrc"])?.takeIf { it.isNotBlank() }
             )
         }
         AlbumMeta(
-            albumArtist = Json.str(o["albumArtist"]) ?: "",
-            albumTitle = Json.str(o["albumTitle"]) ?: "",
-            year = Json.str(o["year"])?.takeIf { it.isNotBlank() },
-            genre = Json.str(o["genre"])?.takeIf { it.isNotBlank() },
-            discId = Json.str(o["discId"]) ?: "",
-            cddbId = Json.str(o["cddbId"]) ?: "",
+            albumArtist = Json.text(o["albumArtist"]) ?: "",
+            albumTitle = Json.text(o["albumTitle"]) ?: "",
+            year = Json.text(o["year"])?.takeIf { it.isNotBlank() },
+            genre = Json.text(o["genre"])?.takeIf { it.isNotBlank() },
+            discId = Json.text(o["discId"]) ?: "",
+            cddbId = Json.text(o["cddbId"]) ?: "",
             source = "album.json",
             tracks = tracks,
             releaseId = null,
@@ -94,7 +97,17 @@ object MetaOverride {
     }.map { meta ->
         val cover = coverSibling(path)
         if (cover != null) {
-            val bytes = runCatching { Files.readAllBytes(cover) }.getOrNull()
+            // 封面 sidecar 是用户自己丢进目录的文件：先看大小再读，
+        // 否则一张 500 MB 的扫描图会被整个读进堆里。
+        val bytes = runCatching {
+            val size = Files.size(cover)
+            if (size > MAX_COVER_BYTES) {
+                Diag.log("封面过大，已忽略: $cover ($size B)")
+                null
+            } else {
+                Files.readAllBytes(cover)
+            }
+        }.getOrNull()
             val mime = when (cover.fileName.toString().substringAfterLast('.').lowercase()) {
                 "png" -> "image/png"
                 "webp" -> "image/webp"

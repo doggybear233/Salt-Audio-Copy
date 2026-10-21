@@ -46,12 +46,19 @@ object AlbumJsonWriter {
 
     /** JSON 字符串字面量：反斜杠/引号转义，换行折成空格（路径里出现换行只会带来麻烦）。 */
     internal fun q(s: String?): String {
-        val body = (s ?: "")
-            .replace("\\", "\\\\")
-            .replace("\"", "\\\"")
-            .replace("\r", "")
-            .replace("\n", " ")
-            .replace("\t", " ")
+        val body = StringBuilder((s ?: "").length + 8)
+        for (ch in (s ?: "")) {
+            when {
+                ch == '\\' -> body.append("\\\\")
+                ch == '"' -> body.append("\\\"")
+                // 换行/制表符照旧折成空格（文件名里出现它们只会带来麻烦）
+                ch == '\r' -> Unit
+                ch == '\n' || ch == '\t' -> body.append(' ')
+                // 其它控制字符必须转义，否则导出的 album.json 自己都解析不了
+                ch.code < 0x20 -> body.append("\\u%04X".format(ch.code))
+                else -> body.append(ch)
+            }
+        }
         return "\"" + body + "\""
     }
 }

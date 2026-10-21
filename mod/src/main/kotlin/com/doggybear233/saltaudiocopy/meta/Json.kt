@@ -9,7 +9,9 @@ package com.doggybear233.saltaudiocopy.meta
 object Json {
 
     fun parse(text: String): Any? {
-        val p = Parser(text)
+        // 用户用记事本另存的 JSON 常带 BOM：解析器会在位置 0 报「非法数字」，
+        // 面板只说「读不到元数据」，看不出是 BOM 的问题。
+        val p = Parser(text.removePrefix("\uFEFF"))
         p.skipWs()
         val v = p.value()
         p.skipWs()
@@ -23,6 +25,16 @@ object Json {
     fun arr(v: Any?): List<Any?> = v as? List<Any?> ?: emptyList()
 
     fun str(v: Any?): String? = v as? String
+
+    /** 宽容取文本：用户手写的 JSON 里 `"year": 1999` 这类数字很常见。 */
+    fun text(v: Any?): String? = when (v) {
+        null -> null
+        is String -> v
+        is Double -> if (v == Math.floor(v) && !v.isInfinite()) v.toLong().toString() else v.toString()
+        is Long -> v.toString()
+        is Boolean -> v.toString()
+        else -> null
+    }
 
     fun long(v: Any?): Long? = when (v) {
         is Double -> v.toLong()
