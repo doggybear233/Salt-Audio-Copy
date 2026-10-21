@@ -1,8 +1,9 @@
-package com.doggybear233.saltaudiocopy.ui
+﻿package com.doggybear233.saltaudiocopy.ui
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.doggybear233.saltaudiocopy.ConfigActions
 
 /**
  * 面板可见状态。全部走 Compose 快照状态，抓轨线程可直接写（Compose 会在下一帧取到新值）。
@@ -292,10 +293,16 @@ object PanelState {
         showDisc(null)
         candidates = emptyList()
         selectedCandidate = -1
-        progress = null
-        paused = false
-        busy = false
-        cancelArmed = false
+        // 抓轨中弹盘/拔线：先请求中止，busy 由 worker 的 finally 收尾。
+        // 在这里直接清 busy 会让界面立刻允许再点「抓取整盘」，而旧线程还在写盘（R4-07）。
+        if (busy) {
+            ConfigActions.abortForEject()
+        } else {
+            progress = null
+            paused = false
+            busy = false
+            cancelArmed = false
+        }
         stage = ""
         status = Strings.message("光驱里没有光盘")
         detail = reason + "；" + Strings.message("放入光盘会自动识别；同一张盘放回来可以接着抓")

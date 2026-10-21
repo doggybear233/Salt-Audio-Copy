@@ -81,6 +81,14 @@ object ConfigActions {
         runCatching { com.doggybear233.saltaudiocopy.meta.Http.beginScope() }
     }
 
+    /** 光驱里的盘被弹出/拔线：让正在跑的抓轨尽快收尾；不走「二次确认取消」那套。 */
+    @JvmStatic
+    internal fun abortForEject() {
+        userCancel = true
+        PanelState.paused = false
+        Diag.log("disc ejected during run: abort requested")
+    }
+
     private val cancelFlag = AtomicBoolean(false)
 
     /**
@@ -252,6 +260,7 @@ object ConfigActions {
                 val sb = StringBuilder()
                 val chips = ArrayList<PanelState.DriveChip>()
                 val found = ArrayList<Pair<String, com.doggybear233.saltaudiocopy.rip.ScanResult>>()
+                var failed = 0
                 for ((path, inq) in drives) {
                     Diag.log("drive $path -> $inq")
                     sb.append("$path $inq")
@@ -270,7 +279,10 @@ object ConfigActions {
                             audio = r.toc.isAudioCd
                         )
                         found += letter to r
-                    }.onFailure { sb.append("，读取失败: ${it.message}") }
+                    }.onFailure {
+                        failed++
+                        sb.append("，读取失败: ${it.message}")
+                    }
                     sb.append("\n")
                 }
                 PanelState.drives = chips
@@ -287,11 +299,17 @@ object ConfigActions {
                 PanelState.selectedDrive = chosen?.first ?: chips.firstOrNull()?.letter ?: ""
                 chosen?.second?.let { publishScanned(it) }
                 val text = sb.toString().trim()
+                val nothingUsable = found.isEmpty() && failed > 0
                 PanelState.set(
-                    statusText = text.lineSequence().firstOrNull() ?: Strings.message("已扫描"),
-                    detailText = Strings.message("点「抓整盘」按当前设置输出；「查元数据」只联网不写文件")
+                    statusText = if (nothingUsable) {
+                        Strings.message("扫描完成，但没有一台光驱能读出光盘信息")
+                    } else {
+                        text.lineSequence().firstOrNull() ?: Strings.message("已扫描")
+                    },
+                    detailText = if (nothingUsable) text else Strings.message("点「抓整盘」按当前设置输出；「查元数据」只联网不写文件")
                 )
-                toast(text, ToastType.Success)
+                // 全部失败还报 Success/「已扫描」会让人以为只是没放盘，实际是盘符或驱动出错（R4-08）
+                toast(text, if (nothingUsable) ToastType.Warning else ToastType.Success)
                 // 扫描到音频 CD 就顺手查元数据：用户不必再点一次（反馈 3）。
                 val disc = ScanResultHolder.get()
                 if (disc != null && disc.toc.isAudioCd) {
