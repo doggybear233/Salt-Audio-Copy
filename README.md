@@ -1,4 +1,4 @@
-# 盐专辑 · Salt Audio Copy
+﻿# 盐专辑 · Salt Audio Copy
 
 一个给 **Salt Player for Windows** 用的 CD 抓轨 Mod（`.spmod` 插件）：在宿主「CD 工具箱」页面里直接抓整盘，按 EAC 的思路做安全校验、写 CUE 与日志、自动补全元数据与封面。
 
@@ -47,7 +47,7 @@ cd mod
 ```
 
 - `dev-env.ps1` 是可选的本地脚本（作者机器上的 JDK / Gradle 路径）：它只校验 `JAVA_HOME` 指向的 `bin\java.exe` 是否存在，缺失就报错退出；普通构建不需要它，只要 PATH 上能用到 JDK 25。
-- 单元测试 610 项（默认套件）；另有 13 项真机/联网用例（`live` 标签），跑 `.\gradlew.bat liveTest`。
+- 单元测试 627 项（默认套件）；另有 13 项真机/联网用例（`live` 标签），跑 `.\gradlew.bat liveTest`。
 - 真机测试清单：`manual-test-checklist.md`。
 
 ## 目录
