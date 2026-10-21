@@ -72,6 +72,9 @@ object PanelState {
     /** 「恢复默认设置」的二次确认：第一次点击只进入待确认态。 */
     var resetArmed: Boolean by mutableStateOf(false)
 
+    /** 进入待确认态的时刻；超时后作废，避免很久以后一次误点直接清空设置。 */
+    var resetArmedAt: Long by mutableStateOf(0L)
+
     /**
      * 数字输入草稿的变化计数。
      *
@@ -151,16 +154,30 @@ object PanelState {
     /** 设置页当前停在哪个二级页（见 [SettingsSpec.pages] 的 id）。 */
     var settingsPage: String by mutableStateOf(SettingsSpec.DEFAULT_PAGE)
 
+    /**
+     * 草稿里是否有还没保存的改动。
+     *
+     * 「收起设置」不丢草稿（用户只是暂时让开画面），但重新打开设置页时不能再用磁盘上的
+     * 值把草稿盖掉——那正是「改了一半，点面板又回来，全没了」的来源（R4-01）。
+     */
+    var draftDirty: Boolean by mutableStateOf(false)
+
     fun loadDraft(s: com.doggybear233.saltaudiocopy.settings.RipSettings) {
         draft = s
+        draftDirty = false
         testMode = s.testMode
         editTarget = -1
         NumericDraft.clearAll()
         refreshPreview()
     }
 
+    fun markDraftDirty() {
+        draftDirty = true
+    }
+
     fun updateDraft(f: (com.doggybear233.saltaudiocopy.settings.RipSettings) -> com.doggybear233.saltaudiocopy.settings.RipSettings) {
         draft = f(draft)
+        draftDirty = true
         // testMode 在草稿里改也要立刻反映到面板（诊断页显隐、动作闸门都读它）
         testMode = draft.testMode
         // 草稿改动会改路径模板，预览跟着变（纯内存计算，不读盘）

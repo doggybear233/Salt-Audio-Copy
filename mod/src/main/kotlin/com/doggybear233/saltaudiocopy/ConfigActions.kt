@@ -34,6 +34,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 object ConfigActions {
 
+    /** 「恢复默认设置」的确认窗口：超过这段时间再点，视为重新开始确认。 */
+    private const val RESET_CONFIRM_WINDOW_MS = 10_000L
+
     private fun newWorker(): ExecutorService = Executors.newSingleThreadExecutor { r ->
         Thread(r, "saltac-worker").apply { isDaemon = true }
     }
@@ -851,6 +854,13 @@ object ConfigActions {
                 val target = com.doggybear233.saltaudiocopy.album.DiscCache.path(settings.effectiveRoot, id)
                 java.nio.file.Files.createDirectories(target.parent)
                 java.nio.file.Files.writeString(target, json, Charsets.UTF_8)
+                // 封面也落盘：album.json 里不存图，下次从缓存读到时靠的是 JSON 旁边的 sidecar。
+                // 只写 JSON 会让「选了个带封面的版本」在下次抓轨时变回无封面（F-481）。
+                runCatching {
+                    com.doggybear233.saltaudiocopy.meta.MetaOverride
+                        .writeCoverSibling(target, album.cover, album.coverMime)
+                }.onFailure { Diag.log("selectCandidate: 写封面失败", it) }
+                PanelState.discCover = album.cover
                 PanelState.showDisc(
                     PanelState.DiscInfo(
                         tracks = album.tracks.size,
@@ -1660,7 +1670,8 @@ object ConfigActions {
         PanelState.settingsSnapshot = s
         // 不要把「默认（留空）」固化成绝对路径：草稿要保持用户写的原样，
         // 面板上方那行「当前：…」负责显示真正生效的目录。
-        PanelState.loadDraft(s)
+        // 有未保存改动时保留草稿：收起设置只是让开画面，不是放弃修改。
+        if (!PanelState.draftDirty) PanelState.loadDraft(s)
         PanelState.settingsPage = SettingsSpec.DEFAULT_PAGE
         PanelState.settingsOpen = true
     }
@@ -1680,6 +1691,8 @@ object ConfigActions {
     @JvmStatic
     fun closeSettings() {
         PanelState.settingsOpen = false
+        // 「取消」= 放弃草稿；下次打开重新从磁盘读
+        PanelState.draftDirty = false
         // 确认态不能跟着用户跑：关掉设置页后重新进，应该是「第一次点」而不是直接执行
         PanelState.resetArmed = false
     }
@@ -1712,6 +1725,7 @@ object ConfigActions {
             Notify.warn(Strings.fmt("这些项不是整数，已保留原值：%s", names))
         }
         NumericDraft.clearAll()
+        PanelState.draftDirty = false
         val saved = SettingsStore.save(d)
         PanelState.testMode = d.testMode
         PanelState.settingsSnapshot = d
@@ -2144,8 +2158,11 @@ object ConfigActions {
      */
     @JvmStatic
     fun resetDefaults() {
-        if (!PanelState.resetArmed) {
+        val now = System.currentTimeMillis()
+        val armedFresh = PanelState.resetArmed && now - PanelState.resetArmedAt <= RESET_CONFIRM_WINDOW_MS
+        if (!armedFresh) {
             PanelState.resetArmed = true
+            PanelState.resetArmedAt = now
             PanelState.set(
                 Strings.message("再点一次「恢复默认设置」确认"),
                 Strings.message("会先把当前设置备份到插件数据目录，再换成内置默认值")
@@ -2154,6 +2171,7 @@ object ConfigActions {
             return
         }
         PanelState.resetArmed = false
+        PanelState.resetArmedAt = 0L
         val backup = writeSettingsBackup(SettingsStore.load())
         val ok = persist(
             RipSettings(),
@@ -2238,10 +2256,21 @@ object ConfigActions {
             return
         }
         val applied = applySettingValues(SettingsStore.load(), values)
-        val ok = persist(applied, Strings.fmt("已从备份恢复 %s 项设置", values.size))
+        val appliedCount = values.keys.count { isKnownSettingKey(it) }
+        val ok = persist(
+            applied,
+            Strings.fmt("已从备份恢复 %s 项设置", appliedCount.toString())
+        )
         if (!ok) PanelState.set(Strings.message("恢复备份失败"), Strings.message("宿主配置不可用，改动只在本次运行有效"))
+        // 草稿跟着换：否则设置页还显示恢复前的旧值，用户以为没恢复
+        PanelState.loadDraft(applied)
+        PanelState.settingsSnapshot = applied
         PanelState.resetArmed = false
     }
+
+    /** 这个键是否真的会被 [applySettingValues] 套用（供测试与「恢复了几项」计数）。 */
+    internal fun isKnownSettingKey(key: String): Boolean =
+        key in SETTING_STRING_KEYS || key in SETTING_BOOL_KEYS || key in SETTING_INT_KEYS
 
     /** 把 `key=value` 映射套到设置上；未知键忽略。抽成纯函数便于测试。 */
     internal fun applySettingValues(base: RipSettings, values: Map<String, String>): RipSettings {
@@ -2261,6 +2290,9 @@ object ConfigActions {
                 "gapMode" -> s.copy(gapMode = v)
                 "gapMethod" -> s.copy(gapMethod = v)
                 "proxyUrl" -> s.copy(proxyUrl = v)
+                "trackSelection" -> s.copy(trackSelection = v)
+                "overrideFile" -> s.copy(overrideFile = v)
+                "appearance" -> s.copy(appearance = v)
                 else -> {
                     val b = v.toBooleanStrictOrNull()
                     val n = v.toIntOrNull()
@@ -2296,6 +2328,8 @@ object ConfigActions {
         "useCdText" -> s.copy(useCdText = v)
         "guardDisc" -> s.copy(guardDisc = v)
         "ejectAfterRip" -> s.copy(ejectAfterRip = v)
+        "useC2" -> s.copy(useC2 = v)
+        "testAndCopy" -> s.copy(testAndCopy = v)
         else -> s
     }
 
@@ -2316,7 +2350,13 @@ object ConfigActions {
         "secureMode", "fetchMetadata", "autoLookupOnInsert", "writeCue", "writeLog", "annotateCueCrc",
         "imageMode", "analyzeBeforeRip", "embedCover", "defeatCache", "testMode", "writeAlbumJson",
         "reuseAlbumJson", "detectGaps", "resume", "keepWav", "preferTrackCount", "useCdText",
-        "guardDisc", "ejectAfterRip"
+        "guardDisc", "ejectAfterRip", "useC2", "testAndCopy"
+    )
+
+    private val SETTING_STRING_KEYS = setOf(
+        "outputRoot", "folderTemplate", "fileTemplate", "coverFileName", "multiDiscFolder",
+        "driveLetter", "overwritePolicy", "format", "readCommand", "errorRecovery", "gapMode",
+        "gapMethod", "proxyUrl", "trackSelection", "overrideFile", "appearance"
     )
 
     private val SETTING_INT_KEYS = setOf(

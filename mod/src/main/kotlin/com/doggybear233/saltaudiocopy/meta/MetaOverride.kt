@@ -61,6 +61,31 @@ object MetaOverride {
         return null
     }
 
+    /**
+     * 把一张封面写到 [json] 旁边，命名与 [coverSibling] 的约定一致
+     * （`album-<id>.cover.jpg`）。
+     *
+     * 先删掉同名的其它后缀：否则旧的 `*.cover.jpg` 会盖过新写的 `*.cover.png`，
+     * 用户看到的还是上一次的图。
+     */
+    fun writeCoverSibling(json: Path, bytes: ByteArray?, mime: String?) {
+        if (bytes == null || bytes.isEmpty()) return
+        val dir = json.parent ?: return
+        val stem = json.fileName.toString().removeSuffix(".json")
+        val ext = when (mime?.lowercase()) {
+            "image/png" -> "png"
+            "image/webp" -> "webp"
+            "image/bmp" -> "bmp"
+            "image/gif" -> "gif"
+            else -> "jpg"
+        }
+        for (old in listOf("jpg", "jpeg", "png", "webp", "bmp", "gif")) {
+            if (old != ext) runCatching { Files.deleteIfExists(dir.resolve("$stem.cover.$old")) }
+        }
+        Files.createDirectories(dir)
+        Files.write(dir.resolve("$stem.cover.$ext"), bytes)
+    }
+
     fun load(path: Path): AlbumMeta? = runCatching {
         val text = Files.readString(path, Charsets.UTF_8)
         val root = Json.parse(text)

@@ -333,6 +333,7 @@ private fun SettingRow(item: SettingItem, s: RipSettings) {
                     if (numeric) {
                         // 原文留在草稿里：空串与 "-" 都能显示出来，只有能解析时才写进设置
                         NumericDraft.put(item.key, v)
+                        PanelState.markDraftDirty()
                         if (v.trim().toIntOrNull() != null) {
                             PanelState.updateDraft { SettingsAccess.withText(it, item.key, v) }
                         }
