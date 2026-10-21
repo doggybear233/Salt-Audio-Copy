@@ -20,7 +20,7 @@ internal interface ScsiTransport : AutoCloseable {
     fun executeOut(cdb: ByteArray, payload: ByteArray)
 
     /** 读进调用方缓冲，返回实际传输字节数（可能小于 [size]，由调用方判短读）。 */
-    fun executeInto(cdb: ByteArray, buf: MemorySegment, size: Int): Int
+    fun executeInto(cdb: ByteArray, buf: MemorySegment, size: Int, timeoutSec: Int = 10): Int
 
     override fun close()
 }
@@ -33,8 +33,8 @@ internal class SptiTransport(private val handle: MemorySegment) : ScsiTransport 
         Sptd.executeOut(handle, cdb, payload)
     }
 
-    override fun executeInto(cdb: ByteArray, buf: MemorySegment, size: Int): Int =
-        Sptd.executeInto(handle, cdb, buf, size)
+    override fun executeInto(cdb: ByteArray, buf: MemorySegment, size: Int, timeoutSec: Int): Int =
+        Sptd.executeInto(handle, cdb, buf, size, timeoutSec)
 
     override fun close() = Win32.close(handle)
 }

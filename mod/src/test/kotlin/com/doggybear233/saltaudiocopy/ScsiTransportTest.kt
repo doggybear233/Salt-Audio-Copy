@@ -32,7 +32,7 @@ private class FakeScsiTransport(
         commands += "%02X-out".format(cdb[0])
     }
 
-    override fun executeInto(cdb: ByteArray, buf: MemorySegment, size: Int): Int {
+    override fun executeInto(cdb: ByteArray, buf: MemorySegment, size: Int, timeoutSec: Int): Int {
         commands += "%02X-into".format(cdb[0])
         return reply(cdb, size).size
     }

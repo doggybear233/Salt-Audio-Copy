@@ -50,7 +50,7 @@ private class RecordingTransport(
         this.payload = payload.copyOf()
     }
 
-    override fun executeInto(cdb: ByteArray, buf: MemorySegment, size: Int): Int {
+    override fun executeInto(cdb: ByteArray, buf: MemorySegment, size: Int, timeoutSec: Int): Int {
         commands += "%02X-into".format(cdb[0].toInt() and 0xFF)
         sizes += size
         val data = onExecute(cdb, size)

@@ -283,8 +283,26 @@ class CdDevice private constructor(
         cdb[9] = 0xFC.toByte()                 // 用户数据 + Sync + Header + 子通道
         cdb[10] = 0x02.toByte()                // Q-only subchannel
         val capacity = count * Subchannel.Q_STRIDE
-        val buf = MemorySegment.ofArray(ByteArray(capacity))
-        val got = transport.executeInto(cdb, buf, capacity)
+        // SPTI 的目标缓冲必须是**本机内存**：传 heap 段会直接 IllegalArgumentException
+        //（真机 liveTest 的 SubchannelLiveTest 踩到过）。这里自己开 ARENA 并在 finally 释放。
+        val arena = java.lang.foreign.Arena.ofConfined()
+        val got: Int
+        val raw: ByteArray
+        try {
+            val buf = arena.allocate(capacity.toLong())
+            // 子通道要等驱动器与盘面同步，10 秒在部分 BD 光驱上会直接 SEM_TIMEOUT
+            got = transport.executeInto(cdb, buf, capacity, timeoutSec = 30)
+            if (got < capacity) {
+                // 短读时把实际收到的字节也拷出来，交给下面按 stride 判断
+                raw = ByteArray(capacity.coerceAtLeast(0))
+            } else {
+                raw = ByteArray(got)
+            }
+            val copyLen = minOf(got, raw.size).toLong()
+            if (copyLen > 0) MemorySegment.copy(buf, 0L, MemorySegment.ofArray(raw), 0L, copyLen)
+        } finally {
+            arena.close()
+        }
         // 传输长度必须能被扇区数整除，且至少是「用户数据」的大小：
         // 否则后面按 stride 切包会越界（短读必须报成可读的错误，不是 ArrayIndexOutOfBounds）
         if (got < count * 2352 || got % count != 0) {
@@ -301,8 +319,6 @@ class CdDevice private constructor(
                 senseKey = 0x05, asc = 0x20
             )
         }
-        val raw = ByteArray(got)
-        MemorySegment.copy(buf, 0L, MemorySegment.ofArray(raw), 0L, got.toLong())
         return Subchannel.normalizeToQOnly(raw, count, stride)
     }
 

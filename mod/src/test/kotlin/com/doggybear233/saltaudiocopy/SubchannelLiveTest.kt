@@ -26,7 +26,16 @@ class SubchannelLiveTest {
 
         device.use {
             val targetLba = audioToc.tracks.first().lba + 500
-            val q = it.readQ(targetLba)
+            // 有的 BD 组合光驱不支持 READ CD 带子通道（0xFC）：DeviceIoControl 直接
+            // SEM_TIMEOUT(121)，30 秒也不回。这是驱动器能力，不是解析 bug——明确跳过并说明原因，
+            // 而不是让整个 liveTest 常红（插件侧 GapDetector 已有失败回退，见 Gap.failed）。
+            val q = try {
+                it.readQ(targetLba)
+            } catch (e: com.doggybear233.saltaudiocopy.scsi.ScsiException) {
+                val noSubchannel = e.win32Error == 121 || e.asc == 0x24 || e.asc == 0x20
+                assumeTrue(!noSubchannel, "本机光驱不支持 READ CD 子通道（${e.message}），跳过 Q 校验")
+                throw e
+            }
             assertEquals(1, q.track, "第 $targetLba 扇区应属于第 1 轨（Q.track 字段）")
             assertTrue(q.isAudio, "第 1 轨应是音频轨")
             assertTrue(

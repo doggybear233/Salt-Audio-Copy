@@ -31,7 +31,7 @@ class BatchR207Test {
             lastOutPayload = payload
         }
 
-        override fun executeInto(cdb: ByteArray, buf: MemorySegment, size: Int): Int {
+        override fun executeInto(cdb: ByteArray, buf: MemorySegment, size: Int, timeoutSec: Int): Int {
             commands += "%02X-into".format(cdb[0])
             return size
         }
