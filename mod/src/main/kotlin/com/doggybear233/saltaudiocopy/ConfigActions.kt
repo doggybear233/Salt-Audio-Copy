@@ -158,6 +158,15 @@ object ConfigActions {
     internal fun discChanged(draftFingerprint: String, nowFingerprint: String): Boolean =
         draftFingerprint.isNotBlank() && nowFingerprint.isNotBlank() && draftFingerprint != nowFingerprint
 
+    /**
+     * 可播放扇区数：只把**音轨**算进去。
+     *
+     * 旧代码用「lead-out − 首轨起点」，混合模式盘（第 1 轨是数据轨）会把数据区也算成音频，
+     * 时长虚高；对纯音频盘两者一致。
+     */
+    internal fun playableSectors(toc: com.doggybear233.saltaudiocopy.scsi.DiscToc): Int =
+        toc.tracks.indices.sumOf { i -> if (toc.tracks[i].isAudio) toc.sectorsOf(i).second else 0 }
+
     internal fun driveLetterOf(path: String): String {
         val tail = path.trim().removePrefix("\\\\.\\").trimEnd('\\')
         val head = tail.substringBefore(':')
@@ -307,7 +316,7 @@ object ConfigActions {
         // 让轮询以这张盘为基准，避免它立刻再判一次「换盘」。
         runCatching { DiscWatcher.seed(r.toc) }
         ScanResultHolder.put(r)
-        val playable = (r.toc.leadOutLba - (r.toc.tracks.firstOrNull()?.lba ?: 0)).coerceAtLeast(0)
+        val playable = playableSectors(r.toc)
         val discId = if (r.toc.isAudioCd) {
             runCatching { DiscId.musicBrainz(r.toc) }.getOrDefault("")
         } else ""
@@ -709,7 +718,7 @@ object ConfigActions {
                 val result = com.doggybear233.saltaudiocopy.meta.MetadataCandidates.load(scan.toc, settings, cdtext)
                 Diag.log("candidates:\n" + result.notes.joinToString("\n"))
 
-                val playable = (scan.toc.leadOutLba - (scan.toc.tracks.firstOrNull()?.lba ?: 0)).coerceAtLeast(0)
+                val playable = playableSectors(scan.toc)
                 // 查不到时沿用面板上已有的歌手/专辑（本地缓存或刚手填的），
                 // 否则「刷新一下」就把用户的信息清空了。
                 val keepArtist = keepNames(result.best?.albumArtist, PanelState.disc?.artist)
@@ -847,9 +856,7 @@ object ConfigActions {
                         tracks = album.tracks.size,
                         artist = album.albumArtist.orEmpty(),
                         album = album.albumTitle.orEmpty(),
-                        lengthText = PanelFormat.duration(
-                            ((scan.toc.leadOutLba - (scan.toc.tracks.firstOrNull()?.lba ?: 0)).coerceAtLeast(0)) * 1000L / 75L
-                        ),
+                        lengthText = PanelFormat.duration(playableSectors(scan.toc) * 1000L / 75L),
                         discId = album.discId,
                         audio = scan.toc.isAudioCd
                     )
@@ -1059,9 +1066,8 @@ object ConfigActions {
                 val cachePath = manualCachePath(root, discId, toc.leadOutLba)
                 java.nio.file.Files.createDirectories(cachePath.parent)
                 java.nio.file.Files.writeString(cachePath, json, Charsets.UTF_8)
-                if (discId.isNotBlank()) {
-                    java.nio.file.Files.writeString(root.resolve("$discId.album.json"), json, Charsets.UTF_8)
-                }
+                // 只写 .saltaudiocopy 与保险副本，不再往音乐库根目录散落 <DiscID>.album.json：
+                // 那个位置会把用户的音乐目录搞乱，而且删掉输出根之后就没人记得清。
                 Diag.log("manual album.json saved: $cachePath")
                 saveManualCover(cachePath, root, discId)
                 PanelState.rememberMeta(discId, finalAlbum)
@@ -2146,17 +2152,166 @@ object ConfigActions {
         if (!ok) PanelState.resetArmed = true
     }
 
-    /** 把当前设置按 key=value 存一份到插件数据目录，返回路径；失败返回 null。 */
+    /**
+     * 把当前设置按 key=value 存一份到插件数据目录，返回路径；失败返回 null。
+     *
+     * 只用固定文件名 `settings.backup.txt`：以前按时间戳生成，恢复默认点几次就攒几份，
+     * 用户也不知道该还原哪一份。固定名 + 每次覆盖，配合「恢复上次备份」动作才有意义。
+     */
     internal fun writeSettingsBackup(s: RipSettings): java.nio.file.Path? = runCatching {
         val dir = Diag.dataDir() ?: error("没有数据目录")
         java.nio.file.Files.createDirectories(dir)
-        val target = dir.resolve("settings.backup-" + java.time.LocalDateTime.now()
-            .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".txt")
+        val target = settingsBackupPath()
         // 整份导出（全部键），别再只写十几项——提示语承诺的是完整备份
         val body = s.dumpKeys().entries.joinToString(System.lineSeparator()) { (k, v) -> "$k=$v" }
         java.nio.file.Files.writeString(target, body + System.lineSeparator())
         target
     }.onFailure { Diag.log("settings backup failed", it) }.getOrNull()
+
+    /** 固定备份路径（插件数据目录下）。 */
+    internal fun settingsBackupPath(): java.nio.file.Path =
+        (Diag.dataDir() ?: java.nio.file.Path.of(System.getProperty("java.io.tmpdir")))
+            .resolve("settings.backup.txt")
+
+    /**
+     * 卸载时清理插件自己产生的文件：日志与设置备份。
+     *
+     * 刻意不碰 `.saltaudiocopy` 下的专辑缓存（用户手填的元数据/封面）与输出目录里的音频。
+     */
+    internal fun cleanupOnDelete(): Int {
+        var removed = 0
+        fun deleteOne(p: java.nio.file.Path) {
+            val ok = runCatching {
+                if (java.nio.file.Files.isRegularFile(p)) {
+                    java.nio.file.Files.delete(p)
+                    true
+                } else false
+            }.getOrDefault(false)
+            if (ok) removed++
+        }
+        deleteOne(settingsBackupPath())
+        // 日志就在插件数据目录的 logs/ 下；用 dataDir 推导，不依赖 Diag 是否已初始化
+        runCatching {
+            val dir = (Diag.dataDir() ?: return@runCatching).resolve("logs")
+            if (!java.nio.file.Files.isDirectory(dir)) return@runCatching
+            java.nio.file.Files.list(dir).use { s ->
+                s.filter { it.fileName.toString().startsWith(LOG_NAME) }
+                    .forEach { deleteOne(it) }
+            }
+        }
+        Diag.log("cleanup on delete: removed $removed file(s)")
+        return removed
+    }
+
+    /**
+     * 从 [settingsBackupPath] 恢复设置。
+     *
+     * 只认 `key=value` 行，未知键忽略、坏行跳过；返回成功写入的键数，0 表示没有可用备份。
+     */
+    @JvmStatic
+    fun restoreSettingsBackup() {
+        val file = settingsBackupPath()
+        if (!java.nio.file.Files.isRegularFile(file)) {
+            toast(Strings.fmt("没有找到设置备份：%s", file.toString()), ToastType.Warning)
+            return
+        }
+        val values = runCatching {
+            java.nio.file.Files.readAllLines(file, Charsets.UTF_8)
+                .mapNotNull { line ->
+                    val i = line.indexOf('=')
+                    if (i <= 0) null else line.substring(0, i).trim() to line.substring(i + 1)
+                }
+                .toMap()
+        }.getOrElse {
+            toast(Strings.message("设置备份读不出来，文件可能损坏"), ToastType.Error)
+            return
+        }
+        val applied = applySettingValues(SettingsStore.load(), values)
+        val ok = persist(applied, Strings.fmt("已从备份恢复 %s 项设置", values.size))
+        if (!ok) PanelState.set(Strings.message("恢复备份失败"), Strings.message("宿主配置不可用，改动只在本次运行有效"))
+        PanelState.resetArmed = false
+    }
+
+    /** 把 `key=value` 映射套到设置上；未知键忽略。抽成纯函数便于测试。 */
+    internal fun applySettingValues(base: RipSettings, values: Map<String, String>): RipSettings {
+        var s = base
+        for ((k, v) in values) {
+            s = when (k) {
+                "outputRoot" -> s.copy(outputRoot = v)
+                "folderTemplate" -> s.copy(folderTemplate = v)
+                "fileTemplate" -> s.copy(fileTemplate = v)
+                "coverFileName" -> s.copy(coverFileName = v)
+                "multiDiscFolder" -> s.copy(multiDiscFolder = v)
+                "driveLetter" -> s.copy(driveLetter = v)
+                "overwritePolicy" -> s.copy(overwritePolicy = v)
+                "format" -> s.copy(format = v)
+                "readCommand" -> s.copy(readCommand = v)
+                "errorRecovery" -> s.copy(errorRecovery = v)
+                "gapMode" -> s.copy(gapMode = v)
+                "gapMethod" -> s.copy(gapMethod = v)
+                "proxyUrl" -> s.copy(proxyUrl = v)
+                else -> {
+                    val b = v.toBooleanStrictOrNull()
+                    val n = v.toIntOrNull()
+                    when {
+                        k in SETTING_BOOL_KEYS && b != null -> setBool(s, k, b)
+                        k in SETTING_INT_KEYS && n != null -> setInt(s, k, n)
+                        else -> s
+                    }
+                }
+            }
+        }
+        return s
+    }
+
+    private fun setBool(s: RipSettings, key: String, v: Boolean): RipSettings = when (key) {
+        "secureMode" -> s.copy(secureMode = v)
+        "fetchMetadata" -> s.copy(fetchMetadata = v)
+        "autoLookupOnInsert" -> s.copy(autoLookupOnInsert = v)
+        "writeCue" -> s.copy(writeCue = v)
+        "writeLog" -> s.copy(writeLog = v)
+        "annotateCueCrc" -> s.copy(annotateCueCrc = v)
+        "imageMode" -> s.copy(imageMode = v)
+        "analyzeBeforeRip" -> s.copy(analyzeBeforeRip = v)
+        "embedCover" -> s.copy(embedCover = v)
+        "defeatCache" -> s.copy(defeatCache = v)
+        "testMode" -> s.copy(testMode = v)
+        "writeAlbumJson" -> s.copy(writeAlbumJson = v)
+        "reuseAlbumJson" -> s.copy(reuseAlbumJson = v)
+        "detectGaps" -> s.copy(detectGaps = v)
+        "resume" -> s.copy(resume = v)
+        "keepWav" -> s.copy(keepWav = v)
+        "preferTrackCount" -> s.copy(preferTrackCount = v)
+        "useCdText" -> s.copy(useCdText = v)
+        "guardDisc" -> s.copy(guardDisc = v)
+        "ejectAfterRip" -> s.copy(ejectAfterRip = v)
+        else -> s
+    }
+
+    private fun setInt(s: RipSettings, key: String, v: Int): RipSettings = when (key) {
+        "maxRetries" -> s.copy(maxRetries = v)
+        "retryDelayMs" -> s.copy(retryDelayMs = v)
+        "coverSize" -> s.copy(coverSize = v)
+        "offsetSamples" -> s.copy(offsetSamples = v)
+        "flacLevel" -> s.copy(flacLevel = v)
+        "releaseIndex" -> s.copy(releaseIndex = v)
+        "discNumberOverride" -> s.copy(discNumberOverride = v)
+        "totalDiscsOverride" -> s.copy(totalDiscsOverride = v)
+        "driveSpeed" -> s.copy(driveSpeed = v)
+        else -> s
+    }
+
+    private val SETTING_BOOL_KEYS = setOf(
+        "secureMode", "fetchMetadata", "autoLookupOnInsert", "writeCue", "writeLog", "annotateCueCrc",
+        "imageMode", "analyzeBeforeRip", "embedCover", "defeatCache", "testMode", "writeAlbumJson",
+        "reuseAlbumJson", "detectGaps", "resume", "keepWav", "preferTrackCount", "useCdText",
+        "guardDisc", "ejectAfterRip"
+    )
+
+    private val SETTING_INT_KEYS = setOf(
+        "maxRetries", "retryDelayMs", "coverSize", "offsetSamples", "flacLevel", "releaseIndex",
+        "discNumberOverride", "totalDiscsOverride", "driveSpeed"
+    )
 
     /** 供测试/诊断：当前设置的一行摘要。 */
     fun describeSettings(s: RipSettings = SettingsStore.load()): String =

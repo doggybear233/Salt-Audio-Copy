@@ -88,8 +88,11 @@ object Discs {
         }
         val chosen = DriveSelect.pick(candidates, preferred)
             ?: throw IllegalStateException(
-                Strings.fmt("设置里指定了光驱 %s，但没找到它（已发现: ", DriveSelect.describe(preferred)) +
-                    candidates.joinToString { it.path } + "）"
+                Strings.fmt(
+                    "设置里指定了光驱 %s，但没找到它（已发现：%s）",
+                    preferred,
+                    candidates.joinToString { it.path }
+                )
             )
 
         val previous = ScanResultHolder.get()

@@ -51,7 +51,8 @@ class Batch16Test {
 
         // 第二次才执行（测试环境里写不回宿主配置，所以只验备份已生成）
         ConfigActions.resetDefaults()
-        val backups = Files.list(dir).use { s -> s.filter { it.fileName.toString().startsWith("settings.backup-") }.toList() }
+        // 备份文件名固定（settings.backup.txt）：以前按时间戳累积，用户不知道该还原哪一份
+        val backups = Files.list(dir).use { s -> s.filter { it.fileName.toString().startsWith("settings.backup") }.toList() }
         assertTrue(backups.isNotEmpty(), "重置前必须先备份")
         val text = Files.readString(backups.first())
         assertTrue(text.contains("outputRoot="), text)

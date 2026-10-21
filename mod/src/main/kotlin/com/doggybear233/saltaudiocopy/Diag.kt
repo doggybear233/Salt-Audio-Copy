@@ -25,7 +25,7 @@ object Diag {
         runCatching {
             val dir = Path.of(pluginPath).resolve("logs")
             Files.createDirectories(dir)
-            logFile = dir.resolve("saltaudiocopy.log")
+            logFile = dir.resolve(LOG_NAME)
         }.onFailure { System.err.println("[SaltAudioCopy] init log failed: $it") }
         log("---- session start ----")
     }
@@ -65,3 +65,6 @@ object Diag {
 
     fun dataDir(): Path? = dataDirOverride ?: logFile?.parent?.parent
 }
+
+/** 日志文件名；轮转清理与卸载清理都用它，别再各处手写一遍。 */
+internal const val LOG_NAME = "saltaudiocopy.log"

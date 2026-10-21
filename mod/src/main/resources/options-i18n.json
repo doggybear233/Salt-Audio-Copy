@@ -240,6 +240,10 @@
     "testMode": [
       "Test mode (shows rip-testing actions)",
       "Turn this on to show actions that really read or write the disc (Test only, Rip first track)"
+    ],
+    "restoreSettingsBackup": [
+      "Restore last settings backup",
+      "Read back the settings saved before the last reset to defaults"
     ]
   },
   "ja": {
@@ -482,6 +486,10 @@
     "testMode": [
       "テストモード（書き込みなしのテスト等を表示）",
       "オンにすると、実際にディスクを読み書きする操作（テストのみ・1曲目を試し取り込み）が表示されます"
+    ],
+    "restoreSettingsBackup": [
+      "前回の設定バックアップを復元",
+      "前回の既定値リセット直前に保存した設定を読み戻します"
     ]
   }
 }

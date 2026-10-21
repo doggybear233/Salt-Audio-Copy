@@ -43,7 +43,17 @@ class SaltAudioCopyPlugin(context: PluginContext) : SpwPlugin(context) {
         Diag.log("stop")
     }
 
+    /**
+     * 用户点「卸载」后的收尾。
+     *
+     * 以前这里只写一行日志，于是卸载后 `logs/`、设置备份这些纯插件产生的文件继续躺着
+     * （用户既不知道、也不会想起来清）。这里删掉它们；**不动** `.saltaudiocopy`（专辑缓存）
+     * 与用户音乐库里已经抓好的音频——那是用户的东西，删掉就是数据事故。
+     */
     override fun delete() {
-        Diag.log("delete")
+        Diag.log("delete: 清理日志与设置备份（保留专辑缓存）")
+        runCatching { com.doggybear233.saltaudiocopy.ConfigActions.cleanupOnDelete() }
+            .onFailure { Diag.log("cleanupOnDelete failed", it) }
+        Diag.log("delete done")
     }
 }

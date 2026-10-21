@@ -202,6 +202,7 @@ object SettingsSpec {
                 act("cancelRip", "取消当前抓轨"),
                 act("probePath", "试写测试（中文路径）"),
                 act("resetDefaults", "恢复默认设置"),
+        act("restoreSettingsBackup", "恢复上次备份设置", "把上次恢复默认前的设置读回来"),
                 act("openLogFolder", "打开日志文件夹"),
                 act("testEnvironment", "环境自检（语言 / 编码 / 路径）", "看清楚系统代码页与中日韩路径能不能写"),
                 act("testNetwork", "网络自检（音乐库 / CDDB）")

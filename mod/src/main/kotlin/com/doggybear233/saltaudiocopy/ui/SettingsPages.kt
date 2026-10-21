@@ -452,6 +452,7 @@ private fun runAction(name: String) {
         "cancelRip" -> ConfigActions.cancelRip()
         "probePath" -> ConfigActions.probePath()
         "resetDefaults" -> ConfigActions.resetDefaults()
+        "restoreSettingsBackup" -> ConfigActions.restoreSettingsBackup()
         "openLogFolder" -> ConfigActions.openLogFolder()
         "testEnvironment" -> ConfigActions.testEnvironment()
         "testNetwork" -> ConfigActions.testNetwork()
@@ -468,7 +469,7 @@ private fun runAction(name: String) {
 internal val actionTargets: Set<String> = setOf(
     "scanDrives", "previewPlan", "analyzeDisc", "probeReadCommands", "testDisc",
     "lookupMetadata", "exportAlbumJson", "ripFirstTrack", "cancelRip", "probePath",
-    "resetDefaults", "openLogFolder", "testEnvironment", "testNetwork"
+    "resetDefaults", "restoreSettingsBackup", "openLogFolder", "testEnvironment", "testNetwork"
 )
 
 /**

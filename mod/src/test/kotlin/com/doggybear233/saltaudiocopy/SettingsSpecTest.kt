@@ -180,6 +180,6 @@ class SettingsSpecTest {
                 "$name 必须是 static"
             )
         }
-        assertEquals(14, SettingsSpec.actionKeys.size, "全站 14 个按钮（都在诊断页；目录选择器已合并进「输出目录」行）")
+        assertEquals(15, SettingsSpec.actionKeys.size, "全站 14 个按钮（都在诊断页；目录选择器已合并进「输出目录」行）")
     }
 }

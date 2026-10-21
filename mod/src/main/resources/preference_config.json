@@ -586,6 +586,12 @@
         },
         {
           "type": "button",
+          "title": "恢复上次备份设置",
+          "summary": "把上次恢复默认前的设置读回来",
+          "on_click": "com.doggybear233.saltaudiocopy.ConfigActions.restoreSettingsBackup"
+        },
+        {
+          "type": "button",
           "on_click": "com.doggybear233.saltaudiocopy.ConfigActions.openLogFolder",
           "title": "打开日志文件夹",
           "summary": "打开插件日志所在文件夹，报问题时把 saltaudiocopy.log 一起附上"

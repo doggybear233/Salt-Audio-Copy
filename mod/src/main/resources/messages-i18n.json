@@ -381,10 +381,6 @@
       ": the disc may be blank or still spinning up",
       "：空のディスクか、回転が安定していない可能性があります"
     ],
-    "设置里指定了光驱 %s，但没找到它（已发现: ": [
-      "Drive %s is selected in settings but was not found (found: ",
-      "設定で指定したドライブ %s が見つかりません（検出: "
-    ],
     "请到「设备管理器 → DVD/CD-ROM 驱动器 → 禁用再启用」，或重启后再试。": [
       "Try Device Manager → DVD/CD-ROM drives → disable and re-enable, or reboot.",
       "「デバイスマネージャー → DVD/CD-ROM ドライブ → 無効にして再度有効」か再起動をお試しください。"
@@ -1504,6 +1500,38 @@
     "再点一次确认：恢复默认设置": [
       "Click again to reset: Reset to defaults",
       "もう一度クリックで初期化：既定に戻す"
+    ],
+    "设置里指定了光驱 %s，但没找到它（已发现：%s）": [
+      "The configured drive %s was not found (detected: %s)",
+      "設定したドライブ %s が見つかりません（検出: %s）"
+    ],
+    "没有找到设置备份：%s": [
+      "No settings backup found: %s",
+      "設定バックアップが見つかりません: %s"
+    ],
+    "设置备份读不出来，文件可能损坏": [
+      "The settings backup cannot be read; the file may be damaged",
+      "設定バックアップを読み取れません。ファイルが壊れている可能性があります"
+    ],
+    "已从备份恢复 %s 项设置": [
+      "Restored %s settings from the backup",
+      "バックアップから %s 項目の設定を復元しました"
+    ],
+    "恢复备份失败": [
+      "Restoring the backup failed",
+      "バックアップの復元に失敗しました"
+    ],
+    "恢复上次备份设置": [
+      "Restore last settings backup",
+      "前回の設定バックアップを復元"
+    ],
+    "把上次「恢复默认设置」前的设置读回来（固定文件 settings.backup.txt）": [
+      "Read back the settings saved before the last “reset to defaults” (fixed file settings.backup.txt)",
+      "前回「既定に戻す」の直前に保存した設定を読み戻します（固定ファイル settings.backup.txt）"
+    ],
+    "宿主配置不可用，改动只在本次运行有效": [
+      "Host configuration is unavailable; changes apply only to this session",
+      "ホスト設定が使えないため、変更は今回の起動中だけ有効です"
     ]
   }
 }
