@@ -7,9 +7,9 @@ import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Assumptions.assumeTrue
 
 class FlacEncoderTest {
 
@@ -30,8 +30,8 @@ class FlacEncoderTest {
 
     @Test
     fun `encodes silence to flac and reports size`() {
-        val exe = FlacEncoder.locate()
-        assumeTrue(exe != null, "内置 flac.exe 解不出来，跳过真实编码")
+        // 内置编码器随包发布：解不出来就是打包出了问题，必须红，而不是静默跳过
+        val exe = assertNotNull(FlacEncoder.locate(), "内置 flac.exe 解不出来")
 
         val dir = Files.createTempDirectory("saltac-flac")
         val wav = dir.resolve("in.wav")
@@ -40,7 +40,7 @@ class FlacEncoderTest {
             val zeros = ByteArray(2352 * 75) // 1 秒静音
             w.write(zeros, 0, zeros.size)
         }
-        val size = FlacEncoder.encode(exe!!, wav, flac, 5)
+        val size = FlacEncoder.encode(exe, wav, flac, 5)
         assertTrue(size > 0)
         assertEquals(Files.size(flac), size)
         val head = Files.readAllBytes(flac).copyOfRange(0, 4)

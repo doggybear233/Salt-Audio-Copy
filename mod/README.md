@@ -50,7 +50,7 @@ mod/                     插件模块（Kotlin/JVM + Compose 桌面）
 
 ```powershell
 cd mod
-.\gradlew.bat test --rerun-tasks        # 551 个用例，真机/联网用例（@Tag("live")）默认不跑
+.\gradlew.bat test --rerun-tasks        # 585 个用例，真机/联网用例（@Tag("live")）默认不跑
 .\gradlew.bat liveTest                   # 只跑真机与联网用例（需要 F: 有音频 CD、能上网）
 ```
 
@@ -76,7 +76,7 @@ cd mod
 - 版本号 1.0.0（`mod/build.gradle.kts` 与 `Version.kt` 同源）。
 - 仓库整理：根目录的一次性探测脚本移入 `tools/probes/`；新增根 `README.md` / `LICENSE`（MIT）/ `CHANGELOG.md`。
 - 发布物料生成到 `release/github/`（spmod + Release 说明 + 校验值 + 截图）与 `release/steam/`（spmod + 512×512 预览图 + 中英文简介 + 标签 + 上传步骤）；`release/` 不进版本库。
-- 438 tests / 0 failed（当时的用例数，现为 551）。
+- 438 tests / 0 failed（当时的用例数，现为 585）。
 
 ## 0.43.1
 
@@ -85,7 +85,7 @@ cd mod
 - **三语文案复查**：45 个设置键 + 14 个按钮的中 / 英 / 日逐条对照，改掉术语不一致、按钮名与面板实际标签不符（`Rip disc` / `全曲取り込み`、`Enter metadata manually…`）、`errorRecovery` 说明仍写「3 次一致」（0.41.1 起 medium 是两次逐字节比对）、`0` 档写成「不干预」（其实会请求 7056 KB/s，现为「不限速」）等；删除 17 条已无引用的死键，`messages-i18n.json` 314 条。
 - 占位符（`%s`）在三种语言里数量一致；英文无 CJK 残留；日文无简体字串。
 - 清单里的开源地址改为 `https://github.com/doggybear233/Salt-Audio-Copy`（0.43.1）。
-- 438 tests / 0 failed（当时的用例数，现为 551）。
+- 438 tests / 0 failed（当时的用例数，现为 585）。
 
 ## 0.42.0
 
