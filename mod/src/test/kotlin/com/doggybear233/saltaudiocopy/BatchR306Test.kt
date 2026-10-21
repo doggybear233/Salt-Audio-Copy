@@ -48,6 +48,20 @@ private class RecordingTransport(
         commands += "%02X-out".format(cdb[0].toInt() and 0xFF)
         this.payloadCdb = cdb.copyOf()
         this.payload = payload.copyOf()
+        // 真的检查 MODE SELECT(10) 的块描述符：以前这里只看「有没有写过」，
+        // 块长写错位置（例如写到 [11..13]）测试照样全绿（R4-13）。
+        if ((cdb[0].toInt() and 0xFF) == 0x55) {
+            require(payload.size == 16) { "MODE SELECT(10) 参数应为 16B，实际 ${payload.size}B" }
+            require(payload[6].toInt() == 0 && payload[7].toInt() == 8) {
+                "块描述符长度应在 [6..7]=8，实际 ${payload[6]},${payload[7]}"
+            }
+            val declared = ((payload[13].toInt() and 0xFF) shl 16) or
+                ((payload[14].toInt() and 0xFF) shl 8) or
+                (payload[15].toInt() and 0xFF)
+            require(declared == 2352) {
+                "块长应在 [13..15]=2352，实际 $declared（写错位置时驱动器会短读）"
+            }
+        }
         return payload.size
     }
 
