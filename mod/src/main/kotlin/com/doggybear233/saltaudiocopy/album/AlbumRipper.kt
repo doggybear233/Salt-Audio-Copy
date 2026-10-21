@@ -1,4 +1,4 @@
-﻿package com.doggybear233.saltaudiocopy.album
+package com.doggybear233.saltaudiocopy.album
 
 import com.doggybear233.saltaudiocopy.ui.Strings
 import com.doggybear233.saltaudiocopy.Diag
@@ -327,7 +327,10 @@ object AlbumRipper {
                 "tracklength" to mmss(sectors)
             )
             val base = TemplateEngine.expand(settings.fileTemplate, vars).ifBlank { "%02d".format(entry.track) }
-            val baseName = TemplateEngine.sanitizeSegment(base, 150)
+            // 实抓也必须按目录深度截短文件名：预览侧（RipPlan）早就这么算了，
+            // 但真正写盘这里还固定 150——目录一深，MAX_PATH 溢出在写文件时才报错（R4-12）。
+            val room = (250 - dir.toString().length - ".flac".length - 1).coerceAtLeast(24)
+            val baseName = TemplateEngine.sanitizeSegment(base, minOf(150, room))
             // 续抓打开时，半截文件必须原位续写（否则 0.5.0 的 suffix 策略会把它变成 (2).wav，
             // 断点续抓就永远失效了）
             val gapBefore = preScanned[entry.track] ?: 0
@@ -413,7 +416,10 @@ object AlbumRipper {
             if (r.finishFailed) {
                 warn(Strings.fmt("第 %s 轨的 WAV 头部回填失败，文件可能打不开", entry.track))
             }
-            if (settings.testAndCopy && !r.cancelled) {
+            // 续抓命中「上一轮已抓完」的轨时不要再比：测试通道读的是盘面（未加偏移），
+            // 复制通道的 CRC 来自磁盘上已施加偏移的文件，两边必然不同——
+            // 以前每次续抓都会把整轨无故重抓一遍（R4-12）。
+            if (settings.testAndCopy && !r.cancelled && !r.completedBefore) {
                 val expected = testCrc[entry.track]
                 if (expected != null && expected != r.crc32) {
                     Diag.log(
