@@ -129,6 +129,27 @@ data class RipSettings(
 ) {
     val effectiveRoot: Path
         get() = if (outputRoot.isBlank()) Win32.musicFolder() else Path.of(outputRoot)
+
+    /**
+     * 以 `KEY_*` 常量为键导出全部设置，供「恢复默认设置」前的备份使用。
+     *
+     * 用反射而不是手写列表：新增设置项只要照惯例声明 `KEY_X = "x"` + 字段 `x`，
+     * 备份里就会自动出现，不会再出现「备份只覆盖 11/46 键」这种偏差。
+     * 找不到同名字段的键（如迁移用的 `KEY_INCLUDE_GAPS`）自动跳过。
+     */
+    internal fun dumpKeys(): Map<String, String> {
+        val out = java.util.LinkedHashMap<String, String>()
+        // KEY_* 常量声明在 SettingsStore（object）里，不在数据类上
+        for (f in SettingsStore::class.java.declaredFields) {
+            if (f.type != String::class.java || !f.name.startsWith("KEY_")) continue
+            runCatching { f.isAccessible = true }
+            val key = runCatching { f.get(null) as? String }.getOrNull() ?: continue
+            val getterName = "get" + key.replaceFirstChar { it.uppercase() }
+            val value = runCatching { javaClass.getMethod(getterName).invoke(this) }.getOrNull()
+            if (value != null) out[key] = value.toString()
+        }
+        return out
+    }
 }
 
 /** 设置的读写；宿主 API 不可用时退回默认值（便于单测）。 */

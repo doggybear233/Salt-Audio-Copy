@@ -255,15 +255,18 @@ internal object NumericDraft {
     fun get(key: String): String? = raw[key]
 
     fun put(key: String, value: String) {
+        com.doggybear233.saltaudiocopy.ui.PanelState.numericRevision++
         raw[key] = value
     }
 
     /** 提交或放弃某项：清掉草稿后 [SettingsAccess.text] 回到设置里的真实值。 */
     fun clear(key: String) {
+        com.doggybear233.saltaudiocopy.ui.PanelState.numericRevision++
         raw.remove(key)
     }
 
     fun clearAll() {
+        com.doggybear233.saltaudiocopy.ui.PanelState.numericRevision++
         raw.clear()
     }
 }

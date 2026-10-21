@@ -72,6 +72,9 @@ internal fun SettingsPanel() {
     val s = PanelState.draft
     val page = SettingsSpec.page(PanelState.settingsPage)
     val visible = page.items.filter { it.visibleWhen(s) }
+    // NumericDraft 是普通 map（不在 Compose 快照里）：读一次 revision 让它变化时触发重组
+    @Suppress("UNUSED_EXPRESSION")
+    PanelState.numericRevision
 
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -189,6 +192,38 @@ internal fun SettingsPanel() {
                         }
                         SettingRow(item, s)
                     }
+                    // 诊断页：自检结果不再只进 4 秒提示条，正文留在这里可滚动细看（F-405）
+                    val report = PanelState.diagnosticReport
+                    if (page.id == "p9" && !report.isNullOrBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        HorizontalDivider(color = cs.outlineVariant.copy(alpha = 0.4f))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = Strings.message("最近一次自检结果"),
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                color = cs.onSurfaceVariant
+                            )
+                            Spacer(Modifier.weight(1f))
+                            Text(
+                                text = Strings.message("清空"),
+                                fontSize = 11.sp,
+                                lineHeight = 14.sp,
+                                color = cs.onSurfaceVariant.copy(alpha = 0.8f),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable { PanelState.diagnosticReport = null }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                        Text(
+                            text = report,
+                            fontSize = 11.sp,
+                            lineHeight = 16.sp,
+                            color = cs.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                        )
+                    }
                 }
             }
 
@@ -198,6 +233,17 @@ internal fun SettingsPanel() {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                val saved = com.doggybear233.saltaudiocopy.settings.SettingsStore.peek()
+                val dirty = saved != null && PanelState.draft != saved
+                if (dirty) {
+                    Text(
+                        text = Strings.message("有未保存的改动"),
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp,
+                        color = cs.primary,
+                        modifier = Modifier.padding(end = 6.dp)
+                    )
+                }
                 Button(
                     onClick = { ConfigActions.savePanelSettings() },
                     shape = RoundedCornerShape(8.dp),
@@ -208,7 +254,7 @@ internal fun SettingsPanel() {
                 }
                 TextButton(onClick = { ConfigActions.closeSettings() }) {
                     Text(
-                        Strings.key("cancel"),
+                        if (dirty) Strings.message("放弃改动") else Strings.key("cancel"),
                         fontSize = 13.sp,
                         lineHeight = 18.sp,
                         color = cs.onSurfaceVariant
@@ -327,8 +373,21 @@ private fun SettingRow(item: SettingItem, s: RipSettings) {
             modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = { runAction(item.key) }, contentPadding = PaddingValues(horizontal = 2.dp)) {
-                Text(label, fontSize = 13.sp, lineHeight = 18.sp, color = cs.onSurface)
+            // 「恢复默认设置」要点两次：确认态必须在按钮上看得见，否则用户以为没反应而连点
+            val armed = item.key == "resetDefaults" && PanelState.resetArmed
+            // 抓轨中这些动作会和抓轨线程抢同一台光驱；只放行「取消抓轨」与纯文件操作
+            val driveBusy = PanelState.busy && item.key !in setOf("cancelRip", "openLogFolder", "openOutputFolder")
+            TextButton(
+                onClick = { if (!driveBusy) runAction(item.key) },
+                enabled = !driveBusy,
+                contentPadding = PaddingValues(horizontal = 2.dp)
+            ) {
+                Text(
+                    text = if (armed) Strings.message("再点一次确认：恢复默认设置") else label,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    color = if (driveBusy) cs.onSurface.copy(alpha = 0.38f) else cs.onSurface
+                )
             }
             if (hint.isNotBlank()) {
                 Text(

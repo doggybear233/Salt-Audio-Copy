@@ -72,6 +72,17 @@ object PanelState {
     /** 「恢复默认设置」的二次确认：第一次点击只进入待确认态。 */
     var resetArmed: Boolean by mutableStateOf(false)
 
+    /**
+     * 数字输入草稿的变化计数。
+     *
+     * `NumericDraft` 是普通 map（不在 Compose 快照里），只改它不会触发重组；
+     * 每次写入把它 +1，设置页读一次就能在非法中间态（如只剩「-」）时刷新。
+     */
+    var numericRevision: Int by mutableStateOf(0)
+
+    /** 诊断页最近一次完整结果（提示条只活 4 秒，正文放这里让用户能细看）。 */
+    var diagnosticReport: String? by mutableStateOf(null)
+
     /** 面板内嵌设置区是否展开。 */
     var settingsOpen: Boolean by mutableStateOf(false)
 

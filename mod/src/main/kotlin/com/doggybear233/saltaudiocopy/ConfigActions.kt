@@ -1652,7 +1652,9 @@ object ConfigActions {
     fun openSettings() {
         val s = SettingsStore.load(true)
         PanelState.settingsSnapshot = s
-        PanelState.loadDraft(s.copy(outputRoot = runCatching { s.effectiveRoot.toString() }.getOrDefault("")))
+        // 不要把「默认（留空）」固化成绝对路径：草稿要保持用户写的原样，
+        // 面板上方那行「当前：…」负责显示真正生效的目录。
+        PanelState.loadDraft(s)
         PanelState.settingsPage = SettingsSpec.DEFAULT_PAGE
         PanelState.settingsOpen = true
     }
@@ -1661,6 +1663,8 @@ object ConfigActions {
     @JvmStatic
     fun closeSettings() {
         PanelState.settingsOpen = false
+        // 确认态不能跟着用户跑：关掉设置页后重新进，应该是「第一次点」而不是直接执行
+        PanelState.resetArmed = false
     }
 
     /** 把设置草稿整份写回磁盘。 */
@@ -1668,7 +1672,10 @@ object ConfigActions {
     fun savePanelSettings() {
         if (busy) {
             // 抓轨用的是启动那一刻的设置快照，改了也不会影响本次，说清楚比让它「看起来生效」好
-            PanelState.set(Strings.message("抓轨进行中，暂时不能改设置"), Strings.message("等这次抓轨结束再保存；本次仍用开始时的设置"))
+            PanelState.set(
+                Strings.message("抓轨进行中，暂时不能改设置"),
+                Strings.message("等这次抓轨结束再保存；本次仍用开始时的设置")
+            )
             toast(Strings.message("抓轨进行中，暂时不能改设置"), ToastType.Warning)
             return
         }
@@ -1833,6 +1840,8 @@ object ConfigActions {
                     EnvProbe.details(report).trim()
                         .replace("\r\n", "；").replace("\n", "；").replace("\r", "；")
                 )
+                // 完整正文留在面板上（提示条只活 4 秒），用户要能照着抄进 issue
+                PanelState.diagnosticReport = EnvProbe.details(report).trim()
                 if (report.cjkPathRoundTrip) Notify.info(line) else Notify.warn(line)
             } catch (e: Throwable) {
                 Diag.log("env probe failed", e)
@@ -1856,6 +1865,9 @@ object ConfigActions {
                 "${it.name} ${if (it.ok) "${it.ms}ms" else "不通（${it.note}）"}"
             }
             PanelState.set(Strings.message("网络自检完成"), detail)
+            PanelState.diagnosticReport = items.joinToString("\n") {
+                "${it.name}: " + if (it.ok) "${it.ms}ms" else "不通（${it.note}）"
+            }
             Diag.log("netcheck: $summary")
             Notify.info(if (settings.proxyUrl.isBlank()) summary else Strings.fmt("%s（代理 %s）", summary, settings.proxyUrl))
         }
@@ -2140,21 +2152,9 @@ object ConfigActions {
         java.nio.file.Files.createDirectories(dir)
         val target = dir.resolve("settings.backup-" + java.time.LocalDateTime.now()
             .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".txt")
-        java.nio.file.Files.writeString(
-            target,
-            "outputRoot=" + s.outputRoot + System.lineSeparator() +
-                "folderTemplate=" + s.folderTemplate + System.lineSeparator() +
-                "fileTemplate=" + s.fileTemplate + System.lineSeparator() +
-                "coverFileName=" + s.coverFileName + System.lineSeparator() +
-                "multiDiscFolder=" + s.multiDiscFolder + System.lineSeparator() +
-                "offsetSamples=" + s.offsetSamples + System.lineSeparator() +
-                "driveSpeed=" + s.driveSpeed + System.lineSeparator() +
-                "driveLetter=" + s.driveLetter + System.lineSeparator() +
-                "readCommand=" + s.readCommand + System.lineSeparator() +
-                "format=" + s.format + System.lineSeparator() +
-                "overwritePolicy=" + s.overwritePolicy + System.lineSeparator(),
-            Charsets.UTF_8
-        )
+        // 整份导出（全部键），别再只写十几项——提示语承诺的是完整备份
+        val body = s.dumpKeys().entries.joinToString(System.lineSeparator()) { (k, v) -> "$k=$v" }
+        java.nio.file.Files.writeString(target, body + System.lineSeparator())
         target
     }.onFailure { Diag.log("settings backup failed", it) }.getOrNull()
 

@@ -1484,6 +1484,26 @@
     "正在抓取第 1 轨…": [
       "Ripping track 1…",
       "1 曲目を取り込み中…"
+    ],
+    "最近一次自检结果": [
+      "Latest self-check result",
+      "前回の自己診断結果"
+    ],
+    "清空": [
+      "Clear",
+      "クリア"
+    ],
+    "有未保存的改动": [
+      "Unsaved changes",
+      "未保存の変更があります"
+    ],
+    "放弃改动": [
+      "Discard changes",
+      "変更を破棄"
+    ],
+    "再点一次确认：恢复默认设置": [
+      "Click again to reset: Reset to defaults",
+      "もう一度クリックで初期化：既定に戻す"
     ]
   }
 }
