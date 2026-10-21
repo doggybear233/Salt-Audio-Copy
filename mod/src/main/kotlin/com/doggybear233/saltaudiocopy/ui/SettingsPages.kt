@@ -1,4 +1,4 @@
-package com.doggybear233.saltaudiocopy.ui
+﻿package com.doggybear233.saltaudiocopy.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -48,6 +48,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -111,6 +114,7 @@ internal fun SettingsPanel() {
                     color = cs.onSurfaceVariant,
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
+                        .semantics { role = Role.Button }
                         .clickable { ConfigActions.hideSettings() }
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 )

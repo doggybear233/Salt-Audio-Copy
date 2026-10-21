@@ -47,6 +47,10 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -551,7 +555,12 @@ private fun DriveRow() {
                 shape = RoundedCornerShape(999.dp),
                 color = if (selected) cs.onSurface.copy(alpha = 0.10f) else Color.Transparent,
                 border = BorderStroke(1.dp, if (selected) cs.onSurface.copy(alpha = 0.45f) else cs.outlineVariant.copy(alpha = 0.6f)),
-                modifier = Modifier.clickable { ConfigActions.selectDrive(d.letter) }
+                modifier = Modifier
+                    .semantics {
+                        role = Role.Button
+                        stateDescription = if (selected) "已选中" else "未选中"
+                    }
+                    .clickable { ConfigActions.selectDrive(d.letter) }
             ) {
                 Text(
                     text = d.label,
@@ -583,7 +592,12 @@ private fun CandidateRow() {
                 shape = RoundedCornerShape(999.dp),
                 color = if (selected) cs.onSurface.copy(alpha = 0.10f) else Color.Transparent,
                 border = BorderStroke(1.dp, if (selected) cs.onSurface.copy(alpha = 0.45f) else cs.outlineVariant.copy(alpha = 0.5f)),
-                modifier = Modifier.clickable { ConfigActions.selectCandidate(i) }
+                modifier = Modifier
+                    .semantics {
+                        role = Role.Button
+                        stateDescription = if (selected) "已选中" else "未选中"
+                    }
+                    .clickable { ConfigActions.selectCandidate(i) }
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -598,9 +612,8 @@ private fun CandidateRow() {
                     if (thumb != null) {
                         Image(
                             bitmap = thumb,
-                            contentDescription = PanelState.disc?.album?.takeIf { it.isNotBlank() }
-                            ?.let { Strings.fmt("专辑封面：%s", it) }
-                            ?: Strings.message("专辑封面"),
+                            contentDescription = (c.albumTitle.takeIf { it.isNotBlank() } ?: c.label)
+                                .let { Strings.fmt("专辑封面：%s", it) },
                             modifier = Modifier.size(20.dp).clip(RoundedCornerShape(4.dp))
                         )
                     }
