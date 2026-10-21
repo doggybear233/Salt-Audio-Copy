@@ -58,7 +58,7 @@
 
 ## 设置
 
-面板内 8 组 / 46 个设置键 / 15 个按钮：输出位置、命名模板、音频格式、标签与附属文件、元数据、光驱与校验、间隙、诊断。逐项说明见 [options-table.md](options-table.md)。
+面板内 8 组 / 46 个设置键 / 15 个按钮：输出位置、命名模板、音频格式、标签与附属文件、元数据、光驱与校验、间隙、诊断。逐项说明见 [docs/options-table.md](docs/options-table.md)。
 
 ## 系统要求
 
@@ -80,7 +80,7 @@ cd mod
 ```
 
 - 默认套件 627 个用例；真机 / 联网用例单独跑：`.\gradlew.bat liveTest`（13 个，按硬件与网络条件自动跳过不满足的项）。
-- 真机验收清单：[manual-test-checklist.md](manual-test-checklist.md)。
+- 真机验收清单：[docs/manual-test-checklist.md](docs/manual-test-checklist.md)。
 - `dev-env.ps1` 只是作者机器上的可选脚本（设置 `JAVA_HOME` / `GRADLE_HOME`），普通构建不需要。
 
 ## 已知限制
@@ -96,9 +96,10 @@ cd mod
 mod/                       插件源码（Kotlin / Compose）
 mod/src/main/kotlin/...    scsi/ 设备与命令、rip/ 读取与校验、album/ 流程、meta/ 元数据、ui/ 面板
 docs/screenshots/          真机截图
+docs/options-table.md      配置项说明表
+docs/manual-test-checklist.md  手动验收清单
+docs/                      其余设计、需求与评审文档
 design/                    设计稿、审查报告、文案复查
-manual-test-checklist.md   手动验收清单
-options-table.md           配置项说明表
 release/                   发布物料（GitHub / Steam 两份，本地产物、不入库）
 ```
 

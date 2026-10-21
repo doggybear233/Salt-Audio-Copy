@@ -1,7 +1,7 @@
 ﻿# 盐专辑 (Salt Audio Copy) — Salt Player 抓轨 Mod
 
 Windows 上把 CD 精确抓成 WAV + CUE + 日志，并把专辑信息（MusicBrainz / gnudb / Cover Art Archive）一起落盘。
-算法与参数来自对 EAC 1.8 的逆向（见 `../features.md`、`../design/review-0.37.0.md` 等审查记录）。
+算法与参数来自对 EAC 1.8 的逆向（见 `../docs/features.md`、`../design/review-0.37.0.md` 等审查记录）。
 
 ## 构建
 
@@ -271,7 +271,7 @@ cd mod
   `load(force = true)` 在宿主配置不可用时丢弃内存改动、几处历史脚本留下的错缩进与重复注释。
 
 配套文档：`../design/review-0.37.0.md`（审查结论 + 选项覆盖矩阵）、
-`../manual-test-checklist.md`（当前 v8，只列必须真机/真宿主 UI 才能验的项）。
+`../docs/manual-test-checklist.md`（当前 v8，只列必须真机/真宿主 UI 才能验的项）。
 
 ## 0.36.5（各国语言标签 / 默认限速 / 抓完状态 / 手填封面）
 
