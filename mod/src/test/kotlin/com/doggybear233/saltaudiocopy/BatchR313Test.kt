@@ -79,11 +79,13 @@ class BatchR313Test {
 
     @Test
     fun modeSelectPartialWriteIsVisible() {
-        // 驱动器只写了 8 字节（不是 16）：说明块长没设成功
+        // 驱动器只写了 8 字节（不是 16）：说明块长没设成功。
+        // 这不是 ISE，而是 ScsiException：上层据此回退到下一条读命令（R4-05）。
         val fake = Fake({ _, size -> ByteArray(size) }, written = 8)
         val dev = CdDevice(fake, ReadCommand.READ10)
-        val e = assertFailsWith<IllegalStateException> { dev.readAudioSectors(0, 1) }
-        assertTrue(e.message!!.contains("MODE SELECT"), e.message)
+        val pcm = dev.readAudioSectors(0, 1)
+        assertEquals(2352, pcm.size, "应回退到其它读命令并成功，而不是整盘失败")
+        assertTrue(fake.commands.any { it == "55-out" }, "没有尝试 MODE SELECT：${fake.commands}")
     }
 
     @Test

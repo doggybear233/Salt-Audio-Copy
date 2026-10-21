@@ -230,10 +230,13 @@ class CdDevice private constructor(
         cdb[0] = 0x55.toByte()                        // MODE SELECT(10)
         cdb[8] = param.size.toByte()                  // 参数列表长度（低字节）
         val written = transport.executeOut(cdb, param)
-        // 部分写入（written < 参数长度）说明块描述符没送到，块长仍是 2048
+        // 部分写入（written < 参数长度）说明块描述符没送到，块长仍是 2048。
+        // 这里必须抛 ScsiException：上层只 catch 它才会 advanceAfter 换读命令；
+        // 抛 IllegalStateException 会让 READ10-only 的驱动器整盘直接失败（R4-05）。
         if (written < param.size) {
-            throw IllegalStateException(
-                "MODE SELECT(10) 只写入 $written / ${param.size} 字节，块长没有设置成功"
+            throw ScsiException(
+                "MODE SELECT(10) 只写入 $written / ${param.size} 字节，块长没有设置成功",
+                senseKey = 0x05, asc = 0x26
             )
         }
 
