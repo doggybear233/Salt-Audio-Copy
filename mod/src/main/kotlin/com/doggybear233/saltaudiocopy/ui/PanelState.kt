@@ -1,4 +1,4 @@
-﻿package com.doggybear233.saltaudiocopy.ui
+package com.doggybear233.saltaudiocopy.ui
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -75,6 +75,11 @@ object PanelState {
 
     /** 进入待确认态的时刻；超时后作废，避免很久以后一次误点直接清空设置。 */
     var resetArmedAt: Long by mutableStateOf(0L)
+
+    /** 「恢复上次备份」同样会整份覆盖，需要独立的一次确认（R4-03）。 */
+    var restoreArmed: Boolean by mutableStateOf(false)
+
+    var restoreArmedAt: Long by mutableStateOf(0L)
 
     /**
      * 数字输入草稿的变化计数。

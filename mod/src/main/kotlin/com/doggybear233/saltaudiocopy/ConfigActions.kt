@@ -1667,6 +1667,12 @@ object ConfigActions {
         // 宿主 API 在单测 classpath 上不存在：取枚举本身也要包在 runCatching 里，
         // 否则失败路径会抛 NoClassDefFoundError（成功的路径反而没事，很难发现）
         if (ok) {
+            // 磁盘已经是 next：UI 的唯一真源（草稿/快照/测试模式）必须跟着走。
+            // 否则恢复默认/恢复备份之后点「保存」会把旧草稿原样写回去（R4-02）。
+            PanelState.settingsSnapshot = next
+            PanelState.loadDraft(next)
+            PanelState.testMode = next.testMode
+            PanelState.draftDirty = false
             runCatching { toast(okMessage, ToastType.Success) }
         } else {
             PanelState.set(Strings.message("设置没能写回磁盘"), Strings.message("宿主配置不可用，改动只在本次运行有效；详见日志"))
@@ -1694,6 +1700,11 @@ object ConfigActions {
         // 有未保存改动时保留草稿：收起设置只是让开画面，不是放弃修改。
         if (!PanelState.draftDirty) PanelState.loadDraft(s)
         PanelState.settingsPage = SettingsSpec.DEFAULT_PAGE
+        // 确认态绑定「一次设置会话」：重开设置必须是未武装状态（R4-05）
+        PanelState.resetArmed = false
+        PanelState.resetArmedAt = 0L
+        PanelState.restoreArmed = false
+        PanelState.restoreArmedAt = 0L
         PanelState.settingsOpen = true
     }
 
@@ -1707,6 +1718,11 @@ object ConfigActions {
     @JvmStatic
     fun hideSettings() {
         PanelState.settingsOpen = false
+        // 收起也算一次会话结束；否则二次确认会跨收起存活（R4-05）
+        PanelState.resetArmed = false
+        PanelState.resetArmedAt = 0L
+        PanelState.restoreArmed = false
+        PanelState.restoreArmedAt = 0L
     }
 
     @JvmStatic
@@ -1716,6 +1732,9 @@ object ConfigActions {
         PanelState.draftDirty = false
         // 确认态不能跟着用户跑：关掉设置页后重新进，应该是「第一次点」而不是直接执行
         PanelState.resetArmed = false
+        PanelState.resetArmedAt = 0L
+        PanelState.restoreArmed = false
+        PanelState.restoreArmedAt = 0L
     }
 
     /** 把设置草稿整份写回磁盘。 */
@@ -2265,6 +2284,22 @@ object ConfigActions {
             toast(Strings.fmt("没有找到设置备份：%s", file.toString()), ToastType.Warning)
             return
         }
+        // 恢复会整份覆盖：先要一次确认，并把「当前值」另存一份，才谈得上可逆（R4-03）。
+        val now = System.currentTimeMillis()
+        val armedFresh = PanelState.restoreArmed && now - PanelState.restoreArmedAt <= RESET_CONFIRM_WINDOW_MS
+        if (!armedFresh) {
+            PanelState.restoreArmed = true
+            PanelState.restoreArmedAt = now
+            PanelState.set(
+                Strings.message("再点一次「恢复上次备份」确认"),
+                Strings.message("会用备份覆盖当前全部设置；当前值会先另存到插件数据目录")
+            )
+            Notify.warn(Strings.message("再点一次「恢复上次备份」确认：会覆盖当前设置"))
+            return
+        }
+        PanelState.restoreArmed = false
+        PanelState.restoreArmedAt = 0L
+        writeSettingsBackup(SettingsStore.load())
         val values = runCatching {
             java.nio.file.Files.readAllLines(file, Charsets.UTF_8)
                 .mapNotNull { line ->
@@ -2278,10 +2313,13 @@ object ConfigActions {
         }
         val applied = applySettingValues(SettingsStore.load(), values)
         val appliedCount = values.keys.count { isKnownSettingKey(it) }
-        val ok = persist(
-            applied,
+        val ignored = values.keys.filterNot { isKnownSettingKey(it) }
+        val msg = if (ignored.isEmpty()) {
             Strings.fmt("已从备份恢复 %s 项设置", appliedCount.toString())
-        )
+        } else {
+            Strings.fmt("已从备份恢复 %s 项设置，忽略 %s 个未知键：%s", appliedCount.toString(), ignored.size.toString(), ignored.joinToString(", "))
+        }
+        val ok = persist(applied, msg)
         if (!ok) PanelState.set(Strings.message("恢复备份失败"), Strings.message("宿主配置不可用，改动只在本次运行有效"))
         // 草稿跟着换：否则设置页还显示恢复前的旧值，用户以为没恢复
         PanelState.loadDraft(applied)
