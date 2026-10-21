@@ -24,7 +24,7 @@ class NetAndCacheTest {
 
     @BeforeTest
     fun setUp() {
-        tmp = Files.createTempDirectory("saltac-cache")
+        tmp = TempDirs.create("saltac-cache")
         CddbCache.dirOverride = tmp
     }
 

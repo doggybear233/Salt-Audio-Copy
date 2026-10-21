@@ -22,7 +22,7 @@ class Batch09Test {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-b09")
+        dir = TempDirs.create("saltac-b09")
     }
 
     @AfterTest

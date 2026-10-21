@@ -18,7 +18,7 @@ import kotlin.test.assertTrue
  */
 class BundledFlacTest {
 
-    private val dir: Path = Files.createTempDirectory("saltac-bundled-flac")
+    private val dir: Path = TempDirs.create("saltac-bundled-flac")
 
     @AfterTest
     fun cleanup() {

@@ -21,7 +21,7 @@ import kotlin.test.assertTrue
  */
 class NoWriteRipTest {
 
-    private val dir: Path by lazy { Files.createTempDirectory("saltac-nowrite") }
+    private val dir: Path by lazy { TempDirs.create("saltac-nowrite") }
 
     @AfterTest
     fun tearDown() {

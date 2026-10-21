@@ -22,7 +22,7 @@ import kotlin.test.assertTrue
  */
 class BatchR307MetaTest {
 
-    private fun tmp(): Path = Files.createTempDirectory("b307m").also { it.toFile().deleteOnExit() }
+    private fun tmp(): Path = TempDirs.create("b307m").also { it.toFile().deleteOnExit() }
 
     @Test
     fun blankFieldsInAlbumJsonDoNotEraseFetchedValues() {

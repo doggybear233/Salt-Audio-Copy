@@ -36,7 +36,7 @@ class NonZeroLbaLiveTest {
         val lba = toc.tracks[1].lba
         assertTrue(lba > 0, "第 2 轨的起始 LBA 必须大于 0，否则这条用例没有意义")
 
-        val tmp = Files.createTempDirectory("saltac-lba").resolve("track2.wav")
+        val tmp = TempDirs.create("saltac-lba").resolve("track2.wav")
         val main = RipEngine.ripTrack(scan, 1, tmp, { false }, { }, verify = false, writeFile = false)
 
         val crc = CRC32()

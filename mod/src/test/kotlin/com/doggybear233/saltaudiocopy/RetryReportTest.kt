@@ -35,7 +35,7 @@ class RetryReportTest {
 
     @Test
     fun rippingRecordsWhichChunkWasRetried() {
-        val dir = Files.createTempDirectory("saltac-retry")
+        val dir = TempDirs.create("saltac-retry")
         val fake = FakeTrackSource(
             sectors = 6000,
             corruptFirstRead = mutableSetOf(288)

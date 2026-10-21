@@ -19,7 +19,7 @@ import java.nio.file.Files
  */
 class MetaOverrideTest {
 
-    private fun tempDir(): java.nio.file.Path = Files.createTempDirectory("saltac-override")
+    private fun tempDir(): java.nio.file.Path = TempDirs.create("saltac-override")
 
     private fun base(): AlbumMeta = AlbumMeta(
         albumArtist = "宇多田ヒカル",

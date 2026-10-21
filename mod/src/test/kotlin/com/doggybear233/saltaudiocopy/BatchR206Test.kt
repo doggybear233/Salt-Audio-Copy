@@ -17,7 +17,7 @@ import kotlin.test.assertTrue
  */
 class BatchR206Test {
 
-    private fun tempDir(): Path = Files.createTempDirectory("b206")
+    private fun tempDir(): Path = TempDirs.create("b206")
 
     private fun writer(path: Path, guard: ResumeGuard?) =
         WavWriter(path, append = true, guard = guard)

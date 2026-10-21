@@ -39,7 +39,7 @@ class AlbumJsonWriterTest {
 
     @Test
     fun generatedJsonRoundTripsThroughOverride() {
-        val dir = Files.createTempDirectory("saltac-albumjson")
+        val dir = TempDirs.create("saltac-albumjson")
         val f = dir.resolve("x.album.json")
         Files.writeString(f, AlbumJsonWriter.build(album, toc(2)), Charsets.UTF_8)
 

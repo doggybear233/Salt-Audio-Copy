@@ -44,7 +44,7 @@ class GnudbStubTest {
 
     @BeforeTest
     fun setUp() {
-        cacheDir = Files.createTempDirectory("saltac-cddb")
+        cacheDir = TempDirs.create("saltac-cddb")
         CddbCache.dirOverride = cacheDir
         GnudbClient.resetForTest()
         Http.configure("")

@@ -20,7 +20,7 @@ class OutputCheckTest {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-out")
+        dir = TempDirs.create("saltac-out")
     }
 
     @AfterTest

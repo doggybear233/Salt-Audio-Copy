@@ -281,7 +281,7 @@ object PanelState {
         cancelArmed = false
         stage = ""
         status = Strings.message("光驱里没有光盘")
-        detail = reason + "\n" + Strings.message("放入光盘会自动识别；同一张盘放回来可以接着抓")
+        detail = reason + "；" + Strings.message("放入光盘会自动识别；同一张盘放回来可以接着抓")
     }
 
     /** 把 [com.doggybear233.saltaudiocopy.DiscMemory.Snapshot] 恢复回面板（同一张盘放回来时用）。 */

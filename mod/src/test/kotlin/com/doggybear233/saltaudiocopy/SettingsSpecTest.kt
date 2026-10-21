@@ -180,6 +180,17 @@ class SettingsSpecTest {
                 "$name 必须是 static"
             )
         }
-        assertEquals(15, SettingsSpec.actionKeys.size, "全站 14 个按钮（都在诊断页；目录选择器已合并进「输出目录」行）")
+        // 不再写死数字：按钮数以 preference_config.json 为准（单源），这里只校验两边一致
+        val cfg = Json.parse(
+            SettingsSpecTest::class.java.getResourceAsStream("/preference_config.json")!!
+                .bufferedReader(Charsets.UTF_8).use { it.readText() }
+        )
+        var buttons = 0
+        for (g in Json.arr(Json.path(cfg, "configs"))) {
+            for (pref in Json.arr(Json.path(g, "preferences"))) {
+                if (Json.str(Json.path(pref, "on_click")) != null) buttons++
+            }
+        }
+        assertEquals(buttons, SettingsSpec.actionKeys.size, "设置页按钮应与 preference_config.json 一一对应")
     }
 }

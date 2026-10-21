@@ -20,9 +20,20 @@ internal object OptionText {
     /** lang → key → (label, hint) */
     private val overlay = HashMap<String, HashMap<String, Pair<String, String>>>()
 
-    init {
+    /**
+     * 首次真正查文案时才解析。
+     *
+     * 以前放在 init 里：面板第一帧就要解析两份 JSON（约 60 KB），
+     * 宿主刚切到「CD 工具箱」时会明显卡一下，而这帧其实只需要碟片信息。
+     */
+    private val ready: Boolean by lazy {
         runCatching { load() }
         runCatching { loadOverlay() }
+        true
+    }
+
+    private fun ensureLoaded() {
+        ready
     }
 
     private fun load() {
@@ -64,12 +75,15 @@ internal object OptionText {
     private fun overlayFor(key: String): Pair<String, String>? =
         overlay[Strings.lang().name.lowercase()]?.get(key)
 
-    fun label(key: String, fallback: String = ""): String =
-        overlayFor(key)?.first?.takeIf { it.isNotBlank() }
+    fun label(key: String, fallback: String = ""): String {
+        ensureLoaded()
+        return overlayFor(key)?.first?.takeIf { it.isNotBlank() }
             ?: labels[key]
             ?: fallback.ifBlank { key }
+    }
 
     fun hint(key: String, fallback: String = ""): String {
+        ensureLoaded()
         val over = overlayFor(key)?.second
         if (!over.isNullOrBlank()) return over
         return hints[key] ?: fallback

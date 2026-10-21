@@ -20,7 +20,7 @@ class BatchR305Test {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-r305")
+        dir = TempDirs.create("saltac-r305")
     }
 
     @AfterTest

@@ -26,7 +26,7 @@ class AlbumRipperLiveTest {
         dev!!.close()
         Assumptions.assumeTrue(toc != null && toc.isAudioCd, "介质不是音频 CD，跳过")
         val scan = RipEngine.scan("\\\\.\\F:")
-        val out = Files.createTempDirectory("saltac-live-")
+        val out = TempDirs.create("saltac-live-")
         val settings = RipSettings(
             outputRoot = out.toString(),
             folderTemplate = "%albumartist%/%albumtitle%",
@@ -90,7 +90,7 @@ class AlbumRipperLiveTest {
         Assumptions.assumeTrue(toc != null && toc.isAudioCd, "介质不是音频 CD，跳过")
 
         val scan = RipEngine.scan("\\\\.\\F:")
-        val out = Files.createTempDirectory("saltac-meta-")
+        val out = TempDirs.create("saltac-meta-")
         val settings = RipSettings(
             outputRoot = out.toString(),
             fetchMetadata = true,

@@ -32,7 +32,7 @@ class DiscCacheDisplayTest {
 
     @BeforeTest
     fun setUp() {
-        root = Files.createTempDirectory("saltac-discinfo")
+        root = TempDirs.create("saltac-discinfo")
         Discs.rootOverride = root
         PanelState.disc = null
         PanelState.discCover = null

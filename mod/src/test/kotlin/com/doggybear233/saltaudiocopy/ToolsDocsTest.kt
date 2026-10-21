@@ -84,13 +84,12 @@ class ToolsDocsTest {
     fun optionsTableListsEveryExposedSetting() {
         val root = root() ?: return
         val table = read(root.resolve("options-table.md")) ?: return
-        val settings = read(Path.of("src/main/kotlin/com/doggybear233/saltaudiocopy/settings/RipSettings.kt")
-            .toAbsolutePath()) ?: return
-
         val rows = Regex("""^\|\s*\d+\s*\|[^|]*\|\s*`([A-Za-z0-9_]+)`""", RegexOption.MULTILINE)
             .findAll(table).map { it.groupValues[1] }.toSet()
-        val body = settings.substringAfter("data class RipSettings(").substringBefore("\n) {")
-        val fields = Regex("""val\s+(\w+)\s*:""").findAll(body).map { it.groupValues[1] }
+        // 用反射读字段，不再 grep 源码：以前改个缩进/换行就红，测的是格式不是行为（F-415）
+        val fields = com.doggybear233.saltaudiocopy.settings.RipSettings::class.java.declaredFields
+            .map { it.name }
+            .filter { !it.startsWith("$") }   // Compose 编译器加的 $stable 之类
             .filter { it != "appearance" }   // 0.29.7 起不提供界面外观选项，表里故意没有
             .toSet()
 

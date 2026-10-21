@@ -26,7 +26,7 @@ class AlbumPipelineTest {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-album")
+        dir = TempDirs.create("saltac-album")
     }
 
     @AfterTest

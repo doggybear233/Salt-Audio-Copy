@@ -18,7 +18,7 @@ import kotlin.test.assertTrue
  */
 class Batch16Test {
 
-    private val dir = Files.createTempDirectory("saltac-b16")
+    private val dir = TempDirs.create("saltac-b16")
 
     @AfterTest
     fun cleanup() {

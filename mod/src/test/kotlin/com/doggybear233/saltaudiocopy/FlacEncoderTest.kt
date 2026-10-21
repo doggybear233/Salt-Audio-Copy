@@ -33,7 +33,7 @@ class FlacEncoderTest {
         // 内置编码器随包发布：解不出来就是打包出了问题，必须红，而不是静默跳过
         val exe = assertNotNull(FlacEncoder.locate(), "内置 flac.exe 解不出来")
 
-        val dir = Files.createTempDirectory("saltac-flac")
+        val dir = TempDirs.create("saltac-flac")
         val wav = dir.resolve("in.wav")
         val flac = dir.resolve("out.flac")
         WavWriter(wav).use { w ->
@@ -49,7 +49,7 @@ class FlacEncoderTest {
 
     @Test
     fun `fails cleanly when encoder is missing`() {
-        val dir = Files.createTempDirectory("saltac-flac-err")
+        val dir = TempDirs.create("saltac-flac-err")
         val wav = dir.resolve("in.wav")
         WavWriter(wav).use { w -> w.write(ByteArray(2352), 0, 2352) }
         val err = runCatching {

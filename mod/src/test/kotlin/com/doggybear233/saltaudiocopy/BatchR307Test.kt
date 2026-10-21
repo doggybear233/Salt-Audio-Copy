@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
  */
 class BatchR307Test {
 
-    private fun tmp(): Path = Files.createTempDirectory("b307").also { it.toFile().deleteOnExit() }
+    private fun tmp(): Path = TempDirs.create("b307").also { it.toFile().deleteOnExit() }
 
     /** 写一份带真实 PCM 的 WAV（WavWriter 会写合法的 RIFF 头）。 */
     private fun partialWav(dir: Path, name: String, bytes: Int): Path {

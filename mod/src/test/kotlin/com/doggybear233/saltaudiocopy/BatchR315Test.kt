@@ -83,7 +83,7 @@ class BatchR315Test {
     /** F-392：续抓开关打开、已有半截文件时，预览要写「续抓」而不是「覆盖」。 */
     @Test
     fun previewSaysResumeWhenAPartialFileExists() {
-        val dir = Files.createTempDirectory("saltac-r315-")
+        val dir = TempDirs.create("saltac-r315-")
         val wav = dir.resolve("01 Track 01.wav")
         // 44 字节头 + 100 扇区数据（故意短于整轨）
         val header = ByteArray(44)

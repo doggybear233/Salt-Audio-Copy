@@ -43,9 +43,9 @@ class FlacFormatTest {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-flac")
+        dir = TempDirs.create("saltac-flac")
         // 夹具放输出目录外面：否则「整盘镜像只该有一个 flac」这类断言会数到夹具。
-        fixtureDir = Files.createTempDirectory("saltac-flac-fixture")
+        fixtureDir = TempDirs.create("saltac-flac-fixture")
         fixture = fixtureDir.resolve("tiny-silence.flac")
         val res = javaClass.getResourceAsStream("/fixtures/tiny-silence.flac")
         assertNotNull(res, "缺少测试夹具 /fixtures/tiny-silence.flac")

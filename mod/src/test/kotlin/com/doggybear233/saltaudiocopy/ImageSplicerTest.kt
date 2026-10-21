@@ -17,7 +17,7 @@ class ImageSplicerTest {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-img")
+        dir = TempDirs.create("saltac-img")
     }
 
     @AfterTest

@@ -30,7 +30,7 @@ class BatchR2ArtifactsTest {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-r2art-")
+        dir = TempDirs.create("saltac-r2art-")
     }
 
     @AfterTest
@@ -143,7 +143,7 @@ class BatchR2ArtifactsTest {
         // 以前这个用例只 assertNull 一个不存在的 URL —— 从不调用被测代码，改坏了也照样绿。
         val savedDir = BundledFlac.resourceDir
         val savedOverride = BundledFlac.dirOverride
-        val dir = Files.createTempDirectory("bflac-missing").also { it.toFile().deleteOnExit() }
+        val dir = TempDirs.create("bflac-missing").also { it.toFile().deleteOnExit() }
         try {
             BundledFlac.resourceDir = "/native/win64-does-not-exist"
             BundledFlac.dirOverride = dir

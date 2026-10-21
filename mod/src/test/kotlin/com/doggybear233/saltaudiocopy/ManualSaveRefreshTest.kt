@@ -22,7 +22,7 @@ class ManualSaveRefreshTest {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-manualsave")
+        dir = TempDirs.create("saltac-manualsave")
         resetPanel()
     }
 

@@ -42,7 +42,7 @@ class WritersTest {
 
     @Test
     fun cueStartsWithBomAndUsesCrlf() {
-        val dir = Files.createTempDirectory("saltac-cue")
+        val dir = TempDirs.create("saltac-cue")
         val text = CueWriter.build(album, results(dir), listOf("01 道.wav", "02 俺の彼女.wav"))
         assertTrue(text.startsWith("\uFEFF"))
         assertTrue(text.contains("\r\n"))
@@ -59,7 +59,7 @@ class WritersTest {
 
     @Test
     fun cueQuotesAreSanitized() {
-        val dir = Files.createTempDirectory("saltac-cue2")
+        val dir = TempDirs.create("saltac-cue2")
         val a = album.copy(albumTitle = "A \"quoted\" album")
         val text = CueWriter.build(a, results(dir), listOf("a.wav", "b.wav"))
         assertTrue(text.contains("TITLE \"A 'quoted' album\""))
@@ -67,7 +67,7 @@ class WritersTest {
 
     @Test
     fun cueWriteAddsBomBytes() {
-        val dir = Files.createTempDirectory("saltac-cue3")
+        val dir = TempDirs.create("saltac-cue3")
         val p = dir.resolve("t.cue")
         CueWriter.write(p, CueWriter.build(album, results(dir), listOf("a.wav", "b.wav")))
         val bytes = Files.readAllBytes(p)
@@ -78,7 +78,7 @@ class WritersTest {
 
     @Test
     fun logContainsPerTrackCrcAndSummary() {
-        val dir = Files.createTempDirectory("saltac-log")
+        val dir = TempDirs.create("saltac-log")
         val text = LogWriter.build(
             "0.2.0", "HL-DT-ST BD-RE BP71N", toc, album, results(dir), 12_345, false,
             listOf("secureMode" to "true", "offsetSamples" to "0"), listOf("test note")
@@ -94,7 +94,7 @@ class WritersTest {
 
     @Test
     fun wavWriterWritesValidHeader() {
-        val dir = Files.createTempDirectory("saltac-wav")
+        val dir = TempDirs.create("saltac-wav")
         val p = dir.resolve("a.wav")
         val data = ByteArray(2352) { (it % 251).toByte() }
         WavWriter(p).use { w ->
@@ -114,7 +114,7 @@ class WritersTest {
 
     @Test
     fun pcmOffsetPositiveShiftsDataAndKeepsLength() {
-        val dir = Files.createTempDirectory("saltac-off")
+        val dir = TempDirs.create("saltac-off")
         val p = dir.resolve("a.wav")
         val data = ByteArray(64) { it.toByte() }
         WavWriter(p).use { it.write(data, 0, data.size) }
@@ -128,7 +128,7 @@ class WritersTest {
 
     @Test
     fun pcmOffsetNegativeShiftsDataRight() {
-        val dir = Files.createTempDirectory("saltac-off2")
+        val dir = TempDirs.create("saltac-off2")
         val p = dir.resolve("a.wav")
         val data = ByteArray(64) { it.toByte() }
         WavWriter(p).use { it.write(data, 0, data.size) }
@@ -147,7 +147,7 @@ class WritersTest {
     fun pcmOffsetBeyondDataSilencesEverythingWithoutThrowing() {
         // 用户把偏移设成 ±2000 samples，而小文件只有 64 字节：要么整段静音、要么保持原样，
         // 但绝不能越界写坏文件（以前没有这条用例，越界行为无人知道）
-        val dir = Files.createTempDirectory("saltac-off3")
+        val dir = TempDirs.create("saltac-off3")
         val p = dir.resolve("a.wav")
         val data = ByteArray(64) { it.toByte() }
         WavWriter(p).use { it.write(data, 0, data.size) }
@@ -159,7 +159,7 @@ class WritersTest {
 
     @Test
     fun pcmOffsetIgnoresTrailingBytesThatAreNotAFullSample() {
-        val dir = Files.createTempDirectory("saltac-off4")
+        val dir = TempDirs.create("saltac-off4")
         val p = dir.resolve("a.wav")
         val data = ByteArray(62) { it.toByte() }   // 不是 4 的倍数
         WavWriter(p).use { it.write(data, 0, data.size) }
@@ -172,7 +172,7 @@ class WritersTest {
 
     @Test
     fun pcmOffsetNoopOnZero() {
-        val dir = Files.createTempDirectory("saltac-off3")
+        val dir = TempDirs.create("saltac-off3")
         val p = dir.resolve("a.wav")
         val data = ByteArray(32) { it.toByte() }
         WavWriter(p).use { it.write(data, 0, data.size) }
@@ -184,7 +184,7 @@ class WritersTest {
     /** 日志要能看出「质量/峰值」和 Test&Copy 的测试 CRC（对齐 EAC 日志的可读性）。 */
     @Test
     fun logReportsQualityPeakAndTestCrc() {
-        val dir = Files.createTempDirectory("saltac-log2")
+        val dir = TempDirs.create("saltac-log2")
         val track = AlbumTrackResult(
             number = 1, title = "道", artist = "宇多田ヒカル",
             file = dir.resolve("01 道.wav"),
@@ -210,7 +210,7 @@ class WritersTest {
 
     @Test
     fun qualityIsClampedAndNeverNegative() {
-        val dir = Files.createTempDirectory("saltac-log3")
+        val dir = TempDirs.create("saltac-log3")
         val bad = AlbumTrackResult(
             number = 1, title = "x", artist = null, file = dir.resolve("01.wav"),
             startLba = 0, sectors = 10, crc32 = 0, errors = 50, elapsedMs = 1, peakLevel = 0.0

@@ -18,7 +18,7 @@ class FlacMetaTest {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-flacmeta")
+        dir = TempDirs.create("saltac-flacmeta")
     }
 
     @AfterTest

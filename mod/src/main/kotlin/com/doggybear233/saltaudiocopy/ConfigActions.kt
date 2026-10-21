@@ -1666,6 +1666,17 @@ object ConfigActions {
     }
 
     /** 关闭设置区（不保存草稿）。 */
+    /**
+     * 只是把设置页收起来：草稿留着，下次打开还能接着改。
+     *
+     * 以前标题栏的「收起设置」和底部的「取消」都调 closeSettings()，
+     * 用户点「收起」以为只是隐藏，结果改了一半的模板全没了。
+     */
+    @JvmStatic
+    fun hideSettings() {
+        PanelState.settingsOpen = false
+    }
+
     @JvmStatic
     fun closeSettings() {
         PanelState.settingsOpen = false

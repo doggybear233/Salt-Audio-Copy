@@ -19,7 +19,7 @@ class WavTagsId3Test {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-id3")
+        dir = TempDirs.create("saltac-id3")
     }
 
     @AfterTest

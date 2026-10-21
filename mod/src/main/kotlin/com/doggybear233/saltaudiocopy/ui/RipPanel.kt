@@ -501,7 +501,9 @@ private fun CoverThumb(sizeDp: Dp) {
     if (bmp != null) {
         Image(
             bitmap = bmp,
-            contentDescription = null,
+            contentDescription = PanelState.disc?.album?.takeIf { it.isNotBlank() }
+                ?.let { Strings.fmt("专辑封面：%s", it) }
+                ?: Strings.message("专辑封面"),
             modifier = Modifier.size(sizeDp).clip(RoundedCornerShape(10.dp))
         )
     } else {
@@ -596,7 +598,9 @@ private fun CandidateRow() {
                     if (thumb != null) {
                         Image(
                             bitmap = thumb,
-                            contentDescription = null,
+                            contentDescription = PanelState.disc?.album?.takeIf { it.isNotBlank() }
+                            ?.let { Strings.fmt("专辑封面：%s", it) }
+                            ?: Strings.message("专辑封面"),
                             modifier = Modifier.size(20.dp).clip(RoundedCornerShape(4.dp))
                         )
                     }

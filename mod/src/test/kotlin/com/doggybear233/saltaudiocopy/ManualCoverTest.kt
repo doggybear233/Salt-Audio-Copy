@@ -17,7 +17,7 @@ class ManualCoverTest {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-cover")
+        dir = TempDirs.create("saltac-cover")
     }
 
     @AfterTest

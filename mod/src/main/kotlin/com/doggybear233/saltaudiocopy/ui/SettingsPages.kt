@@ -111,7 +111,7 @@ internal fun SettingsPanel() {
                     color = cs.onSurfaceVariant,
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
-                        .clickable { ConfigActions.closeSettings() }
+                        .clickable { ConfigActions.hideSettings() }
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 )
             }

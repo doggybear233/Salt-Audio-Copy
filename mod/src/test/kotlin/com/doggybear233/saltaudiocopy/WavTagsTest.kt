@@ -1,5 +1,7 @@
 package com.doggybear233.saltaudiocopy.encode
 
+import com.doggybear233.saltaudiocopy.TempDirs
+
 import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -17,7 +19,7 @@ class WavTagsTest {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-wavtags")
+        dir = TempDirs.create("saltac-wavtags")
     }
 
     @AfterTest

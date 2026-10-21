@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
 class BatchR205Test {
 
     private fun tempDir(name: String): Path {
-        val d = Files.createTempDirectory("b205-$name")
+        val d = TempDirs.create("b205-$name")
         return d
     }
 
@@ -85,7 +85,7 @@ class BatchR205Test {
     /** FLAC 模式的实际产物是 .flac：只看 .wav 会把上一版 FLAC 原地覆盖。 */
     @Test
     fun audioTargetAlsoConsidersAnExistingFlac() {
-        val dir = Files.createTempDirectory("saltac-ovw")
+        val dir = TempDirs.create("saltac-ovw")
         try {
             Files.write(dir.resolve("01 x.flac"), byteArrayOf(1, 2, 3))
             assertNull(Overwrite.SKIP.let { Overwrite.resolveAudio(dir, "01 x", it) })
@@ -106,7 +106,7 @@ class BatchR205Test {
     /** 半截 WAV 仍然要能续写：不能因为「同时看 .flac」就把续抓挡掉。 */
     @Test
     fun audioTargetStillResumesAPartialWav() {
-        val dir = Files.createTempDirectory("saltac-ovw")
+        val dir = TempDirs.create("saltac-ovw")
         try {
             val wav = dir.resolve("01 x.wav")
             // 用真实字段拼一个合法 WAV 头（全零头会被 hasValidHeader 挡掉，测不到续抓）

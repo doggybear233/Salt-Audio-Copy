@@ -21,7 +21,7 @@ class RipPlanTest {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-plan")
+        dir = TempDirs.create("saltac-plan")
     }
 
     @AfterTest

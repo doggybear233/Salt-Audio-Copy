@@ -29,7 +29,7 @@ class FlacMetaLiveTest {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-flacmeta-live")
+        dir = TempDirs.create("saltac-flacmeta-live")
         flac = FlacEncoder.locate()
         assumeTrue(flac != null, "内置 flac.exe 解不出来，跳过真实编码")
     }

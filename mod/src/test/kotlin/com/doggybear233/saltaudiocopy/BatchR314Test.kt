@@ -26,7 +26,7 @@ import kotlin.test.assertTrue
  */
 class BatchR314Test {
 
-    private fun tempDir(): Path = Files.createTempDirectory("saltac-r314-")
+    private fun tempDir(): Path = TempDirs.create("saltac-r314-")
 
     private fun toc(tracks: Int, leadOut: Int = 1000): DiscToc {
         val entries = (1..tracks).map { TocEntry(it, true, 1, (it - 1) * 100) } +

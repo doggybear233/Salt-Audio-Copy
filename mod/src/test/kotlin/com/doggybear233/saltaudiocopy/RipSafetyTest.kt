@@ -21,7 +21,7 @@ class RipSafetyTest {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-safety")
+        dir = TempDirs.create("saltac-safety")
     }
 
     @AfterTest

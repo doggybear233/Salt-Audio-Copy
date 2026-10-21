@@ -73,7 +73,7 @@ cd mod
 
 首个正式版。功能与 0.43.1 一致，变化在发布层面：
 
-- 版本号 1.0.0（`mod/build.gradle.kts` 与 `Version.kt` 同源）。
+- 版本号 1.0.0：运行期只读 `Version.kt` 的 `VALUE`；`mod/build.gradle.kts` 的 `version` 供打包与清单使用，两处手写但必须一致（`VersionTest` 不一致就失败）。
 - 仓库整理：根目录的一次性探测脚本移入 `tools/probes/`；新增根 `README.md` / `LICENSE`（MIT）/ `CHANGELOG.md`。
 - 发布物料生成到 `release/github/`（spmod + Release 说明 + 校验值 + 截图）与 `release/steam/`（spmod + 512×512 预览图 + 中英文简介 + 标签 + 上传步骤）；`release/` 不进版本库。
 - 438 tests / 0 failed（当时的用例数，现为 585）。

@@ -26,7 +26,7 @@ class RipPipelineTest {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-pipe")
+        dir = TempDirs.create("saltac-pipe")
     }
 
     @AfterTest

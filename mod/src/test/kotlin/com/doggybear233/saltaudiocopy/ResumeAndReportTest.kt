@@ -13,7 +13,7 @@ import kotlin.test.assertTrue
 
 class ResumeAndReportTest {
 
-    private fun tmp(): Path = Files.createTempDirectory("saltac-resume").resolve("a.wav")
+    private fun tmp(): Path = TempDirs.create("saltac-resume").resolve("a.wav")
 
     private fun frame(n: Int) = ByteArray(2352) { (it + n).toByte() }
 

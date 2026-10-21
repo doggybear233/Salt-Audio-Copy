@@ -21,7 +21,7 @@ class CancelCleanupTest {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-cancel")
+        dir = TempDirs.create("saltac-cancel")
     }
 
     @AfterTest

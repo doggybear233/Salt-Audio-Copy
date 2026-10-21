@@ -41,9 +41,9 @@ class OptionMatrixTest {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-matrix")
+        dir = TempDirs.create("saltac-matrix")
         // 真 FLAC 夹具：假编码器把合法字节交上去，标签路径才会真的被走到
-        fixtureDir = Files.createTempDirectory("saltac-matrix-fixture")
+        fixtureDir = TempDirs.create("saltac-matrix-fixture")
     }
 
     /** 合法的最小 FLAC（1 秒静音），给假编码器当产物。 */

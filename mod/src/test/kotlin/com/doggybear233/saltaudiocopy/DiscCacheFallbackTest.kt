@@ -52,9 +52,9 @@ class DiscCacheFallbackTest {
 
     @BeforeTest
     fun setUp() {
-        vault = Files.createTempDirectory("saltac-vault")
-        rootA = Files.createTempDirectory("saltac-root-a")
-        rootB = Files.createTempDirectory("saltac-root-b")
+        vault = TempDirs.create("saltac-vault")
+        rootA = TempDirs.create("saltac-root-a")
+        rootB = TempDirs.create("saltac-root-b")
         DiscCache.vaultOverride = vault
     }
 

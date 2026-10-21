@@ -19,7 +19,7 @@ import kotlin.test.assertTrue
  */
 class BatchR312Test {
 
-    private val tmp: Path = Files.createTempDirectory("r312")
+    private val tmp: Path = TempDirs.create("r312")
 
     @AfterTest
     fun cleanup() {

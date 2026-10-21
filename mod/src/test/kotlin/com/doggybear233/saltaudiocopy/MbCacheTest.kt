@@ -17,7 +17,7 @@ class MbCacheTest {
 
     @BeforeTest
     fun setUp() {
-        dir = Files.createTempDirectory("saltac-mbcache")
+        dir = TempDirs.create("saltac-mbcache")
         MbCache.dirOverride = dir
     }
 

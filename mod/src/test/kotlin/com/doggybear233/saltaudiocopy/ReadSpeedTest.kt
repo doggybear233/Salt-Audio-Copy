@@ -46,7 +46,7 @@ class ReadSpeedTest {
     @Test
     fun everyReadHandleGetsTheSpeedLimit() {
         val src = FakeTrackSource(sectors = 6000, maxSectorsPerRequest = 27)
-        val out = Files.createTempDirectory("speed").resolve("t.wav")
+        val out = TempDirs.create("speed").resolve("t.wav")
         RipEngine.ripTrack(
             scan = com.doggybear233.saltaudiocopy.rip.ScanResult("\\\\.\\X:", FakeTrackSource.inquiry(), FakeTrackSource.disc3Tracks()),
             trackIndex = 0,

@@ -29,7 +29,7 @@ class TestCopyLiveTest {
     @Test
     fun testPassCrcEqualsCopyPassCrc() {
         val scan = scanOrSkip() ?: return
-        val tmp = Files.createTempDirectory("saltac-testcopy").resolve("track1.wav")
+        val tmp = TempDirs.create("saltac-testcopy").resolve("track1.wav")
 
         val testPass = RipEngine.ripTrack(
             scan, 0, tmp, { false }, { },
