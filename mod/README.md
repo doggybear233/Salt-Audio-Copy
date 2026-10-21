@@ -1,7 +1,7 @@
 # 盐专辑 (Salt Audio Copy) — Salt Player 抓轨 Mod
 
 Windows 上把 CD 精确抓成 WAV + CUE + 日志，并把专辑信息（MusicBrainz / gnudb / Cover Art Archive）一起落盘。
-算法与参数来自对 EAC 1.8 的逆向（见 `../architecture.md`、`../features.md`）。
+算法与参数来自对 EAC 1.8 的逆向（见 `../features.md`、`../design/review-0.37.0.md` 等审查记录）。
 
 ## 构建
 
@@ -76,7 +76,7 @@ cd mod
 - 版本号 1.0.0（`mod/build.gradle.kts` 与 `Version.kt` 同源）。
 - 仓库整理：根目录的一次性探测脚本移入 `tools/probes/`；新增根 `README.md` / `LICENSE`（MIT）/ `CHANGELOG.md`。
 - 发布物料生成到 `release/github/`（spmod + Release 说明 + 校验值 + 截图）与 `release/steam/`（spmod + 512×512 预览图 + 中英文简介 + 标签 + 上传步骤）；`release/` 不进版本库。
-- 438 tests / 0 failed。
+- 438 tests / 0 failed（当时的用例数，现为 551）。
 
 ## 0.43.1
 
@@ -85,7 +85,7 @@ cd mod
 - **三语文案复查**：45 个设置键 + 14 个按钮的中 / 英 / 日逐条对照，改掉术语不一致、按钮名与面板实际标签不符（`Rip disc` / `全曲取り込み`、`Enter metadata manually…`）、`errorRecovery` 说明仍写「3 次一致」（0.41.1 起 medium 是两次逐字节比对）、`0` 档写成「不干预」（其实会请求 7056 KB/s，现为「不限速」）等；删除 17 条已无引用的死键，`messages-i18n.json` 314 条。
 - 占位符（`%s`）在三种语言里数量一致；英文无 CJK 残留；日文无简体字串。
 - 清单里的开源地址改为 `https://github.com/doggybear233/Salt-Audio-Copy`（0.43.1）。
-- 438 tests / 0 failed。
+- 438 tests / 0 failed（当时的用例数，现为 551）。
 
 ## 0.42.0
 
@@ -101,7 +101,7 @@ cd mod
 - **跳过已存在的轨现在会明说**（原来只写日志/notes，看起来像丢轨）。
 - **弹托盘失败会提示**；没有任何产出时不弹托盘。
 - **代理填错会记日志说明走直连**。
-- 438 tests / 0 failed（新增 `SpecialModesTest`、`OptionMatrixTest` 多碟用例）。
+- 438 tests / 0 failed（当时的用例数；新增 `SpecialModesTest`、`OptionMatrixTest` 多碟用例）。
 
 ## 0.41.2
 
@@ -244,7 +244,7 @@ cd mod
   8 秒没有新进度就显示「正在重读这一块 · 已等 N 秒」，慢盘慢块不再像死机。
   注意：16:53 那次是 4x 限速下每 5% 约 35 秒，日志里没有死锁，是**感知**问题。
 - **内置 FLAC 编码器（Xiph 1.4.3）**：`libs/native/win64` 里带 `flac.exe` + `libFLAC.dll` + `libFLAC++.dll`
-  （约 945 KB，LGPL/BSD，`FLAC-COPYING.txt` 一起打包）。首次用到时解到
+  （约 945 KB；`flac.exe` 为 GPL-2.0-or-later，`libFLAC` / `libFLAC++` 为 BSD-3-Clause，`COPYING.GPL` / `COPYING.FDL` / `AUTHORS` 一起打包）。首次用到时解到
   `%APPDATA%\Salt Player for Windows\workshop\plugins\…\data\bin\flac-1.4.3`，
   设置里 `flac.exe` 留空就是内置，填了就优先用你的。**不再需要外部 flac.exe 或 metaflac.exe**。
 - **设置页标题显示版本号**（`v0.38.0`）：宿主允许同一插件多版本共存，用户要能一眼看出跑的是哪个。
@@ -271,7 +271,7 @@ cd mod
   `load(force = true)` 在宿主配置不可用时丢弃内存改动、几处历史脚本留下的错缩进与重复注释。
 
 配套文档：`../design/review-0.37.0.md`（审查结论 + 选项覆盖矩阵）、
-`../manual-test-checklist.md` v2（需要真机/真编码器验的 60 项）。
+`../manual-test-checklist.md`（当前 v8，只列必须真机/真宿主 UI 才能验的项）。
 
 ## 0.36.5（各国语言标签 / 默认限速 / 抓完状态 / 手填封面）
 

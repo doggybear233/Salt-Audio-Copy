@@ -81,6 +81,30 @@ class ToolsDocsTest {
     }
 
     @Test
+    fun optionsTableListsEveryExposedSetting() {
+        val root = root() ?: return
+        val table = read(root.resolve("options-table.md")) ?: return
+        val settings = read(Path.of("src/main/kotlin/com/doggybear233/saltaudiocopy/settings/RipSettings.kt")
+            .toAbsolutePath()) ?: return
+
+        val rows = Regex("""^\|\s*\d+\s*\|[^|]*\|\s*`([A-Za-z0-9_]+)`""", RegexOption.MULTILINE)
+            .findAll(table).map { it.groupValues[1] }.toSet()
+        val body = settings.substringAfter("data class RipSettings(").substringBefore("\n) {")
+        val fields = Regex("""val\s+(\w+)\s*:""").findAll(body).map { it.groupValues[1] }
+            .filter { it != "appearance" }   // 0.29.7 起不提供界面外观选项，表里故意没有
+            .toSet()
+
+        val missing = fields - rows
+        assertTrue(missing.isEmpty(), "options-table.md 缺少这些设置项的行：$missing")
+        val extra = rows - fields
+        assertTrue(extra.isEmpty(), "options-table.md 有 RipSettings 里不存在的键：$extra")
+        assertTrue(
+            table.contains("**8 组 / ${fields.size} 个设置键"),
+            "表头声明的键数要与实际 ${fields.size} 个一致（F-425：46 键 / 45 行 曾互相矛盾）"
+        )
+    }
+
+    @Test
     fun releaseNotesUseAbsoluteImageUrls() {
         val root = root() ?: return
         val notes = read(root.resolve("release/github/RELEASE-NOTES.md")) ?: return

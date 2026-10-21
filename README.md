@@ -5,7 +5,7 @@
 - **平台**：Windows 10 / 11（x64）
 - **宿主**：Salt Player for Windows（需支持 Workshop 插件）
 - **语言**：简体中文 / English / 日本語
-- **许可**：MIT
+- **许可**：插件本体 MIT；内置 FLAC 1.4.3 为 GPL-2.0-or-later（见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)）
 
 > A secure CD-ripping plugin for Salt Player for Windows: SPTI/MMC raw reads, re-read verification, CUE + EAC-compatible log, MusicBrainz / gnudb / Cover Art Archive metadata, FLAC via a bundled Xiph 1.4.3 encoder, fully localized UI (zh / en / ja).
 
@@ -58,7 +58,7 @@ mod/src/main/kotlin/...    scsi/ 设备与命令、rip/ 读取与校验、album/
 design/                    设计稿、审查报告、文案复查
 manual-test-checklist.md   手动验收清单
 options-table.md           配置项统计表
-release/                   发布物料（GitHub / Steam 两份）
+release/                   发布物料（GitHub / Steam 两份，本地产物、不入库）
 ```
 
 ## 已知限制
@@ -70,4 +70,4 @@ release/                   发布物料（GitHub / Steam 两份）
 
 ## 许可
 
-MIT，见 [LICENSE](LICENSE)。
+插件本体 MIT，见 [LICENSE](LICENSE)。随包的内置 FLAC 编码器（`flac.exe` 1.4.3）为 GPL-2.0-or-later，`libFLAC` / `libFLAC++` 为 BSD-3-Clause，来源、校验值与源码获取方式见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
